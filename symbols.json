@@ -1,0 +1,12 @@
+[
+  {"symbol":"^N225","market":"INDEX","name":"日経平均株価","yahoo":"^N225"},
+  {"symbol":"7203","market":"JP","name":"トヨタ自動車","yahoo":"7203.T"},
+  {"symbol":"6758","market":"JP","name":"ソニーグループ","yahoo":"6758.T"},
+  {"symbol":"9984","market":"JP","name":"ソフトバンクグループ","yahoo":"9984.T"},
+  {"symbol":"8306","market":"JP","name":"三菱UFJフィナンシャル・グループ","yahoo":"8306.T"},
+  {"symbol":"7974","market":"JP","name":"任天堂","yahoo":"7974.T"},
+  {"symbol":"7011","market":"JP","name":"三菱重工業","yahoo":"7011.T"},
+  {"symbol":"AAPL","market":"US","name":"Apple","yahoo":"AAPL"},
+  {"symbol":"MSFT","market":"US","name":"Microsoft","yahoo":"MSFT"},
+  {"symbol":"NVDA","market":"US","name":"NVIDIA","yahoo":"NVDA"}
+]
