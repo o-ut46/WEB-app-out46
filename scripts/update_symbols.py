@@ -77,6 +77,13 @@ def us():
 
 
 def main():
+    import os
+    if os.environ.get('LIGHT_RUN') == 'true':  # hourly price-only run: reuse the list published this morning
+        prev = previous_published('symbols-master.json')
+        if prev and prev.get('items'):
+            write_json(DATA / 'symbols-master.json', prev)
+            print('reused published symbol list', len(prev['items']))
+            return
     previous = read_json(DATA / 'symbols-master.json') or previous_published('symbols-master.json') or {}
     old = {'JP': [x for x in previous.get('items', []) if x[1] == 'JP'], 'US': [x for x in previous.get('items', []) if x[1] == 'US']}
     errors, items = [], []

@@ -491,6 +491,9 @@ def main():
         return keep_previous('AIまとめは未設定です。無料のGemini APIキーをGitHubに登録すると、毎朝ここに表示されます（手順は「設定」タブ）。')
     print('AI provider:', PROVIDER)
     prev = previous_published('research.json')
+    if os.environ.get('LIGHT_RUN') == 'true' and prev and prev.get('status') == 'ok':
+        print('Hourly price-only run: keeping the latest AI summary.')
+        return keep_previous(None)
     if os.environ.get('GITHUB_EVENT_NAME') == 'push' and os.environ.get('FORCE_RESEARCH') != 'true' and prev and prev.get('generatedAt'):
         age = datetime.now(timezone.utc) - datetime.fromisoformat(prev['generatedAt'])
         if age < timedelta(hours=18):
