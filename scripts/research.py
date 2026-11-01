@@ -144,8 +144,9 @@ def gemini_http(path, body=None):
                 return json.loads(res.read())
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode('utf-8', 'replace')[:400]
-            if exc.code in (429, 500, 503) and attempt < 3:
-                time.sleep(40 * (attempt + 1))
+            quota = exc.code == 429 and 'quota' in detail.lower()
+            if exc.code in (429, 500, 503) and attempt < (1 if quota else 3):
+                time.sleep(30 * (attempt + 1))
                 continue
             raise RuntimeError(f'Gemini HTTP {exc.code}: {detail}')
 
@@ -163,6 +164,7 @@ def gemini_model():
                  if 'generateContent' in (m.get('supportedGenerationMethods') or [])]
     except Exception as exc:
         print('model list failed', exc)
+    USAGE['allModels'] = names
     pick = 'gemini-flash-latest' if 'gemini-flash-latest' in names or not names else None
     if not pick:
         plain = [n for n in names if 'flash' in n and not re.search(r'lite|image|tts|live|audio|thinking|exp|preview', n)]
@@ -172,12 +174,12 @@ def gemini_model():
     return pick
 
 
-def gemini(system, user, search=False, max_tokens=8192):
+def gemini(system, user, search=False, max_tokens=8192, model=None):
     body = {'systemInstruction': {'parts': [{'text': system}]}, 'contents': [{'role': 'user', 'parts': [{'text': user}]}],
             'generationConfig': {'temperature': 0.2, 'maxOutputTokens': max_tokens}}
     if search:
         body['tools'] = [{'google_search': {}}]
-    data = gemini_http('models/' + gemini_model() + ':generateContent', body)
+    data = gemini_http('models/' + (model or gemini_model()) + ':generateContent', body)
     time.sleep(6)  # stay under the free tier's requests-per-minute limit
     USAGE['calls'] += 1
     u = data.get('usageMetadata') or {}
@@ -207,7 +209,22 @@ def gemini_web_notes(today):
               '2) 米国株：同じ内容\n'
               '3) 決算・業績予想の修正・格付けや目標株価の変更・M&A・大型受注など、具体的な材料が出た個別銘柄（日本株は4桁コード、米国株はティッカー付き）最大8件\n'
               '報道機関・証券会社・取引所・中央銀行などの信頼できる情報だけを使い、掲示板・SNS・個人ブログ・噂・出所不明の予想は使わないこと。数値は情報源にあるものだけ。')
-    text, meta = gemini('あなたは正確さを最優先する金融ニュースのリサーチャーです。', prompt, search=True)
+    # Google Search grounding quota can differ per model: try the default, then other stable Flash models
+    first = gemini_model()
+    names = USAGE.get('allModels') or []
+    alts = [n for n in names if re.fullmatch(r'gemini-[\d.]+-flash(-lite)?', n)]
+    alts.sort(key=lambda n: ('lite' in n, [-int(x) for x in re.findall(r'\d+', n)]))
+    text, meta, last = '', {}, None
+    for model in [first] + [a for a in alts if a != first][:3]:
+        try:
+            text, meta = gemini('あなたは正確さを最優先する金融ニュースのリサーチャーです。', prompt, search=True, model=model)
+            print('web search model:', model)
+            break
+        except RuntimeError as exc:
+            last = exc
+            print('web search failed on', model, str(exc)[:120])
+    else:
+        raise last or RuntimeError('web search failed')
     chunks = meta.get('groundingChunks') or []
     keep, pages = {}, {}
     for i, c in enumerate(chunks):
@@ -527,6 +544,7 @@ def main():
     if not market and not featured and not any(b.get('status') == 'ok' for b in briefs.values()):
         return keep_previous('今回のAIまとめに失敗したため、前回の内容を表示しています：' + '; '.join(errors)[:300])
     errors += add_featured(featured)
+    USAGE.pop('allModels', None)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'market': market, 'featured': featured, 'briefs': briefs, 'errors': errors,
