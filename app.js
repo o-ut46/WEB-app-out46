@@ -11,7 +11,7 @@ const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 
 /* ---------- local state (this device only) ---------- */
 const STORE = 'stockscope2';
-let S = { watch: [], hold: {}, owner: '', repo: '', theme: 'auto' };
+let S = { watch: [], hold: {}, topics: [], owner: '', repo: '', theme: 'auto' };
 try { S = { ...S, ...JSON.parse(localStorage.getItem(STORE) || '{}') }; } catch (e) {}
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
 const applyTheme = () => { if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme; };
@@ -65,11 +65,17 @@ function repo() {
   const seg = location.pathname.split('/').filter(Boolean)[0];
   return { owner: m[1], repo: seg && !seg.includes('.') ? seg : m[1] + '.github.io' };
 }
-function addLink(st) {
+function ghUrl(kind, dir, file, value) {
   const r = repo(); if (!r) return '';
-  const url = 'https://github.com/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.repo) + '/new/main/watchlist?filename=' + encodeURIComponent(st.symbol + '.txt') + '&value=' + encodeURIComponent(st.name);
-  return '<a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">毎朝の自動更新に追加</a>';
+  const base = 'https://github.com/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.repo);
+  return kind === 'new' ? base + '/new/main/' + dir + '?filename=' + encodeURIComponent(file) + '&value=' + encodeURIComponent(value || '')
+    : base + '/delete/main/' + dir + '/' + encodeURIComponent(file);
 }
+function addLink(st, label) {
+  const url = ghUrl('new', 'watchlist', st.symbol + '.txt', st.name); if (!url) return '';
+  return '<a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">' + (label || '毎朝の自動更新に追加') + '</a>';
+}
+const topicFile = n => n.replace(/[\\/:*?"<>|#%]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
 const yahooLink = st => '<a class="btn" href="https://finance.yahoo.co.jp/quote/' + encodeURIComponent(st.market === 'JP' ? st.symbol + '.T' : st.market === 'INDEX' ? '998407.O' : st.symbol) + '" target="_blank" rel="noopener">Yahoo!ファイナンスで見る</a>';
 
 /* ---------- small charts ---------- */
@@ -169,24 +175,90 @@ function runSearch() {
   }).join('');
 }
 
-/* ---------- ウォッチ ---------- */
-function renderWatch() {
-  let h = '<div class="section-head"><h2>マイウォッチ</h2><p>この端末に保存</p></div>';
-  if (!S.watch.length) h += '<p class="empty">銘柄を開いて「☆ ウォッチ」を押すと、ここに並びます。保有株数と取得単価を入れると損益も出ます。</p>';
-  else {
-    let total = 0, cost = 0, counted = 0;
-    h += '<div class="group flush"><ul class="list">' + S.watch.map(w => {
-      const hd = S.hold[w.key], t = entry(w.key)?.tech;
-      let extra = '';
-      if (hd && t && w.market !== 'US') { const pl = (t.close - hd.cost) * hd.qty; total += t.close * hd.qty; cost += hd.cost * hd.qty; counted++; extra = '　<span class="' + dir(pl) + '">損益 ' + (pl >= 0 ? '+' : '−') + Math.abs(Math.round(pl)).toLocaleString('ja-JP') + '円</span>'; }
-      else if (hd && t) { const pl = (t.close - hd.cost) * hd.qty; extra = '　<span class="' + dir(pl) + '">損益 ' + (pl >= 0 ? '+' : '−') + Math.abs(pl).toFixed(2) + 'ドル</span>'; }
-      return row(w.key, extra);
+/* ---------- 保有株 ---------- */
+const ACCOUNTS = ['NISA（成長投資枠）', 'NISA（つみたて投資枠）', '特定口座', '一般口座'];
+const usdjpy = () => entry('INDEX:USDJPY')?.tech?.close;
+const yen = v => (v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString('ja-JP') + '円';
+const signedYen = v => (v > 0 ? '+' : '') + yen(v);
+let picked = null;
+function holdRows() {
+  const fx = usdjpy();
+  return Object.entries(S.hold).map(([k, h]) => {
+    const t = entry(k)?.tech, m = k.split(':')[0], rate = m === 'US' ? fx : 1;
+    const price = t?.close, value = price && rate ? price * h.qty * rate : NaN, cost = rate ? h.cost * h.qty * rate : NaN;
+    const day = t && Number.isFinite(t.chg1d) ? value - value / (1 + t.chg1d / 100) : NaN;
+    return { k, h, m, t, value, cost, pl: value - cost, day };
+  });
+}
+function renderHold() {
+  const rows = holdRows(), ok = rows.filter(r => Number.isFinite(r.value));
+  const total = ok.reduce((a, r) => a + r.value, 0), cost = ok.reduce((a, r) => a + r.cost, 0), day = ok.reduce((a, r) => a + (Number.isFinite(r.day) ? r.day : 0), 0);
+  let h = '';
+  if (rows.length) {
+    h += '<article class="group hold-sum"><div class="d-meta">評価額の合計（円）</div><div class="board"><span class="price">' + Math.round(total).toLocaleString('ja-JP') + '</span><span class="unit">円</span></div>' +
+      '<div class="figs num"><span>損益 <b class="' + dir(total - cost) + '">' + signedYen(total - cost) + '</b>（' + pct(cost ? (total / cost - 1) * 100 : NaN) + '）</span><span>前日比 <b class="' + dir(day) + '">' + signedYen(day) + '</b></span></div>' +
+      '<p class="hint">' + (usdjpy() ? '米国株は 1ドル＝' + usdjpy().toFixed(2) + '円 で換算。' : '') + '直近の株価で計算（手数料・税金は含みません）。' + (ok.length < rows.length ? '価格データのない銘柄は合計に含めていません。' : '') + '</p></article>';
+    h += '<div class="group flush"><ul class="list">' + rows.sort((a, b) => (b.value || 0) - (a.value || 0)).map(r => {
+      const st = info(r.k), b = D.research?.briefs?.[r.k];
+      return '<li><button class="row" data-open="' + esc(r.k) + '"><span class="nm"><b>' + esc(r.h.name || st.name) + '</b><small>' + esc(st.symbol) + '　' + r.h.qty.toLocaleString('ja-JP') + '株　' + esc(r.h.account || '') + (b?.status === 'ok' ? '　' + (b.tone > 0 ? '好材料' : b.tone < 0 ? '悪材料' : 'ニュースあり') : '') + '</small></span>' + spark(entry(r.k)?.spark) +
+        '<span class="px num">' + (Number.isFinite(r.value) ? yen(r.value) + '<small class="' + dir(r.pl) + '">' + signedYen(r.pl) + '</small>' : '<small class="flat">価格データなし</small>') + '</span></button></li>';
     }).join('') + '</ul></div>';
-    if (counted) h += '<p class="hint num">日本株の評価額 ' + Math.round(total).toLocaleString('ja-JP') + '円／損益 <span class="' + dir(total - cost) + '">' + (total - cost >= 0 ? '+' : '−') + Math.abs(Math.round(total - cost)).toLocaleString('ja-JP') + '円</span>（直近の終値で計算）</p>';
+    const missing = rows.filter(r => !tracked(r.k));
+    if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価とニュースが入ります。</p>';
+  } else h += '<p class="empty">まだ登録がありません。下で銘柄を探して、株数と取得単価を入れてください。登録内容はこの端末だけに保存されます。</p>';
+  h += '<div class="section-head"><h2>保有株を追加</h2></div><div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="hs" type="search" autocomplete="off" placeholder="会社名・コードで探す" aria-label="追加する銘柄を探す"></div><ul id="hsr" class="list pick-list"></ul><div id="holdForm"></div>';
+  $('#hold').innerHTML = h;
+  if (picked) drawHoldForm();
+}
+function searchPool(raw, limit) {
+  const q = kana(norm(raw)); if (!q) return [];
+  const pool = D.master || (D.index?.stocks || []).map(e => ({ symbol: e.symbol, market: e.market, name: e.name, segment: '', sector: '', _n: kana(norm(e.name)), _c: norm(e.symbol) }));
+  const a = [], b = [], c = [];
+  for (const x of pool) { if (x._c === q) a.push(x); else if (x._c.startsWith(q)) b.push(x); else if (x._n.includes(q)) c.push(x); }
+  c.sort((x, y) => (x._n.startsWith(q) ? 0 : 1) - (y._n.startsWith(q) ? 0 : 1) || x._n.length - y._n.length);
+  return [...a, ...b, ...c].slice(0, limit);
+}
+function drawHoldForm() {
+  const st = picked, m = st.market, h = S.hold[st.key] || {};
+  $('#holdForm').innerHTML = '<article class="group" style="margin-top:12px"><h2>' + esc(st.name) + '<span class="code">' + esc(st.symbol) + '</span></h2>' +
+    '<div class="field"><div><label for="nq">株数</label><input id="nq" class="input num" inputmode="decimal" value="' + esc(h.qty ?? '') + '"></div><div><label for="nc">取得単価（' + unit(m) + '）</label><input id="nc" class="input num" inputmode="decimal" value="' + esc(h.cost ?? '') + '"></div></div>' +
+    '<label class="lbl" for="na">口座</label><select id="na" class="input">' + ACCOUNTS.map(a => '<option' + (a === h.account ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +
+    '<div class="btns"><button class="btn primary" id="addHold">保有株に登録</button><button class="btn" id="cancelHold">やめる</button></div></article>';
+}
+function saveHolding(st, qty, cost, account) {
+  if (!(qty > 0) || !(cost >= 0)) { alert('株数と取得単価を数字で入れてください。'); return false; }
+  S.hold[st.key] = { qty, cost, account, name: st.name, market: st.market, symbol: st.symbol }; save(); return true;
+}
+
+/* ---------- 気になる ---------- */
+const STANCE = { bullish: ['強気寄り', 'pos'], neutral: ['中立', 'mix'], bearish: ['弱気寄り', 'neg'], mixed: ['強弱まちまち', 'mix'] };
+const stars = n => '<span class="stars" aria-label="5段階中' + n + '">' + '★'.repeat(n) + '<span>' + '★'.repeat(5 - n) + '</span></span>';
+function topicCard(name, t) {
+  const del = '<button class="btn small" data-deltopic="' + esc(name) + '">外す</button>';
+  if (!t || t.status === 'pending') {
+    const url = ghUrl('new', 'topics', topicFile(name) + '.txt', '');
+    return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。下のボタンでGitHubを開き、緑の <b>Commit changes</b> を押すと、数分後にここに分析が出ます。</p>' + (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">分析を始める（GitHub）</a></div>' : '') + '</article>';
   }
+  if (t.status !== 'ok') return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">信頼できる媒体で、この言葉についての情報が見つかりませんでした。書き方を変えると見つかることがあります（例：スペースX → SpaceX、宇宙関係 → 宇宙関連株）。</p></article>';
+  const st = STANCE[t.stance] || STANCE.mixed, first = t.related?.[0];
+  return '<article class="group topic"><div class="feat-head"><div><h2>' + esc(name) + '</h2><span class="d-meta">' + esc(t.kind || '') + '　' + esc(dateJP(t.analyzedAt, true)) + ' 分析</span></div>' + del + '</div>' +
+    '<div class="rating"><div><span class="d-meta">おすすめ度（参考）</span>' + stars(t.rating || 3) + '</div><span class="tone ' + st[1] + '">見通し：' + st[0] + '</span></div>' +
+    '<p class="hint">' + esc(t.ratingWhy || '') + '。売買の推奨ではなく、記事の論調と値動きから機械的に出した目安です。</p>' +
+    (t.summary ? '<p class="mkt-title">' + esc(t.summary) + '</p>' : '') +
+    '<h3>現在の動向</h3><p>' + esc(t.now) + '</p><h3>今後の見通し</h3><p>' + esc(t.outlook || '') + '</p>' + outlooks(t.outlooks).replace('<h3>見通し</h3>', '') +
+    (first ? '<h3>関連する銘柄・ETF</h3><div data-mini="' + esc(keyOf(first.market, first.symbol)) + '"></div><ul class="list">' + t.related.map(r => row(keyOf(r.market, r.symbol), r.why ? '　' + esc(r.why) : '')).join('') + '</ul>' : '') +
+    (t.risks?.length ? '<h3>気をつけたい点</h3><div class="chips">' + chips(t.risks, 'bad') + '</div>' : '') + sources(t.sources) + '</article>';
+}
+function renderInterest() {
+  const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
+  let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
+    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="例：金、オールカントリー、宇宙関係" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>';
+  h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
+  h += '<div class="section-head"><h2>ウォッチ中の銘柄</h2><p>☆を押した銘柄</p></div>' + (S.watch.length ? '<div class="group flush"><ul class="list">' + S.watch.map(w => row(w.key)).join('') + '</ul></div>' : '<p class="empty">銘柄の画面で「☆ ウォッチ」を押すと、ここに並びます。</p>');
   const list = (D.index?.stocks || []).filter(e => e.kind === 'tracked');
-  h += '<div class="section-head"><h2>毎朝の自動更新リスト</h2><p>' + list.length + '銘柄</p></div><div class="group flush"><ul class="list">' + list.map(e => row(keyOf(e.market, e.symbol))).join('') + '</ul></div>';
-  $('#watch').innerHTML = h;
+  h += '<details class="group flush more"><summary>毎朝の自動更新リスト（' + list.length + '銘柄）</summary><ul class="list">' + list.map(e => row(keyOf(e.market, e.symbol))).join('') + '</ul></details>';
+  $('#interest').innerHTML = h;
+  document.querySelectorAll('#interest [data-mini]').forEach(async el => { el.innerHTML = miniCandles(await rowsOf(el.dataset.mini)); });
 }
 
 /* ---------- 設定 ---------- */
@@ -204,7 +276,7 @@ function renderSettings() {
     '<div class="field"><div><label for="ow">GitHubのユーザー名</label><input id="ow" class="input" placeholder="' + esc(rp?.owner || 'o-ut46') + '" value="' + esc(S.owner) + '"></div><div><label for="rp">リポジトリ名</label><input id="rp" class="input" placeholder="' + esc(rp?.repo || 'WEB-app-out46') + '" value="' + esc(S.repo) + '"></div></div>' +
     '<p class="hint">GitHub Pagesで開いている場合は自動で判別するので、空欄のままで構いません。</p><div class="btns"><button class="btn" id="saveRepo">保存する</button></div></article>';
   h += '<article class="group"><h2>表示</h2><div class="btns" role="group" aria-label="配色">' + [['auto', '端末に合わせる'], ['light', 'ライト'], ['dark', 'ダーク']].map(([v, l]) => '<button class="btn' + (S.theme === v ? ' primary' : '') + '" data-theme-set="' + v + '">' + l + '</button>').join('') + '</div></article>';
-  h += '<article class="group"><h2>バックアップ</h2><p>マイウォッチと保有株の記録はこの端末だけに保存されます。機種変更の前に書き出してください。</p><div class="btns"><button class="btn" id="exportBtn">書き出す</button><label class="btn" for="importFile">読み込む</label><input id="importFile" type="file" accept="application/json" hidden></div></article>';
+  h += '<article class="group"><h2>バックアップ</h2><p>保有株・ウォッチ・気になるテーマの記録はこの端末だけに保存されます。機種変更の前に書き出してください。</p><div class="btns"><button class="btn" id="exportBtn">書き出す</button><label class="btn" for="importFile">読み込む</label><input id="importFile" type="file" accept="application/json" hidden></div></article>';
   h += '<p class="foot">株価はYahoo Financeの日足データ（遅延・非公式取得）で、リアルタイムではありません。統計的な参考レンジやAIまとめは売買の推奨ではありません。</p>';
   $('#settings').innerHTML = h;
 }
@@ -285,18 +357,16 @@ async function openDetail(k, hint) {
   if (brief?.status === 'ok') h += '<article class="group" style="margin-top:16px"><div class="feat-head"><h2>最近のニュース <span class="ai-mark">AIまとめ</span></h2>' + tone(brief.tone) + '</div><p>' + esc(brief.summary) + '</p><div class="chips">' + chips(brief.good, 'good') + chips(brief.bad, 'bad') + '</div>' + outlooks(brief.outlooks) + sources(brief.sources) + '</article>';
   else if (brief?.status === 'no_news') h += '<p class="hint">直近10日、信頼できる媒体にこの銘柄の記事は見つかりませんでした。</p>';
   const hd = S.hold[k] || {};
-  if (m !== 'INDEX') h += '<article class="group" style="margin-top:16px"><h2>保有の記録</h2><div class="field"><div><label for="hq">株数</label><input id="hq" class="input num" inputmode="decimal" value="' + esc(hd.qty ?? '') + '"></div><div><label for="hc">取得単価（' + unit(m) + '）</label><input id="hc" class="input num" inputmode="decimal" value="' + esc(hd.cost ?? '') + '"></div></div><p class="hint" id="pl">' + plText(k, s.last) + '</p><div class="btns"><button class="btn" id="saveHold">保存する</button></div></article>';
+  if (m !== 'INDEX') h += '<article class="group" style="margin-top:16px"><h2>保有の記録</h2><div class="field"><div><label for="hq">株数</label><input id="hq" class="input num" inputmode="decimal" value="' + esc(hd.qty ?? '') + '"></div><div><label for="hc">取得単価（' + unit(m) + '）</label><input id="hc" class="input num" inputmode="decimal" value="' + esc(hd.cost ?? '') + '"></div></div>' +
+    '<label class="lbl" for="ha">口座</label><select id="ha" class="input">' + ACCOUNTS.map(a => '<option' + (a === hd.account ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +
+    '<p class="hint" id="pl">' + plText(k, s.last) + '</p><div class="btns"><button class="btn" id="saveHold">保存する</button>' + (S.hold[k] ? '<button class="btn" id="delHold">保有から外す</button>' : '') + '</div></article>';
   h += '<div class="btns">' + (tracked(k) ? '' : addLink(st)) + yahooLink(st) + '</div>';
   $('#dmain').innerHTML = h;
   bigChart(rows, range, m);
   $('#dmain').onclick = ev => {
     const b = ev.target.closest('[data-range]'); if (b) { range = +b.dataset.range; document.querySelectorAll('[data-range]').forEach(x => x.setAttribute('aria-pressed', x === b)); bigChart(rows, range, m); }
-    if (ev.target.id === 'saveHold') {
-      const q = parseFloat($('#hq').value), c = parseFloat($('#hc').value);
-      if (q > 0 && c >= 0) { S.hold[k] = { qty: q, cost: c }; if (!S.watch.some(w => w.key === k)) S.watch.push({ key: k, market: st.market, symbol: st.symbol, name: st.name }); }
-      else delete S.hold[k];
-      save(); updateStar(); $('#pl').textContent = plText(k, s.last) || '記録を消しました。';
-    }
+    if (ev.target.id === 'saveHold' && saveHolding(st, parseFloat($('#hq').value), parseFloat($('#hc').value), $('#ha').value)) $('#pl').textContent = plText(k, s.last) + '　保存しました。';
+    if (ev.target.id === 'delHold' && confirm('保有の記録を消しますか？')) { delete S.hold[k]; save(); $('#pl').textContent = '記録を消しました。'; ev.target.remove(); }
   };
 }
 function plText(k, last) {
@@ -312,7 +382,7 @@ function closeDetail() { $('#detail').hidden = true; document.body.style.overflo
 
 /* ---------- navigation ---------- */
 let active = 'today';
-function renderActive() { ({ today: renderToday, search: runSearch, watch: renderWatch, settings: renderSettings })[active](); }
+function renderActive() { ({ today: renderToday, search: runSearch, hold: renderHold, interest: renderInterest, settings: renderSettings })[active](); }
 function showTab(t) {
   active = t;
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('is-active', s.id === 'tab-' + t));
@@ -330,6 +400,24 @@ document.addEventListener('click', ev => {
   const t = ev.target.closest('.tabs button'); if (t) { if (!$('#detail').hidden) history.back(); showTab(t.dataset.tab); return; }
   const th = ev.target.closest('[data-theme-set]'); if (th) { S.theme = th.dataset.themeSet; save(); applyTheme(); renderSettings(); return; }
   if (ev.target.id === 'saveRepo') { S.owner = $('#ow').value.trim(); S.repo = $('#rp').value.trim(); save(); ev.target.textContent = '保存しました'; }
+  const pk = ev.target.closest('[data-pick]');
+  if (pk) { const [k, name] = [pk.dataset.pick, pk.dataset.name]; const [market, symbol] = k.split(':'); picked = { key: k, market, symbol, name }; $('#hsr').innerHTML = ''; $('#hs').value = ''; drawHoldForm(); $('#nq').focus(); return; }
+  if (ev.target.id === 'cancelHold') { picked = null; $('#holdForm').innerHTML = ''; return; }
+  if (ev.target.id === 'addHold') { if (saveHolding(picked, parseFloat($('#nq').value), parseFloat($('#nc').value), $('#na').value)) { picked = null; renderHold(); window.scrollTo(0, 0); } return; }
+  if (ev.target.id === 'addTopic') {
+    const n = topicFile($('#tp').value); if (!n) return;
+    if (!S.topics.includes(n)) S.topics.push(n); save();
+    const url = ghUrl('new', 'topics', n + '.txt', ''); renderInterest();
+    if (url) window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const dt = ev.target.closest('[data-deltopic]');
+  if (dt) {
+    const n = dt.dataset.deltopic, onServer = !!D.research?.topics?.[n];
+    if (!confirm('「' + n + '」を外しますか？' + (onServer ? '\nGitHubが開くので、緑の「Commit changes」を押すと分析も止まります。' : ''))) return;
+    S.topics = S.topics.filter(x => x !== n); save(); if (onServer) { delete D.research.topics[n]; const u = ghUrl('del', 'topics', n + '.txt'); if (u) window.open(u, '_blank', 'noopener'); }
+    renderInterest(); return;
+  }
   if (ev.target.id === 'exportBtn') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = 'stockscope-backup.json'; a.click(); }
 });
 document.addEventListener('change', async ev => {
@@ -343,6 +431,12 @@ $('#star').onclick = () => {
   save(); updateStar();
 };
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(runSearch, 120); });
+document.addEventListener('input', ev => {
+  if (ev.target.id !== 'hs') return; loadMaster();
+  const list = searchPool(ev.target.value.trim(), 12);
+  $('#hsr').innerHTML = list.map(x => '<li><button class="row" data-pick="' + esc(keyOf(x.market, x.symbol)) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">選ぶ</span></button></li>').join('');
+});
+document.addEventListener('keydown', ev => { if (ev.target.id === 'tp' && ev.key === 'Enter') { ev.preventDefault(); $('#addTopic').click(); } });
 $('#q').addEventListener('focus', loadMaster);
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild) rowsOf(current.key).then(r => r && bigChart(r, range, current.market)); });

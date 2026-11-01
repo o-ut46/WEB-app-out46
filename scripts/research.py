@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from common import DATA, fetch_stock, http_get, now_iso, previous_published, read_json, save_record, write_json, yahoo_code
+from common import DATA, ROOT, fetch_stock, http_get, now_iso, previous_published, read_json, save_record, write_json, yahoo_code
 
 API_KEY = os.environ.get('ANTHROPIC_API_KEY', '').strip()
 MODEL = os.environ.get('CLAUDE_MODEL', '').strip() or 'claude-sonnet-5-5'
@@ -145,6 +145,8 @@ def gemini_http(path, body=None):
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode('utf-8', 'replace')[:400]
             quota = exc.code == 429 and 'quota' in detail.lower()
+            if quota and 'perday' in detail.lower().replace('_', ''):
+                raise RuntimeError(f'Gemini HTTP 429 (daily free quota used up): {detail[:200]}')
             if exc.code in (429, 500, 503) and attempt < (1 if quota else 3):
                 time.sleep(30 * (attempt + 1))
                 continue
@@ -209,6 +211,11 @@ def gemini_web_notes(today):
               '2) 米国株：同じ内容\n'
               '3) 決算・業績予想の修正・格付けや目標株価の変更・M&A・大型受注など、具体的な材料が出た個別銘柄（日本株は4桁コード、米国株はティッカー付き）最大8件\n'
               '報道機関・証券会社・取引所・中央銀行などの信頼できる情報だけを使い、掲示板・SNS・個人ブログ・噂・出所不明の予想は使わないこと。数値は情報源にあるものだけ。')
+    return grounded_notes(prompt, 'W')
+
+
+def grounded_notes(prompt, prefix='W'):
+    """Google-Search-grounded Gemini call; returns bullet notes citing [W1..] and the credible pages behind them."""
     # Google Search grounding quota can differ per model: try the default, then other stable Flash models
     first = gemini_model()
     names = USAGE.get('allModels') or []
@@ -232,7 +239,7 @@ def gemini_web_notes(today):
         domain = (web.get('domain') or web.get('title') or '').lower().strip()
         if web.get('uri', '').startswith('https://') and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', domain) and \
                 allowed(domain, NEWS_SOURCES_JP + NEWS_SOURCES_JP2 + NEWS_SOURCES_US + CREDIBLE_EXTRA):
-            wid = f'W{len(keep) + 1}'
+            wid = f'{prefix}{len(keep) + 1}'
             keep[i] = wid
             pages[wid] = {'title': domain + ' の記事', 'url': web['uri'], 'publisher': domain, 'host': domain, 'date': ''}
     lines = []
@@ -241,7 +248,7 @@ def gemini_web_notes(today):
         seg = ((sup.get('segment') or {}).get('text') or '').strip()
         if ids and seg:
             lines.append(f'- {seg} [{",".join(ids)}]')
-    USAGE['pagesRead'] = len(pages)
+    USAGE['pagesRead'] = USAGE.get('pagesRead', 0) + len(pages)
     print('web notes:', len(lines), 'lines from', len(pages), 'credible pages of', len(chunks))
     return '\n'.join(lines)[:9000], pages
 
@@ -473,7 +480,7 @@ def stock_briefs(tracked, techs):
     return briefs
 
 
-def add_featured(featured):
+def add_featured(featured, kind='featured'):
     """Fetch prices for featured stocks that are not tracked and register them in data/index.json."""
     index = read_json(DATA / 'index.json') or {'version': 2, 'stocks': []}
     have = {(e['market'], e['symbol']) for e in index['stocks']}
@@ -483,11 +490,141 @@ def add_featured(featured):
             continue
         config = {'symbol': f['symbol'], 'market': f['market'], 'name': f['name'], 'yahoo': yahoo_code(f['symbol'], f['market'])}
         try:
-            index['stocks'].append(save_record(fetch_stock(config, range_='2y', max_rows=520), 'featured'))
+            index['stocks'].append(save_record(fetch_stock(config, range_='2y', max_rows=520), kind))
             have.add((f['market'], f['symbol']))
         except Exception as exc:
             errors.append(f'株価取得 {config["yahoo"]}: {str(exc)[:150]}')
     write_json(DATA / 'index.json', index)
+    return errors
+
+
+# ---------------- 気になるテーマ (topics/*.txt) ----------------
+
+def load_topics():
+    folder = ROOT / 'topics'
+    out = []
+    for path in sorted(folder.glob('*.txt')) if folder.exists() else []:
+        name = re.sub(r'\s+', ' ', path.stem).strip()[:40]
+        lines = path.read_text(encoding='utf-8', errors='ignore').strip().splitlines()
+        if name:
+            out.append({'name': name, 'memo': (lines[0].strip()[:100] if lines else '')})
+    return out[:15]
+
+
+STANCE = {'bullish': '強気寄り', 'neutral': '中立', 'bearish': '弱気寄り', 'mixed': '強弱まちまち'}
+
+
+def topic_analysis(topics, master):
+    """Current trend / outlook / related listed securities for free-text interests (e.g. 金, オールカントリー, スペースX)."""
+    if not topics:
+        return {}
+    today = datetime.now(JST).strftime('%Y-%m-%d (%a)')
+    idmap, parts = {}, []
+    for ti, t in enumerate(topics):
+        items = google_news(f'"{t["name"]}"', NEWS_SOURCES_JP, days=14, limit=4)
+        items += google_news(t['name'], NEWS_SOURCES_JP2, days=14, limit=3)
+        lines = []
+        for hi, h in enumerate(items):
+            hid = f'T{ti + 1}H{hi + 1}'
+            idmap[hid] = h
+            lines.append(f'  {hid}: [{h["date"]} {h["publisher"]}] {h["title"]}')
+        parts.append(f'## {t["name"]}' + (f'（利用者のメモ：{t["memo"]}）' if t['memo'] else '') + '\n' + ('\n'.join(lines) or '  （見出しなし）'))
+    notes, pages = '', {}
+    names = '、'.join(t['name'] for t in topics)
+    if PROVIDER == 'gemini':
+        try:
+            notes, pages = grounded_notes(
+                f'今日は{today}（日本時間）。Google検索で次の投資対象・テーマについてそれぞれ調べてください：{names}。\n'
+                'それぞれ、(1)何か（資産・投資信託/指数・企業・テーマのどれか）、(2)直近1か月ほどの値動きや出来事、'
+                '(3)証券会社・運用会社・アナリスト・エコノミスト・報道機関が示す今後の見通しや予測（誰の見方か明記）、'
+                '(4)投資できる関連の上場銘柄やETF（日本株は4桁コード、米国はティッカー。未上場企業なら関連する上場銘柄やファンド）、(5)リスク。'
+                '信頼できる報道機関・金融機関・公的機関の情報だけを使い、掲示板・SNS・個人ブログ・噂は使わないこと。', 'W')
+        except Exception as exc:
+            print('topic web notes failed', exc)
+    user = (f'今日は{today}（日本時間）。利用者が気になっている投資対象・テーマ：{names}\n\n# ニュース見出し\n' + '\n\n'.join(parts) +
+            ('\n\n# WEB検索メモ（[W番号]が根拠ID）\n' + notes if notes else '') +
+            '\n\n# 作業\n各テーマについて、上の見出し' + ('とWEB検索メモ' if notes else '') + ('（必要ならweb検索も）' if PROVIDER == 'claude' else '') +
+            'だけを根拠に、現在の動向と今後の見通しをまとめる。見通しは必ず誰の見方かを書き、あなた自身の売買推奨は書かない。'
+            '関連銘柄は日本の上場銘柄（4桁コード）か米国の上場銘柄・ETF（ティッカー）だけ。投資信託はそれ自体ではなく同じ指数に連動する上場ETFを挙げる。'
+            '根拠が無いテーマは now を空文字にする。\n\n# 出力JSON\n'
+            '{"topics":[{"name":"テーマ名（入力のまま）","kind":"資産・商品|投資信託・指数|企業|テーマ","summary":"一言でいうと(60字以内)",'
+            '"now":"現在の動向(150字以内)","outlook":"今後の見通しのまとめ(150字以内)","outlooks":[{"who":"発言者・機関","view":"見通し","source":"根拠ID"}],'
+            '"stance":"bullish|neutral|bearish|mixed（見通し記事全体の論調）","related":[{"market":"JP|US","symbol":"1540","name":"名称","why":"関係(30字以内)"}],'
+            '"risks":["リスク"],"sources":["T1H1","W2"]}]}')
+    tools = [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 4, 'allowed_domains': WEB_SEARCH_DOMAINS}] if PROVIDER == 'claude' else None
+    blocks = llm(False, RULES, user, tools=tools, max_tokens=8000)
+    if PROVIDER == 'claude':
+        pages = searched_pages(blocks)
+    data = json_from(blocks)
+    wanted = {t['name'] for t in topics}
+    out = {}
+    for t in data.get('topics') or []:
+        name = str(t.get('name') or '').strip()
+        if name not in wanted:
+            continue
+        sources = resolve(t.get('sources'), idmap, pages)
+        if not sources or not t.get('now'):
+            out[name] = {'status': 'no_info', 'analyzedAt': now_iso()}
+            continue
+        related = []
+        for r in t.get('related') or []:
+            mk = 'JP' if str(r.get('market')).upper() == 'JP' else 'US'
+            sym = str(r.get('symbol') or '').upper().strip().removesuffix('.T')
+            sym = sym.replace('.', '-') if mk == 'US' else sym
+            if (mk, sym) in master and all(x['symbol'] != sym for x in related):
+                related.append({'market': mk, 'symbol': sym, 'name': master[(mk, sym)], 'why': clip(r.get('why'), 40)})
+        out[name] = {'status': 'ok', 'analyzedAt': now_iso(), 'kind': clip(t.get('kind'), 12), 'summary': clip(t.get('summary'), 80),
+                     'now': clip(t.get('now'), 220), 'outlook': clip(t.get('outlook'), 220),
+                     'outlooks': clean_outlooks(t.get('outlooks'), idmap, pages),
+                     'stance': t.get('stance') if t.get('stance') in STANCE else 'mixed',
+                     'related': related[:4], 'risks': [clip(x, 60) for x in (t.get('risks') or [])][:4], 'sources': sources[:6]}
+    for t in topics:
+        out.setdefault(t['name'], {'status': 'no_info', 'analyzedAt': now_iso()})
+    return out
+
+
+def rate_topics(results):
+    """おすすめ度（参考）1〜5: 見通し記事の論調 ±1 と、関連銘柄の値動き ±1。売買推奨ではない。"""
+    index = read_json(DATA / 'index.json') or {'stocks': []}
+    tech = {(e['market'], e['symbol']): e.get('tech') for e in index['stocks']}
+    for name, r in results.items():
+        if r.get('status') != 'ok':
+            continue
+        score, why = 3, []
+        sv = {'bullish': 1, 'bearish': -1}.get(r['stance'], 0)
+        score += sv
+        why.append('見通し記事の論調：' + STANCE[r['stance']])
+        t = next((tech.get((x['market'], x['symbol'])) for x in r['related'] if tech.get((x['market'], x['symbol']))), None)
+        if t and t.get('chg60d') is not None and t.get('vsMA75') is not None:
+            if t['chg60d'] > 0 and t['vsMA75'] > 0:
+                score += 1
+                why.append(f'値動き：上昇基調（60日 {t["chg60d"]:+.1f}%、75日平均より上）')
+            elif t['chg60d'] < 0 and t['vsMA75'] < 0:
+                score -= 1
+                why.append(f'値動き：下落基調（60日 {t["chg60d"]:+.1f}%、75日平均より下）')
+            else:
+                why.append(f'値動き：方向感なし（60日 {t["chg60d"]:+.1f}%）')
+        r['rating'] = max(1, min(5, score))
+        r['ratingWhy'] = '／'.join(why)
+    return results
+
+
+def refresh_topics(research, master, only_new):
+    topics = load_topics()
+    old = research.get('topics') or {}
+    todo = [t for t in topics if not only_new or t['name'] not in old]
+    errors = []
+    new = {}
+    if todo:
+        try:
+            new = topic_analysis(todo, master)
+        except Exception as exc:
+            errors.append('気になるテーマ: ' + str(exc)[:300])
+            print('topic step failed', exc)
+    merged = {t['name']: new.get(t['name']) or old.get(t['name']) or {'status': 'pending'} for t in topics}
+    related = [x for r in merged.values() for x in (r.get('related') or [])]
+    errors += add_featured(related, 'topic')
+    research['topics'] = rate_topics(merged)
     return errors
 
 
@@ -497,6 +634,11 @@ def keep_previous(reason):
         if reason:
             prev['notice'] = reason
         add_featured(prev.get('featured'))
+        if reason is None and os.environ.get('LIGHT_RUN') != 'true' and PROVIDER:
+            master = {(x[1], x[0]): x[2] for x in (read_json(DATA / 'symbols-master.json') or {}).get('items', [])}
+            refresh_topics(prev, master, only_new=True)  # a newly added topic is analysed right away
+        else:
+            add_featured([x for r in (prev.get('topics') or {}).values() for x in (r.get('related') or [])], 'topic')
         write_json(DATA / 'research.json', prev)
     else:
         write_json(DATA / 'research.json', {'version': 2, 'generatedAt': None, 'status': 'not_configured', 'notice': reason})
@@ -544,10 +686,12 @@ def main():
     if not market and not featured and not any(b.get('status') == 'ok' for b in briefs.values()):
         return keep_previous('今回のAIまとめに失敗したため、前回の内容を表示しています：' + '; '.join(errors)[:300])
     errors += add_featured(featured)
+    holder = {}
+    errors += refresh_topics(holder, master, only_new=False)
     USAGE.pop('allModels', None)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
-                'market': market, 'featured': featured, 'briefs': briefs, 'errors': errors,
+                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'errors': errors,
                 'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))

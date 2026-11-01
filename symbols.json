@@ -6,6 +6,12 @@
   "yahoo": "^N225"
  },
  {
+  "symbol": "USDJPY",
+  "market": "INDEX",
+  "name": "米ドル/円",
+  "yahoo": "JPY=X"
+ },
+ {
   "symbol": "7203",
   "market": "JP",
   "name": "トヨタ自動車",

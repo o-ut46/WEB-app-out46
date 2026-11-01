@@ -40,9 +40,14 @@
     <ul id="results" class="list"></ul>
   </section>
 
-  <section id="tab-watch" class="tab" aria-labelledby="t-watch">
-    <h1 id="t-watch" class="page-title">ウォッチ</h1>
-    <div id="watch"></div>
+  <section id="tab-hold" class="tab" aria-labelledby="t-hold">
+    <h1 id="t-hold" class="page-title">保有株</h1>
+    <div id="hold"></div>
+  </section>
+
+  <section id="tab-interest" class="tab" aria-labelledby="t-interest">
+    <h1 id="t-interest" class="page-title">気になる</h1>
+    <div id="interest"></div>
   </section>
 
   <section id="tab-settings" class="tab" aria-labelledby="t-settings">
@@ -62,7 +67,8 @@
 <nav class="tabs" aria-label="画面の切り替え">
   <button data-tab="today" class="is-active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-9"/><path d="M15 6h5v5"/></svg>注目</button>
   <button data-tab="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>探す</button>
-  <button data-tab="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg>ウォッチ</button>
+  <button data-tab="hold"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="7" width="17" height="12" rx="2"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12h17"/></svg>保有株</button>
+  <button data-tab="interest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg>気になる</button>
   <button data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>設定</button>
 </nav>
 <script src="./app.js"></script>
