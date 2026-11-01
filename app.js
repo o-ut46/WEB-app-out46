@@ -26,8 +26,9 @@ const tracked = k => entry(k)?.kind === 'tracked';
 function loadMaster() {
   if (D.master || D.masterP) return D.masterP;
   D.masterP = getJSON('symbols-master.json').then(doc => {
-    D.master = (doc.items || []).map(x => ({ symbol: x[0], market: x[1], name: x[2], segment: x[3] || '', sector: x[4] || '', _n: kana(norm(x[2])), _c: norm(x[0]) }));
+    D.master = (doc.items || []).map(x => SearchEngine.prepare({ symbol: x[0], market: x[1], name: x[2], segment: x[3] || '', sector: x[4] || '', en: x[5] || '' }));
     if ($('#q').value.trim()) runSearch();
+    if ($('#hs')?.value.trim()) $('#hs').dispatchEvent(new Event('input', { bubbles: true }));
   }).catch(() => { D.masterP = null; });
   return D.masterP;
 }
@@ -158,15 +159,15 @@ function renderToday() {
 }
 
 /* ---------- 探す ---------- */
+function fallbackPool() {
+  if (!D._fb) D._fb = (D.index?.stocks || []).map(e => SearchEngine.prepare({ symbol: e.symbol, market: e.market, name: e.name, segment: '', sector: '' }));
+  return D._fb;
+}
 function runSearch() {
-  const raw = $('#q').value.trim(), q = kana(norm(raw)), box = $('#results');
-  if (!q) { box.innerHTML = ''; return; }
-  const pool = D.master || (D.index?.stocks || []).map(e => ({ symbol: e.symbol, market: e.market, name: e.name, segment: '', sector: '', _n: kana(norm(e.name)), _c: norm(e.symbol) }));
-  const exact = [], pre = [], named = [];
-  for (const x of pool) { if (x._c === q) exact.push(x); else if (x._c.startsWith(q)) pre.push(x); else if (x._n.includes(q)) named.push(x); }
-  named.sort((a, b) => (a._n.startsWith(q) ? 0 : 1) - (b._n.startsWith(q) ? 0 : 1) || a._n.length - b._n.length);
-  const list = [...exact, ...pre, ...named].slice(0, 30);
-  if (!list.length) { box.innerHTML = '<li class="results-empty">「' + esc(raw) + '」に当てはまる銘柄はありません。' + (D.master ? '会社名の一部、4桁のコード、米国株はティッカー（例 AAPL）で試してください。' : '銘柄一覧を読み込み中です。') + '</li>'; return; }
+  const raw = $('#q').value.trim(), box = $('#results');
+  if (!raw) { box.innerHTML = ''; return; }
+  const list = SearchEngine.query(raw, D.master || fallbackPool(), 30);
+  if (!list.length) { box.innerHTML = '<li class="results-empty">「' + esc(raw) + '」に当てはまる銘柄はありません。' + (D.master ? '会社名の一部（ひらがな・カタカナ・漢字・ローマ字どれでも）、4桁のコード、ティッカーで試してください。' : '銘柄一覧を読み込み中です。') + '</li>'; return; }
   box.innerHTML = list.map(x => {
     const k = keyOf(x.market, x.symbol), e = entry(k);
     const tag = e?.kind === 'tracked' ? '<span class="badge live">毎朝更新</span>' : e ? '<span class="badge">注目</span>' : '';
@@ -210,14 +211,7 @@ function renderHold() {
   $('#hold').innerHTML = h;
   if (picked) drawHoldForm();
 }
-function searchPool(raw, limit) {
-  const q = kana(norm(raw)); if (!q) return [];
-  const pool = D.master || (D.index?.stocks || []).map(e => ({ symbol: e.symbol, market: e.market, name: e.name, segment: '', sector: '', _n: kana(norm(e.name)), _c: norm(e.symbol) }));
-  const a = [], b = [], c = [];
-  for (const x of pool) { if (x._c === q) a.push(x); else if (x._c.startsWith(q)) b.push(x); else if (x._n.includes(q)) c.push(x); }
-  c.sort((x, y) => (x._n.startsWith(q) ? 0 : 1) - (y._n.startsWith(q) ? 0 : 1) || x._n.length - y._n.length);
-  return [...a, ...b, ...c].slice(0, limit);
-}
+function searchPool(raw, limit) { return raw ? SearchEngine.query(raw, D.master || fallbackPool(), limit) : []; }
 function drawHoldForm() {
   const st = picked, m = st.market, h = S.hold[st.key] || {};
   $('#holdForm').innerHTML = '<article class="group" style="margin-top:12px"><h2>' + esc(st.name) + '<span class="code">' + esc(st.symbol) + '</span></h2>' +
@@ -447,6 +441,6 @@ window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild
   const [ix, rs] = await Promise.all([getJSON('index.json', true).catch(() => null), getJSON('research.json', true).catch(() => null)]);
   D.index = ix; D.research = rs;
   $('#stamp').textContent = ix?.generatedAt ? dateJP(ix.generatedAt, true) + ' 更新' : 'データ未取得';
-  renderActive(); route();
+  renderActive(); route(); loadMaster();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 })();

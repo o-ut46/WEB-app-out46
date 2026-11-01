@@ -62,7 +62,7 @@ jobs:
       - name: Prepare public files
         run: |
           mkdir public
-          cp index.html app.js style.css sw.js manifest.webmanifest icon.svg logo.png logo-mark.png apple-touch-icon.png public/
+          cp index.html app.js search.js style.css sw.js manifest.webmanifest icon.svg logo.png logo-mark.png apple-touch-icon.png public/
           cp -R data public/data
           for file in icon-192.png icon-512.png CNAME; do
             if [ -f "$file" ]; then cp "$file" public/; fi

@@ -34,9 +34,9 @@
     <h1 id="t-search" class="page-title">銘柄を探す</h1>
     <div class="searchbox">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-      <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="会社名・コード（例：とよた、7203、NVDA）" aria-label="会社名または銘柄コード">
+      <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="会社名・読み・コード（例：みつびし、トヨタ、apple、7203）" aria-label="会社名または銘柄コード">
     </div>
-    <p class="hint" id="searchHint">東証の全上場銘柄と米国の上場銘柄から探せます。ひらがなでも検索できます。</p>
+    <p class="hint" id="searchHint">東証と米国の全上場銘柄から探せます。ひらがな・カタカナ・漢字・ローマ字・英字・コードのどれでも、打つたびに候補を予測します。</p>
     <ul id="results" class="list"></ul>
   </section>
 
@@ -71,6 +71,7 @@
   <button data-tab="interest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg>気になる</button>
   <button data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>設定</button>
 </nav>
+<script src="./search.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

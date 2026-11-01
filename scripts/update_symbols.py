@@ -4,8 +4,41 @@ import io, re, sys
 from common import DATA, http_get, now_iso, previous_published, read_json, write_json
 
 JPX_PAGE = 'https://www.jpx.co.jp/markets/statistics-equities/misc/01.html'
+JPX_PAGE_EN = 'https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html'
 NASDAQ = 'https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'
 OTHER = 'https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'
+
+
+def jpx_table(page, pattern):
+    html = http_get(page).decode('utf-8', 'replace')
+    m = re.search(r'href="([^"]*' + pattern + r'\.xlsx?)"', html)
+    if not m:
+        raise RuntimeError('JPX list link not found')
+    link = m.group(1)
+    if link.startswith('/'):
+        link = 'https://www.jpx.co.jp' + link
+    raw = http_get(link, timeout=60)
+    if link.endswith('.xlsx'):
+        import openpyxl
+        ws = openpyxl.load_workbook(io.BytesIO(raw), read_only=True).active
+        return [[c for c in row] for row in ws.iter_rows(values_only=True)]
+    import xlrd
+    sh = xlrd.open_workbook(file_contents=raw).sheet_by_index(0)
+    return [sh.row_values(i) for i in range(sh.nrows)]
+
+
+def jpx_english():
+    """Code -> English issue name (used so the app can match romaji / English input such as 'mitsubishi')."""
+    table = jpx_table(JPX_PAGE_EN, 'data_e')
+    head = [str(x or '').strip().lower() for x in table[0]]
+    ic = next(i for i, h in enumerate(head) if 'code' in h)
+    iname = next(i for i, h in enumerate(head) if 'name' in h)
+    out = {}
+    for row in table[1:]:
+        code = str(row[ic] or '').strip().removesuffix('.0')
+        if re.fullmatch(r'[0-9]{3}[0-9A-Z]', code):
+            out[code] = re.sub(r'\s+', ' ', str(row[iname] or '')).strip()[:80]
+    return out
 
 
 def jpx():
@@ -45,6 +78,13 @@ def jpx():
         out.append([code, 'JP', str(row[iname] or '').strip(), str(row[imkt] or '').strip(), '' if sector == '-' else sector])
     if len(out) < 3000:
         raise RuntimeError('JPX list unexpectedly short: %d' % len(out))
+    try:
+        en = jpx_english()
+        for row in out:
+            row.append(en.get(row[0], ''))
+        print('JP english names', sum(1 for r in out if r[5]))
+    except Exception as exc:
+        print('JP english names unavailable:', exc)
     return out
 
 
@@ -70,7 +110,7 @@ def us():
             seen.add(sym)
             kind = 'ETF' if rec.get(etf_col) == 'Y' else 'Stock'
             exchange = exch or {'N': 'NYSE', 'A': 'NYSE American', 'P': 'NYSE Arca', 'Z': 'Cboe BZX', 'V': 'IEX'}.get(rec.get('Exchange', ''), 'US')
-            out.append([sym, 'US', TRIM.sub('', name)[:80], exchange + (' ETF' if kind == 'ETF' else ''), ''])
+            out.append([sym, 'US', TRIM.sub('', name)[:80], exchange + (' ETF' if kind == 'ETF' else ''), '', ''])
     if len(out) < 4000:
         raise RuntimeError('US list unexpectedly short: %d' % len(out))
     return out
@@ -100,7 +140,7 @@ def main():
         print('No symbol list available; app will use its built-in directory.')
         return
     write_json(DATA / 'symbols-master.json', {'version': 1, 'generatedAt': now_iso(), 'errors': errors,
-                                               'columns': ['symbol', 'market', 'name', 'segment', 'sector'], 'items': items})
+                                               'columns': ['symbol', 'market', 'name', 'segment', 'sector', 'englishName'], 'items': items})
 
 
 if __name__ == '__main__':
