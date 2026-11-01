@@ -9,9 +9,8 @@ on:
         type: boolean
         default: true
   schedule:
-    # AIまとめ＋株価：日本時間 月〜土 7:23（米国市場の終了後）と 平日16:23（東証の終了後）
+    # AIまとめ＋株価：日本時間 月〜土 7:23（米国市場の終了後）、1日1回
     - cron: '23 22 * * 0-5'
-    - cron: '23 7 * * 1-5'
     # 株価だけ（AIなし）：取引時間中に1時間ごと。東証 9:53〜15:53、米国 22:53〜翌5:53（日本時間）
     - cron: '53 0-6 * * 1-5'
     - cron: '53 13-20 * * 1-5'
@@ -41,7 +40,7 @@ jobs:
       - name: Update stock code list (JPX / Nasdaq Trader)
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
-          LIGHT_RUN: ${{ github.event_name == 'schedule' && github.event.schedule != '23 22 * * 0-5' && github.event.schedule != '23 7 * * 1-5' }}
+          LIGHT_RUN: ${{ github.event_name == 'schedule' && github.event.schedule != '23 22 * * 0-5' }}
         run: python scripts/update_symbols.py
       - name: Refresh prices
         env:
@@ -58,7 +57,7 @@ jobs:
           MAX_WEB_SEARCHES: ${{ vars.MAX_WEB_SEARCHES }}
           MAX_STOCK_BRIEFS: ${{ vars.MAX_STOCK_BRIEFS }}
           FORCE_RESEARCH: ${{ github.event.inputs.force_research }}
-          LIGHT_RUN: ${{ github.event_name == 'schedule' && github.event.schedule != '23 22 * * 0-5' && github.event.schedule != '23 7 * * 1-5' }}
+          LIGHT_RUN: ${{ github.event_name == 'schedule' && github.event.schedule != '23 22 * * 0-5' }}
         run: python scripts/research.py
       - name: Prepare public files
         run: |
