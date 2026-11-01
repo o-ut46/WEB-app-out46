@@ -490,6 +490,10 @@ def main():
         print('No AI key (GEMINI_API_KEY or ANTHROPIC_API_KEY); skipping AI research.')
         return keep_previous('AIまとめは未設定です。無料のGemini APIキーをGitHubに登録すると、毎朝ここに表示されます（手順は「設定」タブ）。')
     print('AI provider:', PROVIDER)
+    if PROVIDER == 'gemini':  # non-secret diagnostics only: length, first 4 chars, stray characters
+        raw = os.environ.get('GEMINI_API_KEY', '')
+        print('key check: length', len(GEMINI_KEY), 'starts', GEMINI_KEY[:4], 'had spaces/newlines', raw != raw.strip() or ' ' in GEMINI_KEY,
+              'non-ascii', any(ord(ch) > 126 for ch in GEMINI_KEY))
     prev = previous_published('research.json')
     if os.environ.get('LIGHT_RUN') == 'true' and prev and prev.get('status') == 'ok':
         print('Hourly price-only run: keeping the latest AI summary.')
