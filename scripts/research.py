@@ -145,7 +145,14 @@ def github_chat(system, user, max_tokens=4000):
                                                   'Accept': 'application/json'})
             try:
                 with urllib.request.urlopen(req, timeout=180) as res:
-                    data = json.loads(res.read())
+                    raw = res.read()
+                    status, ctype = res.status, res.headers.get('Content-Type')
+                try:
+                    data = json.loads(raw)
+                except ValueError:
+                    last = f'GitHub Models returned non-JSON (HTTP {status}, {ctype}): {raw[:300]!r}'
+                    print(last)
+                    break
                 USAGE['calls'] += 1
                 USAGE['model'] = model
                 u = data.get('usage') or {}
