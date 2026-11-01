@@ -1,51 +1,63 @@
-# Stock Scope 実株価データ対応版
+# Stock Scope（作り直し版）
 
-Yahoo Financeから取得した日次株価を、アプリ独自のローソク足・終値チャート、移動平均、RSI、変動率、シナリオ計算に使います。TradingView埋め込みは撤去しました。従来の保存キーを維持しており、保有株・CSV・API機能も残しています。
+自分用の株の動向チェックアプリです。サーバーやCloudflareは使わず、**GitHubだけで毎朝ひとりでに更新**されます。
 
-## 最初に使う
+## できること
+- **注目**：毎朝のAIまとめ（日本株・米国株の相場の要点、証券会社などの見通し、リスク）、ニュースで材料が出た注目銘柄のチャート、大きく動いた銘柄、銘柄ごとのニュース要約。すべて出典リンク付き。
+- **探す**：東証の全上場銘柄と米国の上場銘柄を、会社名（ひらがな可）・4桁コード・ティッカーで検索。
+- **銘柄の画面**：ローソク足（1か月〜5年）、25日・75日平均、出来高。指でなぞると日ごとの値。騰落率・RSI・52週高安・参考レンジ・ニュース要約・保有損益。
+- **ウォッチ**：自分のウォッチと保有株の損益（端末に保存）、毎朝の自動更新リスト。
+- 株価の上昇は赤、下落は青（日本の慣習）。ダークモード対応。iPhoneのホーム画面に追加するとアプリのように使えます。
 
-1. ZIPを解凍します。
-2. `index.html`、`data`フォルダ、`sw.js`を、GitHubリポジトリ `o-ut46/WEB-app-out46` の最上位へアップロードします。ZIPそのものや外側のフォルダはアップロードしません。既存のmanifestやアイコンは残してください。
-3. 公開サイトを開き直し、「チャート」で銘柄を選び「この銘柄をチャート・分析に使う」を押します。
+## 毎朝の自動処理（GitHub Actions、日本時間 月〜土 7:23頃）
+1. JPX公式の上場銘柄一覧と、Nasdaq Traderの米国銘柄一覧を取得（検索用）
+2. 自動更新リストの株価をYahoo Financeから取得
+3. 信頼できる媒体（日経・ロイター・ブルームバーグ・株探・東洋経済・ダイヤモンド・各証券会社・JPX・TDnetなど）の記事をGoogleニュースとClaudeのWeb検索で集め、Claudeが要約。掲示板・SNS・個人ブログは使いません。出典を示せない内容と、実在しない銘柄コードは自動で除外します。
+4. 注目銘柄の株価を取得して公開
 
-**HTMLだけの差し替えではデータが不足します。dataフォルダも必要です。** 取得済みの実データを同梱しているので、この手順だけでも保存時点までのデータで試せます。これはリアルタイムデータではありません。
+## 設定手順（初回だけ）
 
-## 株価を毎日更新する設定
+### 1. ファイルを置く
+`o-ut46/WEB-app-out46` に、ZIPの中身をすべて上書きアップロードします（公開URLは今までどおり）。
+- **`.github/workflows/update-stocks.yml` が一番大事です。** ドットで始まるフォルダはアップロードから漏れやすいので、アップロード後にGitHub上で `.github/workflows/update-stocks.yml` の中身が新しくなっているか確認してください。漏れていたら「Add file → Create new file」でファイル名に `.github/workflows/update-stocks.yml` と入力し、中身を貼り付けて保存します。
+- ChatGPT版の古いファイル（`ranking-engine.js`、`ranking-ui.js`、`worker/`、`data/stocks.json`、`data/snapshot.js`）は使わないので、削除して構いません（残っていても動作に影響はありません）。
 
-1. `scripts/update_prices.py` と `symbols.json` を同じリポジトリへ配置します。
-2. `.github/workflows/update-stocks.yml` も配置します。隠しフォルダが選べない場合は、GitHubの Add file → Create new file に `.github/workflows/update-stocks.yml` と入力し、付属のYAMLファイルの内容を貼り付けます。
-3. Settings → Pages → Build and deployment → Source を **GitHub Actions** に変更します。
-4. Actions → **Update stock data and publish** → **Run workflow** で初回実行します。
-5. 完了後、公開サイトで「公開データを再読み込み」し、使う銘柄をもう一度取り込みます。
+### 2. ClaudeのAPIキーを作る
+https://console.anthropic.com → **Billing** でクレジット購入 → **Limits** で月の上限を設定（例 $10） → **API Keys** でキーを作成してコピー。
 
-既定ではmainブランチを使います。異なる場合はYAMLのbranchesを変更してください。既存の独自Pages公開ワークフローがある場合は、競合しないようこのワークフローへ統合してください。公開URLは維持されます。追加のAPIキーや第三者のCORS中継サービスは使いません。
+### 3. キーをGitHubに登録
+リポジトリの **Settings → Secrets and variables → Actions → New repository secret**
+名前 `ANTHROPIC_API_KEY`、値にコピーしたキー。キーは公開ページには含まれません。
 
-更新予定は月〜土の日本時間7:23です。GitHubの実行遅延や休日により、最新日付は変わらないことがあります。手動実行も可能です。GitHub公開設定でActionsが無効な場合は有効化が必要です。アカウントのActions利用条件・残量はGitHub側でご確認ください。
+### 4. 実行
+**Settings → Pages → Source** が「GitHub Actions」になっていることを確認し、**Actions → Update stock data and publish → Run workflow**。5〜10分で完了します。
 
-## 対象銘柄の追加
+※ APIキーを登録しなくても、検索・チャート・ウォッチは動きます（AIまとめだけが出ません）。
 
-初期対象は日経平均、トヨタ、ソニー、ソフトバンクG、三菱UFJ、任天堂、三菱重工、Apple、Microsoft、NVIDIAの10銘柄です。全市場を取得する仕組みではありません。
+## 銘柄の追加・削除
+- 追加：銘柄の画面で「毎朝の自動更新に追加」→ GitHubが開く → 緑の **Commit changes**。数分後に株価、翌朝からニュース要約が入ります。
+- 削除：GitHubの `watchlist` フォルダから銘柄のファイル（例 `7203.txt`）を削除。最初から入っている37銘柄は `symbols.json` で管理しています。
 
-`symbols.json`に以下と同じ形式で追加し、workflowを再実行します。
+## 費用
+Claude APIの分だけです（GitHub・各種一覧・Googleニュースは無料）。1回の実行で入力5〜8万・出力1万トークン前後、Web検索最大6回を想定しています。実際の使用量は「設定」タブに表示されます。最新の単価は https://www.anthropic.com/pricing で確認してください。
 
-```json
-{"symbol":"9432","market":"JP","name":"NTT","yahoo":"9432.T"}
-```
+節約したいときは **Settings → Secrets and variables → Actions → Variables** に追加：
+| 名前 | 例 | 効果 |
+|---|---|---|
+| `MAX_WEB_SEARCHES` | `3` | Web検索の回数上限（標準6） |
+| `CLAUDE_MODEL` | `claude-haiku-5-5` | 相場まとめも軽量モデルで作る |
+| `MAX_STOCK_BRIEFS` | `20` | ニュース要約する銘柄数の上限（標準40） |
 
-日本株は`JP`で配信元コードの末尾に`.T`、米国株は`US`、日経平均は`INDEX`・`^N225`です。指数は購入候補ランキングから除外しています。会社名は設定ファイルに記載した名称、providerNameは取得先から返った名称です。
+銘柄の追加（Commit）のたびにAIが動かないよう、前回のまとめが18時間以内なら再利用します。すぐ作り直したいときは Actions → Run workflow。
 
-## データと制限
+## ファイル構成
+- `index.html` / `app.js` / `style.css` / `sw.js` / `manifest.webmanifest` / アイコン：アプリ本体
+- `scripts/update_symbols.py`：銘柄一覧 → `data/symbols-master.json`
+- `scripts/update_prices.py`：株価 → `data/prices/*.json`, `data/index.json`
+- `scripts/research.py`：ニュース収集とClaudeの要約 → `data/research.json`
+- `symbols.json`、`watchlist/`：自動更新リスト
+- `data/`：初期データ（10月28日までの37銘柄）。初回実行で最新になります。
 
-- Yahoo!ファイナンス日本版の998407.Oは、取得側ではYahoo Financeの^N225に対応させています。
-- 出典はYahoo Financeのchart取得先です。公式サポートされたAPIではなく、仕様変更・取得制限で停止する可能性があります。日本版ページからの転載ではありません。
-- 終値・始値・高値・安値・出来高を読み込み、最大1600営業日を保存します。日付は各市場のタイムゾーンで変換します。
-- 計算には配信されたcloseを使い、配当調整済み終値とは混ぜません。分割調整は配信元に依存し、調整済み総収益ベースのバックテストではありません。
-- 取得失敗時は同梱・前回データを保持します。データ最終日・取得日時を確認してください。市場取引中に手動更新した場合は当日の日足が未確定の可能性があります。
-- 端末内のデータが新しい場合は古いデータで上書きしません。同日データは再取り込みで更新します。
-- 公開済みデータの再読み込みは、Yahooへの直接更新要求ではありません。更新はGitHub Actions側で行います。
-- CSV/APIから読み込んだ四本値のないデータは終値の線チャートになります。
-- 提供元のデータ利用条件を確認のうえ個人の分析用途で利用してください。
-
-## 検証範囲
-
-実際の配信先から10銘柄・合計16,000営業日分の取得を確認しました。JavaScript実行テストでは数値の取り込み、ローソク足の描画命令生成、線への切り替え、RSI・シナリオ計算、端末保存、指数のランキング除外、古いデータによる上書き防止を確認しました。テスト用DOMでの確認であり、実ブラウザでの見た目、利用者のGitHubアカウントでのworkflow実行・公開後のiPhone表示は未検証です。
+## 注意
+- 株価はYahoo Financeの日足（遅延・非公式の取得方法）で、リアルタイムではありません。取得先の仕様が変わると止まる可能性があります。その場合も前回のデータを表示し続けます。
+- AIまとめ・参考レンジは売買の推奨ではありません。要約の誤りもありうるので、出典を確認してください。

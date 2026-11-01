@@ -1,0 +1,68 @@
+name: Update stock data and publish
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_research:
+        description: 'AIまとめを今すぐ作り直す'
+        type: boolean
+        default: true
+  schedule:
+    # 日本時間 月〜土 7:23（米国市場の終了後）
+    - cron: '23 22 * * 0-5'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install libraries
+        run: pip install openpyxl==3.1.5 xlrd==2.0.1
+      - id: pages
+        uses: actions/configure-pages@v5
+      - name: Update stock code list (JPX / Nasdaq Trader)
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: python scripts/update_symbols.py
+      - name: Refresh prices
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: python scripts/update_prices.py
+      - name: Collect news and summarise with Claude
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          CLAUDE_MODEL_LIGHT: ${{ vars.CLAUDE_MODEL_LIGHT }}
+          MAX_WEB_SEARCHES: ${{ vars.MAX_WEB_SEARCHES }}
+          MAX_STOCK_BRIEFS: ${{ vars.MAX_STOCK_BRIEFS }}
+          FORCE_RESEARCH: ${{ github.event.inputs.force_research }}
+        run: python scripts/research.py
+      - name: Prepare public files
+        run: |
+          mkdir public
+          cp index.html app.js style.css sw.js manifest.webmanifest icon.svg public/
+          cp -R data public/data
+          for file in icon-192.png icon-512.png CNAME; do
+            if [ -f "$file" ]; then cp "$file" public/; fi
+          done
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
