@@ -1,5 +1,5 @@
 // App shell: network first, cache fallback (works offline with the last data seen).
-const CACHE = 'stockscope2-v1';
+const CACHE = 'stockscope2-v2';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {

@@ -33,8 +33,7 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
   padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;background:color-mix(in srgb,var(--paper) 88%,transparent);
   backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--rule)}
 .brand{display:flex;align-items:center;gap:7px;font-weight:700;font-size:16px;letter-spacing:.01em}
-.brand svg{width:20px;height:20px;stroke-width:1.6}
-.brand svg rect{fill:var(--up);stroke:none}.brand svg rect:nth-of-type(2){fill:var(--down)}
+.brand img{width:30px;height:30px;display:block}
 .stamp{font-size:12px;color:var(--sub);text-align:right}
 
 main{max-width:760px;margin:0 auto;padding:0 16px}
