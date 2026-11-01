@@ -17,6 +17,11 @@ from common import DATA, fetch_stock, http_get, now_iso, previous_published, rea
 API_KEY = os.environ.get('ANTHROPIC_API_KEY', '').strip()
 MODEL = os.environ.get('CLAUDE_MODEL', '').strip() or 'claude-sonnet-5-5'
 MODEL_LIGHT = os.environ.get('CLAUDE_MODEL_LIGHT', '').strip() or 'claude-haiku-5-5'
+GH_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
+GH_MODEL = os.environ.get('GH_MODEL', '').strip() or 'openai/gpt-4.1-mini'
+GH_FALLBACK = 'openai/gpt-4o-mini'
+# Claude API (paid, can read articles via web search) when a key is set; otherwise GitHub Models (free, headlines only)
+PROVIDER = 'claude' if API_KEY else 'github' if GH_TOKEN else None
 MAX_SEARCHES = int(os.environ.get('MAX_WEB_SEARCHES', '') or 6)
 MAX_BRIEFS = int(os.environ.get('MAX_STOCK_BRIEFS', '') or 40)
 JST = timezone(timedelta(hours=9))
@@ -26,6 +31,9 @@ JST = timezone(timedelta(hours=9))
 NEWS_SOURCES_JP = ['nikkei.com', 'reuters.com', 'bloomberg.co.jp', 'kabutan.jp', 'toyokeizai.net', 'diamond.jp',
                    'media.rakuten-sec.net', 'nomura.co.jp', 'daiwa.jp', 'smbcnikko.co.jp', 'sbisec.co.jp',
                    'monex.co.jp', 'jpx.co.jp', 'nikkei225jp.com']
+# second group (Google News queries get too long with every site in one query)
+NEWS_SOURCES_JP2 = ['jiji.com', 'nhk.or.jp', 'fisco.co.jp', 'traders.co.jp', 'quick.co.jp', 'wealthadvisor.co.jp',
+                    'mizuho-sc.com', 'okasan.co.jp', 'sbiaxes.com', 'jp.investing.com']
 NEWS_SOURCES_US = ['reuters.com', 'apnews.com', 'cnbc.com', 'marketwatch.com', 'bloomberg.com', 'wsj.com', 'barrons.com']
 WEB_SEARCH_DOMAINS = sorted(set(NEWS_SOURCES_JP + NEWS_SOURCES_US + ['finance.yahoo.co.jp/news', 'release.tdnet.info',
                                                                      'boj.or.jp', 'federalreserve.gov', 'sec.gov']) - {'nikkei225jp.com'})
@@ -125,6 +133,40 @@ def claude(model, system, user, tools=None, max_tokens=8000):
     return blocks
 
 
+def github_chat(system, user, max_tokens=4000):
+    """GitHub Models (free tier, rate limited). Uses the workflow's GITHUB_TOKEN with `models: read`."""
+    last = None
+    for model in dict.fromkeys([GH_MODEL, GH_FALLBACK]):
+        body = {'model': model, 'temperature': 0.2, 'max_tokens': min(max_tokens, 4000),
+                'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]}
+        for attempt in range(4):
+            req = urllib.request.Request('https://models.github.ai/inference/chat/completions', data=json.dumps(body).encode(),
+                                         headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json',
+                                                  'Accept': 'application/json'})
+            try:
+                with urllib.request.urlopen(req, timeout=180) as res:
+                    data = json.loads(res.read())
+                USAGE['calls'] += 1
+                USAGE['model'] = model
+                u = data.get('usage') or {}
+                USAGE['input_tokens'] += u.get('prompt_tokens') or 0
+                USAGE['output_tokens'] += u.get('completion_tokens') or 0
+                return [{'type': 'text', 'text': data['choices'][0]['message']['content'] or ''}]
+            except urllib.error.HTTPError as exc:
+                last = f'GitHub Models HTTP {exc.code}: ' + exc.read().decode('utf-8', 'replace')[:300]
+                if exc.code == 429 and attempt < 3:
+                    time.sleep(30 * (attempt + 1))
+                    continue
+                break  # other errors: try the fallback model
+    raise RuntimeError(last or 'GitHub Models failed')
+
+
+def llm(light, system, user, tools=None, max_tokens=8000):
+    if PROVIDER == 'claude':
+        return claude(MODEL_LIGHT if light else MODEL, system, user, tools=tools, max_tokens=max_tokens)
+    return github_chat(system, user, max_tokens)
+
+
 def searched_pages(blocks):
     pages = {}
     for b in blocks:
@@ -198,11 +240,14 @@ def clean_outlooks(rows, idmap, pages):
 def market_and_featured(tracked, techs, master):
     today = datetime.now(JST).strftime('%Y-%m-%d (%a)')
     jp_news, us_news = [], []
-    for q in ('日経平均 見通し', '東京株式市場 相場', '日本株 来週 展望', '決算 上方修正 株価'):
-        jp_news += google_news(q, NEWS_SOURCES_JP, days=4, limit=8)
-    for q in ('米国株 見通し', 'NYダウ S&P500'):
-        us_news += google_news(q, NEWS_SOURCES_JP, days=4, limit=6)
-    us_news += google_news('stock market outlook', NEWS_SOURCES_US, lang='en', days=4, limit=8)
+    for group in (NEWS_SOURCES_JP, NEWS_SOURCES_JP2):
+        for q in ('日経平均 見通し', '東京株式市場 相場', '日本株 来週 展望', '決算 上方修正 株価', '目標株価 引き上げ 格上げ'):
+            jp_news += google_news(q, group, days=4, limit=6)
+        for q in ('米国株 見通し', 'NYダウ S&P500'):
+            us_news += google_news(q, group, days=4, limit=5)
+    for q in ('stock market outlook', 'analyst upgrade price target'):
+        us_news += google_news(q, NEWS_SOURCES_US, lang='en', days=4, limit=8)
+    cap = 25 if PROVIDER == 'claude' else 22  # GitHub Models free tier: about 8k input tokens per request
 
     def dedupe(xs):
         seen, out = set(), []
@@ -210,7 +255,7 @@ def market_and_featured(tracked, techs, master):
             if x['url'] not in seen and x['title'] not in seen:
                 seen.update([x['url'], x['title']])
                 out.append(x)
-        return out[:25]
+        return out[:cap]
     jp_news, us_news = dedupe(jp_news), dedupe(us_news)
     idmap = {f'J{i + 1}': h for i, h in enumerate(jp_news)} | {f'U{i + 1}': h for i, h in enumerate(us_news)}
     n225 = next((techs.get(k) for k in techs if k.endswith('^N225')), None)
@@ -226,8 +271,8 @@ def market_and_featured(tracked, techs, master):
 {tracked_txt}
 
 # 作業
-1. 見出しを手がかりに、必要ならweb検索（最大{MAX_SEARCHES}回、許可された媒体のみ）で記事を読み、日本市場と米国市場それぞれの「今の相場の要点」「専門家・証券会社の見通し」「リスク要因」をまとめる。
-2. 直近のニュースで材料が出ている「注目銘柄」を日本株・米国株あわせて3〜8銘柄選ぶ（追跡中の銘柄でなくてよい）。決算、業績予想の修正、大型受注、M&A、規制、指数採用など、記事で確認できる具体的な材料がある銘柄に限る。銘柄コード（日本株は4桁英数字、米国株はティッカー）を記事またはweb検索で確認し、確認できない銘柄は選ばない。
+1. {'見出しを手がかりに、必要ならweb検索（最大' + str(MAX_SEARCHES) + '回、許可された媒体のみ）で記事を読み' if PROVIDER == 'claude' else '見出しだけを根拠に（見出しに書かれていないことは補わずに）'}、日本市場と米国市場それぞれの「今の相場の要点」「専門家・証券会社の見通し」「リスク要因」をまとめる。
+2. 直近のニュースで材料が出ている「注目銘柄」を日本株・米国株あわせて3〜8銘柄選ぶ（追跡中の銘柄でなくてよい）。決算、業績予想の修正、大型受注、M&A、規制、指数採用など、記事で確認できる具体的な材料がある銘柄に限る。銘柄コード（日本株は4桁英数字、米国株はティッカー）が確かな銘柄に限る（コードは公式の銘柄一覧で照合し、合わないものは除外される）。
 
 # 出力JSON
 {{"market":{{"jp":{{"title":"20字以内の見出し","summary":"200字以内","points":["要点(各60字以内)"],"outlooks":[{{"who":"発言者・機関","view":"見通し(100字以内)","source":"根拠ID or URL"}}],"risks":["リスク(各50字以内)"],"sources":["J1","https://..."]}},
@@ -236,7 +281,7 @@ def market_and_featured(tracked, techs, master):
     tools = [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES,
               'allowed_domains': WEB_SEARCH_DOMAINS,
               'user_location': {'type': 'approximate', 'country': 'JP', 'timezone': 'Asia/Tokyo'}}]
-    blocks = claude(MODEL, RULES, user, tools=tools, max_tokens=8000)
+    blocks = llm(False, RULES, user, tools=tools, max_tokens=8000)
     pages = searched_pages(blocks)
     data = json_from(blocks)
     market = {}
@@ -276,7 +321,8 @@ def stock_briefs(tracked, techs):
 
     def news(s):
         name = short_name(s['name'])
-        items = google_news(f'"{name}"', NEWS_SOURCES_JP, days=10, limit=6)
+        items = google_news(f'"{name}"', NEWS_SOURCES_JP, days=10, limit=5)
+        items += google_news(f'"{name}"', NEWS_SOURCES_JP2, days=10, limit=3)
         if s['market'] == 'US':
             items += google_news(f'"{name}" stock', NEWS_SOURCES_US, lang='en', days=10, limit=4)
         return s, items
@@ -287,8 +333,9 @@ def stock_briefs(tracked, techs):
     for s, items in collected:
         if not items:
             briefs[s['key']] = {'status': 'no_news', 'summary': '', 'sources': []}
-    for start in range(0, len(batch), 8):
-        chunk, idmap, parts = batch[start:start + 8], {}, []
+    step = 8 if PROVIDER == 'claude' else 5  # free tier allows ~8k input tokens per request
+    for start in range(0, len(batch), step):
+        chunk, idmap, parts = batch[start:start + step], {}, []
         for si, (s, items) in enumerate(chunk):
             lines = []
             for hi, h in enumerate(items):
@@ -302,7 +349,7 @@ def stock_briefs(tracked, techs):
                 '"bad":["悪材料・懸念"],"outlooks":[{"who":"発言者・機関","view":"見通し","source":"根拠ID"}],'
                 '"tone":-2から2の整数(記事の論調。-2=明確に悪い,0=中立,2=明確に良い),"sources":["S1H1"]}]}')
         try:
-            data = json_from(claude(MODEL_LIGHT, RULES, user, max_tokens=4000))
+            data = json_from(llm(True, RULES, user, max_tokens=4000))
         except Exception as exc:
             print('brief batch failed', exc)
             for s, _ in chunk:
@@ -362,9 +409,10 @@ def keep_previous(reason):
 
 
 def main():
-    if not API_KEY:
-        print('ANTHROPIC_API_KEY is not set; skipping AI research.')
-        return keep_previous('AIまとめは未設定です。GitHubのSecretsにANTHROPIC_API_KEYを登録すると、毎朝自動で作られます。')
+    if not PROVIDER:
+        print('No AI available (no ANTHROPIC_API_KEY and no GITHUB_TOKEN); skipping AI research.')
+        return keep_previous('AIまとめを作れませんでした（AIの接続設定がありません）。')
+    print('AI provider:', PROVIDER)
     prev = previous_published('research.json')
     if os.environ.get('GITHUB_EVENT_NAME') == 'push' and os.environ.get('FORCE_RESEARCH') != 'true' and prev and prev.get('generatedAt'):
         age = datetime.now(timezone.utc) - datetime.fromisoformat(prev['generatedAt'])
@@ -395,7 +443,8 @@ def main():
     if not market and not featured and not any(b.get('status') == 'ok' for b in briefs.values()):
         return keep_previous('今回のAIまとめに失敗したため、前回の内容を表示しています：' + '; '.join(errors)[:300])
     errors += add_featured(featured)
-    research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'model': MODEL, 'modelLight': MODEL_LIGHT,
+    research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', GH_MODEL),
+                'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', GH_MODEL),
                 'market': market, 'featured': featured, 'briefs': briefs, 'errors': errors,
                 'usage': {**USAGE, 'pagesRead': page_count}}
     write_json(DATA / 'research.json', research)

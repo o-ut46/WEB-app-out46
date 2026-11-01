@@ -195,7 +195,7 @@ function renderSettings() {
   const u = r?.usage;
   let h = '<article class="group"><h2>データの状態</h2>' +
     '<p>株価：' + (ix?.generatedAt ? esc(dateJP(ix.generatedAt, true)) + ' に更新／' + ix.stocks.filter(e => e.kind === 'tracked').length + '銘柄' : '未取得') + '<br>' +
-    'AIまとめ：' + (r?.status === 'ok' ? esc(dateJP(r.generatedAt, true)) + ' に作成' : '未設定') + '<br>' +
+    'AIまとめ：' + (r?.status === 'ok' ? esc(dateJP(r.generatedAt, true)) + ' に作成（' + esc(r.provider === 'claude' ? 'Claude' : 'GitHub Models 無料枠') + '／' + esc(r.model || '') + '）' : '未設定') + '<br>' +
     '銘柄一覧：' + (D.master ? D.master.length.toLocaleString() + '銘柄' : '検索時に読み込み') + '</p>' +
     (ix?.errors?.length ? '<p class="hint">前回、取得できなかった銘柄：' + esc(ix.errors.map(e => e.symbol).join('、')) + '（前のデータを表示中）</p>' : '') +
     (u ? '<p class="hint num">前回のAI使用量：入力 ' + (u.input_tokens || 0).toLocaleString() + '／出力 ' + (u.output_tokens || 0).toLocaleString() + ' トークン、Web検索 ' + (u.web_search_requests || 0) + '回</p>' : '') + '</article>';
