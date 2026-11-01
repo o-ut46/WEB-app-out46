@@ -151,7 +151,11 @@ def github_chat(system, user, max_tokens=4000):
                 u = data.get('usage') or {}
                 USAGE['input_tokens'] += u.get('prompt_tokens') or 0
                 USAGE['output_tokens'] += u.get('completion_tokens') or 0
-                return [{'type': 'text', 'text': data['choices'][0]['message']['content'] or ''}]
+                msg = (data.get('choices') or [{}])[0].get('message') or {}
+                text = msg.get('content') or ''
+                if '{' not in text:
+                    print('GitHub Models reply without JSON:', model, json.dumps(data, ensure_ascii=False)[:600])
+                return [{'type': 'text', 'text': text}]
             except urllib.error.HTTPError as exc:
                 last = f'GitHub Models HTTP {exc.code}: ' + exc.read().decode('utf-8', 'replace')[:300]
                 if exc.code == 429 and attempt < 3:
