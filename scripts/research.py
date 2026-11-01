@@ -17,11 +17,10 @@ from common import DATA, fetch_stock, http_get, now_iso, previous_published, rea
 API_KEY = os.environ.get('ANTHROPIC_API_KEY', '').strip()
 MODEL = os.environ.get('CLAUDE_MODEL', '').strip() or 'claude-sonnet-5-5'
 MODEL_LIGHT = os.environ.get('CLAUDE_MODEL_LIGHT', '').strip() or 'claude-haiku-5-5'
-GH_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
-GH_MODEL = os.environ.get('GH_MODEL', '').strip() or 'openai/gpt-4.1-mini'
-GH_FALLBACK = 'openai/gpt-4o-mini'
-# Claude API (paid, can read articles via web search) when a key is set; otherwise GitHub Models (free, headlines only)
-PROVIDER = 'claude' if API_KEY else 'github' if GH_TOKEN else None
+GEMINI_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', '').strip()
+# Claude API (paid) if its key is set; otherwise Google Gemini API free tier (Google Search grounding included)
+PROVIDER = 'claude' if API_KEY else 'gemini' if GEMINI_KEY else None
 MAX_SEARCHES = int(os.environ.get('MAX_WEB_SEARCHES', '') or 6)
 MAX_BRIEFS = int(os.environ.get('MAX_STOCK_BRIEFS', '') or 40)
 JST = timezone(timedelta(hours=9))
@@ -133,49 +132,107 @@ def claude(model, system, user, tools=None, max_tokens=8000):
     return blocks
 
 
-def github_chat(system, user, max_tokens=4000):
-    """GitHub Models (free tier, rate limited). Uses the workflow's GITHUB_TOKEN with `models: read`."""
-    last = None
-    for model in dict.fromkeys([GH_MODEL, GH_FALLBACK]):
-        body = {'model': model, 'temperature': 0.2, 'max_tokens': min(max_tokens, 4000),
-                'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]}
-        for attempt in range(4):
-            req = urllib.request.Request('https://models.github.ai/inference/chat/completions', data=json.dumps(body).encode(),
-                                         headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json',
-                                                  'Accept': 'application/json'})
-            try:
-                with urllib.request.urlopen(req, timeout=180) as res:
-                    raw = res.read()
-                    status, ctype = res.status, res.headers.get('Content-Type')
-                try:
-                    data = json.loads(raw)
-                except ValueError:
-                    last = f'GitHub Models returned non-JSON (HTTP {status}, {ctype}): {raw[:300]!r}'
-                    print(last)
-                    break
-                USAGE['calls'] += 1
-                USAGE['model'] = model
-                u = data.get('usage') or {}
-                USAGE['input_tokens'] += u.get('prompt_tokens') or 0
-                USAGE['output_tokens'] += u.get('completion_tokens') or 0
-                msg = (data.get('choices') or [{}])[0].get('message') or {}
-                text = msg.get('content') or ''
-                if '{' not in text:
-                    print('GitHub Models reply without JSON:', model, json.dumps(data, ensure_ascii=False)[:600])
-                return [{'type': 'text', 'text': text}]
-            except urllib.error.HTTPError as exc:
-                last = f'GitHub Models HTTP {exc.code}: ' + exc.read().decode('utf-8', 'replace')[:300]
-                if exc.code == 429 and attempt < 3:
-                    time.sleep(30 * (attempt + 1))
-                    continue
-                break  # other errors: try the fallback model
-    raise RuntimeError(last or 'GitHub Models failed')
+GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/'
+
+
+def gemini_http(path, body=None):
+    for attempt in range(4):
+        req = urllib.request.Request(GEMINI_BASE + path, data=json.dumps(body).encode() if body else None,
+                                     headers={'x-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req, timeout=240) as res:
+                return json.loads(res.read())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode('utf-8', 'replace')[:400]
+            if exc.code in (429, 500, 503) and attempt < 3:
+                time.sleep(40 * (attempt + 1))
+                continue
+            raise RuntimeError(f'Gemini HTTP {exc.code}: {detail}')
+
+
+def gemini_model():
+    if USAGE.get('model'):
+        return USAGE['model']
+    if GEMINI_MODEL:
+        USAGE['model'] = GEMINI_MODEL
+        return GEMINI_MODEL
+    names = []
+    try:
+        doc = gemini_http('models?pageSize=1000')
+        names = [m['name'].removeprefix('models/') for m in doc.get('models', [])
+                 if 'generateContent' in (m.get('supportedGenerationMethods') or [])]
+    except Exception as exc:
+        print('model list failed', exc)
+    pick = 'gemini-flash-latest' if 'gemini-flash-latest' in names or not names else None
+    if not pick:
+        plain = [n for n in names if 'flash' in n and not re.search(r'lite|image|tts|live|audio|thinking|exp|preview', n)]
+        pick = sorted(plain, key=lambda n: [int(x) for x in re.findall(r'\d+', n)] or [0])[-1] if plain else names[0]
+    USAGE['model'] = pick
+    print('Gemini model:', pick)
+    return pick
+
+
+def gemini(system, user, search=False, max_tokens=8192):
+    body = {'systemInstruction': {'parts': [{'text': system}]}, 'contents': [{'role': 'user', 'parts': [{'text': user}]}],
+            'generationConfig': {'temperature': 0.2, 'maxOutputTokens': max_tokens}}
+    if search:
+        body['tools'] = [{'google_search': {}}]
+    data = gemini_http('models/' + gemini_model() + ':generateContent', body)
+    time.sleep(6)  # stay under the free tier's requests-per-minute limit
+    USAGE['calls'] += 1
+    u = data.get('usageMetadata') or {}
+    USAGE['input_tokens'] += u.get('promptTokenCount') or 0
+    USAGE['output_tokens'] += u.get('candidatesTokenCount') or 0
+    cand = (data.get('candidates') or [{}])[0]
+    text = ''.join(p.get('text', '') for p in (cand.get('content') or {}).get('parts', []) if not p.get('thought'))
+    meta = cand.get('groundingMetadata') or {}
+    if search:
+        USAGE['web_search_requests'] += len(meta.get('webSearchQueries') or [])
+    return text, meta
+
+
+# credible outlets for WEB-wide search results (anything else found by the search is dropped)
+CREDIBLE_EXTRA = ['jiji.com', 'kyodonews.jp', 'nikkei.co.jp', 'asahi.com', 'yomiuri.co.jp', 'mainichi.jp', 'sankei.com',
+                  'finance.yahoo.co.jp', 'finance.yahoo.com', 'ft.com', 'morningstar.com', 'morningstar.co.jp',
+                  'investing.com', 'nasdaq.com', 'spglobal.com', 'boj.or.jp', 'mof.go.jp', 'federalreserve.gov',
+                  'sec.gov', 'release.tdnet.info', 'smd-am.co.jp', 'am.jpmorgan.com', 'blackrock.com', 'amova-am.com',
+                  'ubs.com', 'goldmansachs.com', 'morganstanley.com', 'nissay-am.co.jp', 'nli-research.co.jp',
+                  'dir.co.jp', 'nri.com', 'murc.jp', 'mizuho-rt.co.jp', 'itochu-research.com', 'jri.co.jp', 'bloomberg.com']
+
+
+def gemini_web_notes(today):
+    """One Google-Search-grounded call: collect today's market facts and forecasts from the web, keep only credible outlets."""
+    prompt = (f'今日は{today}（日本時間）。Google検索で直近3日の株式市場の情報を調べ、次を箇条書きでまとめてください。\n'
+              '1) 日本株：相場の動きと理由、証券会社・アナリスト・エコノミストの見通しや予測（誰の見方か明記）、リスク要因\n'
+              '2) 米国株：同じ内容\n'
+              '3) 決算・業績予想の修正・格付けや目標株価の変更・M&A・大型受注など、具体的な材料が出た個別銘柄（日本株は4桁コード、米国株はティッカー付き）最大8件\n'
+              '報道機関・証券会社・取引所・中央銀行などの信頼できる情報だけを使い、掲示板・SNS・個人ブログ・噂・出所不明の予想は使わないこと。数値は情報源にあるものだけ。')
+    text, meta = gemini('あなたは正確さを最優先する金融ニュースのリサーチャーです。', prompt, search=True)
+    chunks = meta.get('groundingChunks') or []
+    keep, pages = {}, {}
+    for i, c in enumerate(chunks):
+        web = c.get('web') or {}
+        domain = (web.get('domain') or web.get('title') or '').lower().strip()
+        if web.get('uri', '').startswith('https://') and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', domain) and \
+                allowed(domain, NEWS_SOURCES_JP + NEWS_SOURCES_JP2 + NEWS_SOURCES_US + CREDIBLE_EXTRA):
+            wid = f'W{len(keep) + 1}'
+            keep[i] = wid
+            pages[wid] = {'title': domain + ' の記事', 'url': web['uri'], 'publisher': domain, 'host': domain, 'date': ''}
+    lines = []
+    for sup in meta.get('groundingSupports') or []:
+        ids = sorted({keep[k] for k in sup.get('groundingChunkIndices') or [] if k in keep}, key=lambda x: int(x[1:]))
+        seg = ((sup.get('segment') or {}).get('text') or '').strip()
+        if ids and seg:
+            lines.append(f'- {seg} [{",".join(ids)}]')
+    USAGE['pagesRead'] = len(pages)
+    print('web notes:', len(lines), 'lines from', len(pages), 'credible pages of', len(chunks))
+    return '\n'.join(lines)[:9000], pages
 
 
 def llm(light, system, user, tools=None, max_tokens=8000):
     if PROVIDER == 'claude':
         return claude(MODEL_LIGHT if light else MODEL, system, user, tools=tools, max_tokens=max_tokens)
-    return github_chat(system, user, max_tokens)
+    return [{'type': 'text', 'text': gemini(system, user)[0]}]
 
 
 def searched_pages(blocks):
@@ -258,7 +315,7 @@ def market_and_featured(tracked, techs, master):
             us_news += google_news(q, group, days=4, limit=5)
     for q in ('stock market outlook', 'analyst upgrade price target'):
         us_news += google_news(q, NEWS_SOURCES_US, lang='en', days=4, limit=8)
-    cap = 25 if PROVIDER == 'claude' else 22  # GitHub Models free tier: about 8k input tokens per request
+    cap = 25
 
     def dedupe(xs):
         seen, out = set(), []
@@ -282,7 +339,7 @@ def market_and_featured(tracked, techs, master):
 {tracked_txt}
 
 # 作業
-1. {'見出しを手がかりに、必要ならweb検索（最大' + str(MAX_SEARCHES) + '回、許可された媒体のみ）で記事を読み' if PROVIDER == 'claude' else '見出しだけを根拠に（見出しに書かれていないことは補わずに）'}、日本市場と米国市場それぞれの「今の相場の要点」「専門家・証券会社の見通し」「リスク要因」をまとめる。
+1. {'見出しを手がかりに、必要ならweb検索（最大' + str(MAX_SEARCHES) + '回、許可された媒体のみ）で記事を読み' if PROVIDER == 'claude' else '見出しと下の「WEB検索メモ」だけを根拠に（書かれていないことは補わずに）'}、日本市場と米国市場それぞれの「今の相場の要点」「専門家・証券会社の見通し」「リスク要因」をまとめる。
 2. 直近のニュースで材料が出ている「注目銘柄」を日本株・米国株あわせて3〜8銘柄選ぶ（追跡中の銘柄でなくてよい）。決算、業績予想の修正、大型受注、M&A、規制、指数採用など、記事で確認できる具体的な材料がある銘柄に限る。銘柄コード（日本株は4桁英数字、米国株はティッカー）が確かな銘柄に限る（コードは公式の銘柄一覧で照合し、合わないものは除外される）。
 
 # 出力JSON
@@ -292,8 +349,17 @@ def market_and_featured(tracked, techs, master):
     tools = [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES,
               'allowed_domains': WEB_SEARCH_DOMAINS,
               'user_location': {'type': 'approximate', 'country': 'JP', 'timezone': 'Asia/Tokyo'}}]
-    blocks = llm(False, RULES, user, tools=tools, max_tokens=8000)
-    pages = searched_pages(blocks)
+    if PROVIDER == 'gemini':
+        notes, pages = '', {}
+        try:
+            notes, pages = gemini_web_notes(today)
+        except Exception as exc:
+            print('web notes failed', exc)
+        user += '\n\n# WEB検索メモ（Google検索。[W番号]が根拠ID）\n' + (notes or '（取得できませんでした）')
+        blocks = llm(False, RULES, user)
+    else:
+        blocks = llm(False, RULES, user, tools=tools, max_tokens=8000)
+        pages = searched_pages(blocks)
     data = json_from(blocks)
     market = {}
     for region in ('jp', 'us'):
@@ -344,7 +410,7 @@ def stock_briefs(tracked, techs):
     for s, items in collected:
         if not items:
             briefs[s['key']] = {'status': 'no_news', 'summary': '', 'sources': []}
-    step = 8 if PROVIDER == 'claude' else 5  # free tier allows ~8k input tokens per request
+    step = 8
     for start in range(0, len(batch), step):
         chunk, idmap, parts = batch[start:start + step], {}, []
         for si, (s, items) in enumerate(chunk):
@@ -421,8 +487,8 @@ def keep_previous(reason):
 
 def main():
     if not PROVIDER:
-        print('No AI available (no ANTHROPIC_API_KEY and no GITHUB_TOKEN); skipping AI research.')
-        return keep_previous('AIまとめを作れませんでした（AIの接続設定がありません）。')
+        print('No AI key (GEMINI_API_KEY or ANTHROPIC_API_KEY); skipping AI research.')
+        return keep_previous('AIまとめは未設定です。無料のGemini APIキーをGitHubに登録すると、毎朝ここに表示されます（手順は「設定」タブ）。')
     print('AI provider:', PROVIDER)
     prev = previous_published('research.json')
     if os.environ.get('GITHUB_EVENT_NAME') == 'push' and os.environ.get('FORCE_RESEARCH') != 'true' and prev and prev.get('generatedAt'):
@@ -454,10 +520,10 @@ def main():
     if not market and not featured and not any(b.get('status') == 'ok' for b in briefs.values()):
         return keep_previous('今回のAIまとめに失敗したため、前回の内容を表示しています：' + '; '.join(errors)[:300])
     errors += add_featured(featured)
-    research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', GH_MODEL),
-                'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', GH_MODEL),
+    research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
+                'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'market': market, 'featured': featured, 'briefs': briefs, 'errors': errors,
-                'usage': {**USAGE, 'pagesRead': page_count}}
+                'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))
 

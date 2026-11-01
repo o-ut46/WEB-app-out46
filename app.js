@@ -195,10 +195,11 @@ function renderSettings() {
   const u = r?.usage;
   let h = '<article class="group"><h2>データの状態</h2>' +
     '<p>株価：' + (ix?.generatedAt ? esc(dateJP(ix.generatedAt, true)) + ' に更新／' + ix.stocks.filter(e => e.kind === 'tracked').length + '銘柄' : '未取得') + '<br>' +
-    'AIまとめ：' + (r?.status === 'ok' ? esc(dateJP(r.generatedAt, true)) + ' に作成（' + esc(r.provider === 'claude' ? 'Claude' : 'GitHub Models 無料枠') + '／' + esc(r.model || '') + '）' : '未設定') + '<br>' +
+    'AIまとめ：' + (r?.status === 'ok' ? esc(dateJP(r.generatedAt, true)) + ' に作成（' + esc(r.provider === 'claude' ? 'Claude' : 'Gemini 無料枠') + '／' + esc(r.model || '') + '）' : '未設定') + '<br>' +
     '銘柄一覧：' + (D.master ? D.master.length.toLocaleString() + '銘柄' : '検索時に読み込み') + '</p>' +
     (ix?.errors?.length ? '<p class="hint">前回、取得できなかった銘柄：' + esc(ix.errors.map(e => e.symbol).join('、')) + '（前のデータを表示中）</p>' : '') +
     (u ? '<p class="hint num">前回のAI使用量：入力 ' + (u.input_tokens || 0).toLocaleString() + '／出力 ' + (u.output_tokens || 0).toLocaleString() + ' トークン、Web検索 ' + (u.web_search_requests || 0) + '回</p>' : '') + '</article>';
+  if (r?.status !== 'ok') h += '<article class="group"><h2>AIまとめを使えるようにする（無料）</h2><ol class="mkt-points"><li>Safariで <b>aistudio.google.com</b> を開き、Googleアカウントでログイン</li><li>「Get API key」→「Create API key」でキーを作ってコピー（カード登録は不要）</li><li>GitHubで <b>github.com/' + esc(rp?.owner || 'o-ut46') + '/' + esc(rp?.repo || 'WEB-app-out46') + '/settings/secrets/actions</b> を開き、「New repository secret」</li><li>Name に <b>GEMINI_API_KEY</b>、Secret にキーを貼り付けて「Add secret」</li></ol><p class="hint">翌朝から自動でまとめが入ります。無料枠では、送った内容がGoogleのサービス改善に使われることがあります（ここで送るのは公開ニュースの見出しだけです）。</p></article>';
   h += '<article class="group"><h2>銘柄の追加と削除</h2><p>銘柄の画面で「毎朝の自動更新に追加」を押すとGitHubが開きます。緑の <b>Commit changes</b> を押せば完了で、数分後に株価が、翌朝からニュースのまとめが入ります。</p><p>外すときは、GitHubの <b>watchlist</b> フォルダにある銘柄のファイル（例 7203.txt）を削除します。</p>' +
     '<div class="field"><div><label for="ow">GitHubのユーザー名</label><input id="ow" class="input" placeholder="' + esc(rp?.owner || 'o-ut46') + '" value="' + esc(S.owner) + '"></div><div><label for="rp">リポジトリ名</label><input id="rp" class="input" placeholder="' + esc(rp?.repo || 'WEB-app-out46') + '" value="' + esc(S.repo) + '"></div></div>' +
     '<p class="hint">GitHub Pagesで開いている場合は自動で判別するので、空欄のままで構いません。</p><div class="btns"><button class="btn" id="saveRepo">保存する</button></div></article>';

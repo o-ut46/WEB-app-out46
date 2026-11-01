@@ -15,7 +15,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  models: read
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -43,12 +42,12 @@ jobs:
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: python scripts/update_prices.py
-      - name: Collect news and summarise with AI (GitHub Models free / Claude)
+      - name: Collect news and summarise with AI (Gemini free tier / Claude)
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_MODEL: ${{ vars.GH_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           CLAUDE_MODEL_LIGHT: ${{ vars.CLAUDE_MODEL_LIGHT }}
           MAX_WEB_SEARCHES: ${{ vars.MAX_WEB_SEARCHES }}
