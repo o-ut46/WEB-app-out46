@@ -224,7 +224,9 @@ def grounded_notes(prompt, prefix='W'):
     alts = [n for n in names if re.fullmatch(r'gemini-[\d.]+-flash(-lite)?', n)]
     alts.sort(key=lambda n: ('lite' in n, [-int(x) for x in re.findall(r'\d+', n)]))
     text, meta, last = '', {}, None
-    for model in [first] + [a for a in alts if a != first][:3]:
+    flash = [a for a in alts if a != first and 'lite' not in a][:2]
+    lite = [a for a in alts if 'lite' in a][:2]
+    for model in [first] + flash + lite:
         try:
             text, meta = gemini('あなたは正確さを最優先する金融ニュースのリサーチャーです。', prompt, search=True, model=model)
             print('web search model:', model)
@@ -259,7 +261,25 @@ def grounded_notes(prompt, prefix='W'):
 def llm(light, system, user, tools=None, max_tokens=8000):
     if PROVIDER == 'claude':
         return claude(MODEL_LIGHT if light else MODEL, system, user, tools=tools, max_tokens=max_tokens)
+    if light:  # many small calls -> Flash-Lite (larger free daily allowance), fall back to Flash
+        gemini_model()
+        for m in [lite_model(), None]:
+            try:
+                return [{'type': 'text', 'text': gemini(system, user, model=m)[0]}]
+            except RuntimeError as exc:
+                if m is None or '429' not in str(exc):
+                    raise
+                print('lite model quota, falling back:', str(exc)[:80])
     return [{'type': 'text', 'text': gemini(system, user)[0]}]
+
+
+def lite_model():
+    names = USAGE.get('allModels') or []
+    lites = [n for n in names if re.fullmatch(r'gemini-[\d.]+-flash-lite', n)]
+    lites.sort(key=lambda n: [-int(x) for x in re.findall(r'\d+', n)])
+    pick = 'gemini-flash-lite-latest' if 'gemini-flash-lite-latest' in names else (lites[0] if lites else None)
+    USAGE['liteModel'] = pick
+    return pick
 
 
 def searched_pages(blocks):
