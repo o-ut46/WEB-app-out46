@@ -176,6 +176,28 @@ function runSearch() {
   }).join('');
 }
 
+/* ---------- できごと（株式分割・配当・発表など） ---------- */
+const EV_ICON = { 決算: '📊', 業績修正: '📈', 株式分割: '✂️', 配当: '💴', 自社株買い: '🔁', 'M&A・提携': '🤝', '新製品・事業': '🚀', 人事: '👤', '不祥事・訴訟': '⚠️', その他: '📰' };
+function eventsOf(k) {
+  const out = [], m = k.split(':')[0];
+  for (const e of entry(k)?.events || []) {
+    if (e.type === 'split') out.push({ date: e.date, type: '株式分割', text: '株式分割（' + e.ratio + '）を実施', fact: true });
+    else if (e.type === 'dividend') out.push({ date: e.date, type: '配当', text: '配当の権利落ち（1株 ' + (m === 'US' ? e.amount + 'ドル' : e.amount + '円') + '）', fact: true });
+  }
+  for (const e of D.research?.briefs?.[k]?.events || []) out.push({ ...e, fact: false });
+  const seen = new Set();
+  return out.filter(e => { const key = e.date + e.type + (e.fact ? '' : e.text); if (seen.has(key)) return false; seen.add(key); return true; })
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+function eventRow(e, k) {
+  const st = k ? info(k) : null;
+  return '<li class="ev"><span class="ev-date num">' + esc(e.date.slice(5).replace('-', '/')) + '</span><span class="ev-body">' +
+    (st ? '<button class="ev-name" data-open="' + esc(k) + '">' + esc(S.hold[k]?.name || st.name) + '</button>' : '') +
+    '<span class="ev-type">' + (EV_ICON[e.type] || '📰') + ' ' + esc(e.type) + '</span>' + esc(e.text) +
+    (e.source ? ' <a href="' + esc(safeUrl(e.source.url)) + '" target="_blank" rel="noopener noreferrer">（' + esc(e.source.publisher || '出典') + '）</a>' : e.fact ? ' <small>（Yahoo Finance）</small>' : '') +
+    '</span></li>';
+}
+
 /* ---------- 保有株 ---------- */
 const ACCOUNTS = ['NISA（成長投資枠）', 'NISA（つみたて投資枠）', '特定口座', '一般口座'];
 const usdjpy = () => entry('INDEX:USDJPY')?.tech?.close;
@@ -204,8 +226,17 @@ function renderHold() {
       return '<li><button class="row" data-open="' + esc(r.k) + '"><span class="nm"><b>' + esc(r.h.name || st.name) + '</b><small>' + esc(st.symbol) + '　' + r.h.qty.toLocaleString('ja-JP') + '株　' + esc(r.h.account || '') + (b?.status === 'ok' ? '　' + (b.tone > 0 ? '好材料' : b.tone < 0 ? '悪材料' : 'ニュースあり') : '') + '</small></span>' + spark(entry(r.k)?.spark) +
         '<span class="px num">' + (Number.isFinite(r.value) ? yen(r.value) + '<small class="' + dir(r.pl) + '">' + signedYen(r.pl) + '</small>' : '<small class="flat">価格データなし</small>') + '</span></button></li>';
     }).join('') + '</ul></div>';
+    const since = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10);
+    const evs = rows.flatMap(r => eventsOf(r.k).filter(e => e.date >= since).map(e => [e, r.k])).sort((a, b) => b[0].date.localeCompare(a[0].date)).slice(0, 25);
+    h += '<div class="section-head"><h2>保有株のトピック</h2><p>直近45日のできごと</p></div>';
+    h += evs.length ? '<div class="group"><ul class="evlist">' + evs.map(([e, k]) => eventRow(e, k)).join('') + '</ul></div>' +
+      '<p class="hint">株式分割・配当はYahoo Financeの記録、それ以外は信頼できる媒体の記事見出しからAIがまとめた出来事です（出典つき）。</p>'
+      : '<p class="empty">直近45日、保有株について記録されたできごとはありません。</p>';
+    const briefs = rows.map(r => [r, D.research?.briefs?.[r.k]]).filter(([, b]) => b?.status === 'ok');
+    if (briefs.length) h += '<div class="section-head"><h2>保有株の最近の動き</h2><p>AIまとめ</p></div>' + briefs.map(([r, b]) =>
+      '<article class="group"><div class="feat-head"><button class="feat-name" data-open="' + esc(r.k) + '">' + esc(r.h.name || info(r.k).name) + '<span class="code">' + esc(r.k.split(':')[1]) + '</span></button>' + tone(b.tone) + '</div><p>' + esc(b.summary) + '</p><div class="chips">' + chips(b.good, 'good') + chips(b.bad, 'bad') + '</div>' + outlooks(b.outlooks) + sources(b.sources) + '</article>').join('');
     const missing = rows.filter(r => !tracked(r.k));
-    if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価とニュースが入ります。</p>';
+    if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価・ニュース・トピックが入ります。</p>';
   } else h += '<p class="empty">まだ登録がありません。下で銘柄を探して、株数と取得単価を入れてください。登録内容はこの端末だけに保存されます。</p>';
   h += '<div class="section-head"><h2>保有株を追加</h2></div><div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="hs" type="search" autocomplete="off" placeholder="会社名・コードで探す" aria-label="追加する銘柄を探す"></div><ul id="hsr" class="list pick-list"></ul><div id="holdForm"></div>';
   $('#hold').innerHTML = h;
@@ -349,7 +380,9 @@ async function openDetail(k, hint) {
   h += '<p class="hint">ここ60日の値動きの大きさから見た、20営業日後の参考レンジ（およそ3回に2回は収まる幅）：<span class="num">' + fmt(s.band[0], m) + '〜' + fmt(s.band[1], m) + '</span>。予想や目標株価ではありません。</p>';
   if (feat) h += '<article class="group" style="margin-top:16px"><div class="feat-head"><h2>注目の理由 <span class="ai-mark">AIまとめ</span></h2>' + tone(feat.tone) + '</div><p>' + esc(feat.reason) + '</p><div class="chips">' + chips(feat.catalysts, 'good') + chips(feat.risks, 'bad') + '</div>' + sources(feat.sources) + '</article>';
   if (brief?.status === 'ok') h += '<article class="group" style="margin-top:16px"><div class="feat-head"><h2>最近のニュース <span class="ai-mark">AIまとめ</span></h2>' + tone(brief.tone) + '</div><p>' + esc(brief.summary) + '</p><div class="chips">' + chips(brief.good, 'good') + chips(brief.bad, 'bad') + '</div>' + outlooks(brief.outlooks) + sources(brief.sources) + '</article>';
-  else if (brief?.status === 'no_news') h += '<p class="hint">直近10日、信頼できる媒体にこの銘柄の記事は見つかりませんでした。</p>';
+  else if (brief?.status === 'no_news') h += '<p class="hint">直近3週間、信頼できる媒体にこの銘柄の記事は見つかりませんでした。</p>';
+  const evs = eventsOf(k).slice(0, 8);
+  if (evs.length) h += '<article class="group" style="margin-top:16px"><h2>最近のできごと</h2><ul class="evlist">' + evs.map(e => eventRow(e)).join('') + '</ul></article>';
   const hd = S.hold[k] || {};
   if (m !== 'INDEX') h += '<article class="group" style="margin-top:16px"><h2>保有の記録</h2><div class="field"><div><label for="hq">株数</label><input id="hq" class="input num" inputmode="decimal" value="' + esc(hd.qty ?? '') + '"></div><div><label for="hc">取得単価（' + unit(m) + '）</label><input id="hc" class="input num" inputmode="decimal" value="' + esc(hd.cost ?? '') + '"></div></div>' +
     '<label class="lbl" for="ha">口座</label><select id="ha" class="input">' + ACCOUNTS.map(a => '<option' + (a === hd.account ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +

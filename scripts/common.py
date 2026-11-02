@@ -1,6 +1,6 @@
 """Shared helpers for the GitHub Actions data pipeline (no API keys needed here)."""
 import json, math, os, re, time, urllib.parse, urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -105,7 +105,20 @@ def parse_chart(payload, config, max_rows=1600):
     if len(rows) < 21:
         raise ValueError('Less than 21 valid trading days')
     name = config.get('name') or meta.get('longName') or meta.get('shortName') or config['symbol']
-    return {**config, 'name': name, 'providerName': meta.get('longName') or meta.get('shortName') or '',
+    # corporate actions reported by Yahoo (stock splits / dividends), last 3 years
+    events, cutoff = [], datetime.now(timezone.utc).timestamp() - 3 * 365 * 86400
+    ev = result.get('events') or {}
+    for v in (ev.get('splits') or {}).values():
+        n, d = v.get('numerator'), v.get('denominator')
+        if v.get('date', 0) >= cutoff and positive(n) and positive(d):
+            events.append({'date': datetime.fromtimestamp(v['date'], tz).strftime('%Y-%m-%d'), 'type': 'split',
+                           'ratio': f'1株→{n / d:g}株' if n >= d else f'{d / n:g}株→1株（併合）'})
+    for v in (ev.get('dividends') or {}).values():
+        if v.get('date', 0) >= cutoff and positive(v.get('amount')):
+            events.append({'date': datetime.fromtimestamp(v['date'], tz).strftime('%Y-%m-%d'), 'type': 'dividend',
+                           'amount': round(v['amount'], 4)})
+    events.sort(key=lambda e: e['date'], reverse=True)
+    return {**config, 'name': name, 'events': events, 'providerName': meta.get('longName') or meta.get('shortName') or '',
             'currency': expected, 'rows': rows, 'fetchedAt': now_iso(),
             'source': 'Yahoo Finance / chart endpoint（非公式取得・配当調整なし、分割調整は配信元依存）',
             'sourceUrl': 'https://finance.yahoo.com/quote/' + urllib.parse.quote(config['yahoo'], safe='') + '/history/'}
@@ -115,7 +128,7 @@ def fetch_stock(config, range_='10y', max_rows=1600):
     last = None
     for host in ('query1.finance.yahoo.com', 'query2.finance.yahoo.com'):
         url = ('https://' + host + '/v8/finance/chart/' + urllib.parse.quote(config['yahoo'], safe='')
-               + '?interval=1d&range=' + range_)
+               + '?interval=1d&events=div%2Csplits&range=' + range_)
         try:
             payload = json.loads(http_get(url, accept='application/json', retries=1))
             return parse_chart(payload, config, max_rows)
@@ -166,7 +179,7 @@ def to_file(record):
     rows = [[r['date'], r.get('open'), r.get('high'), r.get('low'), r['close'], r.get('volume')] for r in record['rows']]
     return {'version': 2, 'symbol': record['symbol'], 'market': record['market'], 'name': record.get('name') or record['symbol'],
             'yahoo': record['yahoo'], 'currency': record.get('currency'), 'fetchedAt': record.get('fetchedAt'),
-            'source': record.get('source', ''), 'sourceUrl': record.get('sourceUrl', ''), 'rows': rows}
+            'source': record.get('source', ''), 'sourceUrl': record.get('sourceUrl', ''), 'events': record.get('events', []), 'rows': rows}
 
 
 def from_file(doc):
@@ -179,7 +192,8 @@ def index_entry(record, kind):
     closes = [r['close'] for r in record['rows'][-60:]]
     return {'symbol': record['symbol'], 'market': record['market'], 'name': record.get('name') or record['symbol'],
             'yahoo': record['yahoo'], 'kind': kind, 'file': 'prices/' + fid + '.json',
-            'tech': technicals(record['rows']), 'spark': [round(c, 4) for c in closes]}
+            'tech': technicals(record['rows']), 'spark': [round(c, 4) for c in closes],
+            'events': [e for e in record.get('events', []) if e['date'] >= (datetime.now(timezone.utc) - timedelta(days=400)).strftime('%Y-%m-%d')][:6]}
 
 
 def save_record(record, kind):

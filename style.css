@@ -196,3 +196,12 @@ select.input{appearance:none;-webkit-appearance:none;background-image:linear-gra
 details.more summary{cursor:pointer;padding:14px 16px;font-weight:700;list-style:none}
 details.more summary::-webkit-details-marker{display:none}
 details.more[open] summary{border-bottom:1px solid var(--rule)}
+
+/* events timeline */
+.evlist{list-style:none;margin:0;padding:0}
+.ev{display:grid;grid-template-columns:48px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.6}
+.ev:last-child{border-bottom:0}
+.ev-date{color:var(--sub);font-size:13px;padding-top:1px}
+.ev-name{display:block;background:none;border:0;padding:0;font-weight:700;cursor:pointer;text-align:left}
+.ev-type{display:inline-block;font-size:12px;font-weight:700;color:var(--ai);background:var(--ai-bg);border-radius:999px;padding:0 8px;margin-right:6px}
+.ev a,.ev small{font-size:12px;color:var(--sub)}

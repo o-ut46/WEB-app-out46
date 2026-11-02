@@ -217,6 +217,8 @@ def gemini_web_notes(today):
 def grounded_notes(prompt, prefix='W'):
     """Google-Search-grounded Gemini call; returns bullet notes citing [W1..] and the credible pages behind them."""
     # Google Search grounding quota can differ per model: try the default, then other stable Flash models
+    if USAGE.get('searchOff'):
+        raise RuntimeError('Google search grounding unavailable (quota) — skipped')
     first = gemini_model()
     names = USAGE.get('allModels') or []
     alts = [n for n in names if re.fullmatch(r'gemini-[\d.]+-flash(-lite)?', n)]
@@ -231,6 +233,7 @@ def grounded_notes(prompt, prefix='W'):
             last = exc
             print('web search failed on', model, str(exc)[:120])
     else:
+        USAGE['searchOff'] = True
         raise last or RuntimeError('web search failed')
     chunks = meta.get('groundingChunks') or []
     keep, pages = {}, {}
@@ -422,10 +425,17 @@ def stock_briefs(tracked, techs):
 
     def news(s):
         name = short_name(s['name'])
-        items = google_news(f'"{name}"', NEWS_SOURCES_JP, days=10, limit=5)
-        items += google_news(f'"{name}"', NEWS_SOURCES_JP2, days=10, limit=3)
+        items = google_news(f'"{name}"', NEWS_SOURCES_JP, days=21, limit=6)
+        items += google_news(f'"{name}"', NEWS_SOURCES_JP2, days=21, limit=3)
+        if s['market'] == 'JP':  # official disclosures (決算短信・株式分割・配当・自社株買いなど) via TDnet / JPX
+            items += google_news(f'"{name}" (決算 OR 分割 OR 配当 OR 自己株式 OR 開示)', ['release.tdnet.info', 'jpx.co.jp', 'kabutan.jp'], days=30, limit=3)
         if s['market'] == 'US':
-            items += google_news(f'"{name}" stock', NEWS_SOURCES_US, lang='en', days=10, limit=4)
+            items += google_news(f'"{name}" stock', NEWS_SOURCES_US, lang='en', days=21, limit=4)
+        seen, uniq = set(), []
+        for h in items:
+            if h['url'] not in seen:
+                seen.add(h['url']); uniq.append(h)
+        items = sorted(uniq, key=lambda h: h['date'], reverse=True)[:10]
         return s, items
     with ThreadPoolExecutor(max_workers=3) as pool:
         collected = list(pool.map(news, targets))
@@ -448,7 +458,10 @@ def stock_briefs(tracked, techs):
                 '関係する見出しが無ければ summary を空文字にしてください。\n\n' + '\n\n'.join(parts) +
                 '\n\n# 出力JSON\n{"stocks":[{"key":"JP:7203","summary":"最近の動向(120字以内)","good":["好材料(各30字以内)"],'
                 '"bad":["悪材料・懸念"],"outlooks":[{"who":"発言者・機関","view":"見通し","source":"根拠ID"}],'
-                '"tone":-2から2の整数(記事の論調。-2=明確に悪い,0=中立,2=明確に良い),"sources":["S1H1"]}]}')
+                '"tone":-2から2の整数(記事の論調。-2=明確に悪い,0=中立,2=明確に良い),"sources":["S1H1"],'
+                '"events":[{"date":"見出しの日付YYYY-MM-DD","type":"決算|業績修正|株式分割|配当|自社株買い|M&A・提携|新製品・事業|人事|不祥事・訴訟|その他",'
+                '"text":"何があったか(40字以内、事実のみ)","source":"S1H2"}]}]}\n'
+                'events は見出しで確認できる具体的な出来事（発表・決定・実施）だけを新しい順に最大5件。株価の上げ下げだけの見出しは入れない。')
         try:
             data = json_from(llm(True, RULES, user, max_tokens=4000))
         except Exception as exc:
@@ -470,7 +483,22 @@ def stock_briefs(tracked, techs):
                 tone = max(-2, min(2, int(b.get('tone', 0))))
             except Exception:
                 tone = 0
-            briefs[b['key']] = {'status': 'ok', 'summary': clip(b['summary'], 180),
+            events, seen_ev = [], set()
+            for ev in b.get('events') or []:
+                src = str(ev.get('source') or '')
+                if not src.startswith(prefix[b['key']]) or src not in idmap or not ev.get('text'):
+                    continue
+                h = idmap[src]
+                typ = clip(ev.get('type'), 10) or 'その他'
+                key = (typ, clip(ev.get('text'), 20))
+                if key in seen_ev:
+                    continue
+                seen_ev.add(key)
+                date = str(ev.get('date') or '')
+                events.append({'date': date if re.fullmatch(r'\d{4}-\d{2}-\d{2}', date) and date <= h['date'] else h['date'],
+                               'type': typ, 'text': clip(ev['text'], 60), 'source': resolve([src], idmap, {})[0]})
+            events.sort(key=lambda e: e['date'], reverse=True)
+            briefs[b['key']] = {'status': 'ok', 'summary': clip(b['summary'], 180), 'events': events[:5],
                                 'good': [clip(x, 40) for x in (b.get('good') or [])][:4],
                                 'bad': [clip(x, 40) for x in (b.get('bad') or [])][:4],
                                 'outlooks': clean_outlooks(b.get('outlooks'), idmap, {}),
@@ -689,10 +717,11 @@ def main():
     holder = {}
     errors += refresh_topics(holder, master, only_new=False)
     USAGE.pop('allModels', None)
+    search_off = USAGE.pop('searchOff', False)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'errors': errors,
-                'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}}
+                'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}, 'searchOff': search_off}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))
 
