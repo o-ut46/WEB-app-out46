@@ -140,7 +140,7 @@ function renderToday() {
       return '<article class="feat"><div class="feat-head"><button class="feat-name" data-open="' + esc(k) + '">' + esc(f.name) + '<span class="code">' + esc(f.symbol) + '</span></button>' + tone(f.tone) + '</div>' +
         (f.theme ? '<p class="theme">' + esc(f.theme) + '</p>' : '') + '<div data-mini="' + esc(k) + '"></div>' +
         (t ? '<div class="figs num"><span><b>' + fmt(t.close, f.market) + '</b> ' + unit(f.market) + '</span><span class="' + dir(t.chg1d) + '">前日 ' + pct(t.chg1d) + '</span><span class="' + dir(t.chg20d) + '">20日 ' + pct(t.chg20d) + '</span></div>' : '') +
-        '<p class="grow">' + esc(f.reason) + '</p><div class="chips">' + chips(f.catalysts, 'good') + chips(f.risks, 'bad') + '</div>' + sources(f.sources) +
+        '<details class="explain grow"><summary>解説を読む</summary><p>' + esc(f.reason) + '</p><div class="chips">' + chips(f.catalysts, 'good') + chips(f.risks, 'bad') + '</div>' + sources(f.sources) + '</details>' +
         '<div class="btns"><button class="btn" data-open="' + esc(k) + '">チャートを詳しく見る</button></div></article>';
     }).join('') + '</div>';
   }
@@ -232,15 +232,49 @@ function renderHold() {
     h += evs.length ? '<div class="group"><ul class="evlist">' + evs.map(([e, k]) => eventRow(e, k)).join('') + '</ul></div>' +
       '<p class="hint">株式分割・配当はYahoo Financeの記録、それ以外は信頼できる媒体の記事見出しからAIがまとめた出来事です（出典つき）。</p>'
       : '<p class="empty">直近45日、保有株について記録されたできごとはありません。</p>';
-    const briefs = rows.map(r => [r, D.research?.briefs?.[r.k]]).filter(([, b]) => b?.status === 'ok');
-    if (briefs.length) h += '<div class="section-head"><h2>保有株の最近の動き</h2><p>AIまとめ</p></div>' + briefs.map(([r, b]) =>
-      '<article class="group"><div class="feat-head"><button class="feat-name" data-open="' + esc(r.k) + '">' + esc(r.h.name || info(r.k).name) + '<span class="code">' + esc(r.k.split(':')[1]) + '</span></button>' + tone(b.tone) + '</div><p>' + esc(b.summary) + '</p><div class="chips">' + chips(b.good, 'good') + chips(b.bad, 'bad') + '</div>' + outlooks(b.outlooks) + sources(b.sources) + '</article>').join('');
-    const missing = rows.filter(r => !tracked(r.k));
+    h += '<div class="section-head"><h2>保有株の分析</h2><p>毎朝自動で更新</p></div>' + rows.map(r => holdingCard(r)).join('');
+    const notSent = rows.filter(r => !entry(r.k)?.holding);
+    h = syncCard(rows, notSent) + h;
+    const missing = [];
     if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価・ニュース・トピックが入ります。</p>';
   } else h += '<p class="empty">まだ登録がありません。下で銘柄を探して、株数と取得単価を入れてください。登録内容はこの端末だけに保存されます。</p>';
   h += '<div class="section-head"><h2>保有株を追加</h2></div><div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="hs" type="search" autocomplete="off" placeholder="会社名・コードで探す" aria-label="追加する銘柄を探す"></div><ul id="hsr" class="list pick-list"></ul><div id="holdForm"></div>';
   $('#hold').innerHTML = h;
   if (picked) drawHoldForm();
+}
+function trendText(t) {
+  if (!t) return '';
+  const parts = [];
+  if (Number.isFinite(t.chg20d)) parts.push('20日で ' + pct(t.chg20d));
+  if (Number.isFinite(t.vsMA25) && Number.isFinite(t.vsMA75)) parts.push(t.vsMA25 > 0 && t.vsMA75 > 0 ? '25日・75日平均より上（上向き）' : t.vsMA25 < 0 && t.vsMA75 < 0 ? '25日・75日平均より下（下向き）' : '平均線の近く（方向感なし）');
+  if (Number.isFinite(t.rsi14)) parts.push('RSI ' + t.rsi14.toFixed(0) + (t.rsi14 >= 70 ? '（買われすぎ気味）' : t.rsi14 <= 30 ? '（売られすぎ気味）' : ''));
+  return parts.join('、');
+}
+function holdingCard(r) {
+  const k = r.k, st = info(k), a = D.research?.holdings?.[k], b = D.research?.briefs?.[k], t = entry(k)?.tech;
+  const evs = eventsOf(k).slice(0, 3), stc = { bullish: ['強気寄り', 'pos'], bearish: ['弱気寄り', 'neg'], neutral: ['中立', 'mix'], mixed: ['強弱まちまち', 'mix'] }[a?.stance] || null;
+  let h = '<article class="group hold-card"><div class="feat-head"><button class="feat-name" data-open="' + esc(k) + '">' + esc(r.h.name || st.name) + '<span class="code">' + esc(st.symbol) + '</span></button>' +
+    (stc ? '<span class="tone ' + stc[1] + '">見通し：' + stc[0] + '</span>' : b?.status === 'ok' ? tone(b.tone) : '') + '</div>';
+  if (a?.status === 'ok' || b?.status === 'ok') h += '<h3>現在の動向</h3><p>' + esc(a?.now || b.summary) + '</p>';
+  if (t) h += '<p class="hint num">値動き：' + esc(trendText(t)) + '</p>';
+  if (evs.length) h += '<h3>最近のトピック</h3><ul class="evlist">' + evs.map(e => eventRow(e)).join('') + '</ul>';
+  if (a?.status === 'ok') {
+    h += '<h3>今後の動向予想 <span class="ai-mark">AIまとめ</span></h3><p>' + esc(a.outlook) + '</p>' + (a.trend ? '<p class="hint">値動きから：' + esc(a.trend) + '</p>' : '') +
+      outlooks(a.outlooks).replace('<h3>見通し</h3>', '') +
+      (a.watch?.length ? '<div class="chips">' + chips(a.watch, '') + '</div>' : '') + (a.risks?.length ? '<div class="chips">' + chips(a.risks, 'bad') + '</div>' : '') + sources(a.sources);
+  } else if (b?.status === 'ok' && b.outlooks?.length) h += '<h3>今後の動向予想</h3>' + outlooks(b.outlooks).replace('<h3>見通し</h3>', '');
+  else if (!entry(k)?.holding) h += '<p class="hint">上の「保有株を自動分析に送る」で送ると、翌朝から（すぐ送れば数分後から）分析が入ります。</p>';
+  else h += '<p class="hint">' + (a ? '信頼できる媒体で、今後の見通しに関する記事は見つかりませんでした。' : '次の自動更新で分析が入ります。') + '</p>';
+  return h + '</article>';
+}
+function syncCard(rows, notSent) {
+  const list = rows.map(r => r.k.split(':')[1] + ' ' + (r.h.name || info(r.k).name)).join('\n');
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  const url = ghUrl('new', 'holdings', stamp + '.txt', list);
+  if (!notSent.length && Object.keys(S.hold).length === (D.index?.stocks || []).filter(e => e.holding).length) return '';
+  return '<div class="notice"><b>保有株を自動分析に送る</b>' + (notSent.length ? '自動分析に入っていない保有株：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。' : '保有株の登録内容が、自動分析の対象と違っています。') +
+    '下のボタンでGitHubが開くので、緑の「Commit changes」を押してください。数分後から毎朝、自動で分析されます。<br><small>送るのは銘柄コードと名前だけで、株数・取得単価は送りません。GitHubのリポジトリが公開設定の場合、銘柄名は誰でも見られる状態になります。</small>' +
+    (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">保有株を自動分析に送る</a></div>' : '') + '</div>';
 }
 function searchPool(raw, limit) { return raw ? SearchEngine.query(raw, D.master || fallbackPool(), limit) : []; }
 function drawHoldForm() {

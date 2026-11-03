@@ -32,7 +32,33 @@ def load_targets():
         lines = path.read_text(encoding='utf-8', errors='ignore').strip().splitlines()
         name = names.get((market, code)) or (lines[0].strip()[:60] if lines else '')
         targets.append({'symbol': code, 'market': market, 'name': name, 'yahoo': yahoo})
+    # 保有株：holdings/ の一番新しいファイルが今の保有リスト（銘柄コードのみ。株数・単価は送らない）
+    held = load_holdings()
+    for code, market in held:
+        yahoo = yahoo_code(code, market)
+        hit = next((t for t in targets if t['yahoo'] == yahoo), None)
+        if hit:
+            hit['holding'] = True
+        else:
+            seen.add(yahoo)
+            targets.append({'symbol': code, 'market': market, 'name': names.get((market, code), ''), 'yahoo': yahoo, 'holding': True})
     return targets
+
+
+def load_holdings():
+    folder = ROOT / 'holdings'
+    files = sorted(folder.glob('*.txt')) if folder.exists() else []
+    if not files:
+        return []
+    out = []
+    for line in files[-1].read_text(encoding='utf-8', errors='ignore').splitlines():
+        tok = line.strip().split(' ')[0].upper() if line.strip() else ''
+        if re.fullmatch(r'[0-9]{3}[0-9A-Z]', tok):
+            out.append((tok, 'JP'))
+        elif re.fullmatch(r'[A-Z][A-Z0-9.-]{0,9}', tok):
+            out.append((tok.replace('.', '-'), 'US'))
+    print('holdings list', files[-1].name, len(out))
+    return out[:30]
 
 
 def fallback(config):
@@ -61,7 +87,10 @@ def main():
                 record['name'] = config.get('name') or record.get('name')
             else:
                 print(config['yahoo'], len(record['rows']), record['rows'][-1]['date'], flush=True)
-            entries.append(save_record(record, 'tracked'))
+            entry = save_record(record, 'tracked')
+            if config.get('holding'):
+                entry['holding'] = True
+            entries.append(entry)
     if not entries:
         raise RuntimeError('No price data at all; aborting so the live site is not replaced')
     write_json(DATA / 'index.json', {'version': 2, 'generatedAt': now_iso(), 'errors': errors, 'stocks': entries})

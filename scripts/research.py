@@ -676,6 +676,76 @@ def refresh_topics(research, master, only_new):
     return errors
 
 
+# ---------------- 保有株の分析（現在の動向・最近のトピック・今後の動向予想） ----------------
+
+def holding_analysis(held, techs, briefs):
+    if not held:
+        return {}
+    today = datetime.now(JST).strftime('%Y-%m-%d (%a)')
+    idmap, parts = {}, []
+    for si, s in enumerate(held):
+        name = short_name(s['name'])
+        items = google_news(f'"{name}" (見通し OR 目標株価 OR 業績 OR 予想 OR 決算)', NEWS_SOURCES_JP + NEWS_SOURCES_JP2[:4], days=30, limit=6)
+        if s['market'] == 'US':
+            items += google_news(f'"{name}" (outlook OR "price target" OR earnings OR forecast)', NEWS_SOURCES_US, lang='en', days=30, limit=4)
+        for h in (briefs.get(s['key']) or {}).get('sources') or []:
+            if all(h['url'] != x['url'] for x in items):
+                items.append({**h, 'host': ''})
+        lines = []
+        for hi, h in enumerate(items[:10]):
+            hid = f'P{si + 1}H{hi + 1}'
+            idmap[hid] = h
+            lines.append(f'  {hid}: [{h["date"]} {h["publisher"]}] {h["title"]}')
+        parts.append(f'## {s["key"]} {s["name"]}\n値動き: {fmt_tech(techs.get(s["key"]))}\n見出し:\n' + ('\n'.join(lines) or '  （見出しなし）'))
+    notes, pages = '', {}
+    if PROVIDER == 'gemini':
+        try:
+            notes, pages = grounded_notes(
+                f'今日は{today}（日本時間）。Google検索で次の銘柄それぞれについて、直近1か月の出来事と、証券会社・アナリスト・報道機関が示す今後の見通し（業績予想、目標株価、レーティングなど。誰の見方か明記）を調べてください：'
+                + '、'.join(f'{s["name"]}（{s["symbol"]}）' for s in held) + '。信頼できる報道機関・金融機関・取引所・会社の公式発表だけを使い、掲示板・SNS・個人ブログ・噂は使わないこと。数値は情報源にあるものだけ。', 'W')
+        except Exception as exc:
+            print('holding web notes failed', exc)
+    user = (f'今日は{today}（日本時間）。利用者が保有している銘柄の分析をしてください。\n\n' + '\n\n'.join(parts) +
+            ('\n\n# WEB検索メモ（[W番号]が根拠ID）\n' + notes if notes else '') +
+            '\n\n# 作業\n各銘柄について、上の見出し' + ('とWEB検索メモ' if notes else '') + 'と値動きだけを根拠に、'
+            '「現在の動向」と「今後の動向予想」をまとめる。今後の動向予想は、記事にある会社や証券会社・アナリストの見通し（誰の見方か明記）と、'
+            '値動きの傾向（移動平均やRSIなど上の数値）から言えることを分けて書く。あなた自身の売買推奨や断定的な予言は書かない。'
+            '根拠になる見出しが無い銘柄は now を空文字にする。\n\n# 出力JSON\n'
+            '{"holdings":[{"key":"JP:7203","now":"現在の動向(120字以内)","outlook":"今後の動向予想のまとめ(150字以内)",'
+            '"trend":"値動きから見た傾向(60字以内)","outlooks":[{"who":"発言者・機関","view":"見通し・目標株価など","source":"根拠ID"}],'
+            '"stance":"bullish|neutral|bearish|mixed（見通し記事全体の論調）","watch":["今後の注目点（決算日など、記事にあるもの）"],"risks":["リスク"],"sources":["P1H1","W2"]}]}')
+    tools = [{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 4, 'allowed_domains': WEB_SEARCH_DOMAINS}] if PROVIDER == 'claude' else None
+    blocks = llm(False, RULES, user, tools=tools, max_tokens=8000)
+    if PROVIDER == 'claude':
+        pages = searched_pages(blocks)
+    data = json_from(blocks)
+    prefix = {s['key']: f'P{si + 1}H' for si, s in enumerate(held)}
+    out = {}
+    for h in data.get('holdings') or []:
+        k = h.get('key')
+        if k not in prefix:
+            continue
+        own = [x for x in (h.get('sources') or []) if str(x).startswith(prefix[k]) or str(x).startswith('W') or str(x).startswith('http')]
+        sources = resolve(own, idmap, pages)
+        if not sources or not h.get('now'):
+            out[k] = {'status': 'no_info', 'analyzedAt': now_iso()}
+            continue
+        out[k] = {'status': 'ok', 'analyzedAt': now_iso(), 'now': clip(h.get('now'), 180), 'outlook': clip(h.get('outlook'), 220),
+                  'trend': clip(h.get('trend'), 90), 'outlooks': clean_outlooks(h.get('outlooks'), idmap, pages),
+                  'stance': h.get('stance') if h.get('stance') in STANCE else 'mixed',
+                  'watch': [clip(x, 60) for x in (h.get('watch') or [])][:3], 'risks': [clip(x, 60) for x in (h.get('risks') or [])][:3],
+                  'sources': sources[:6]}
+    for s in held:
+        out.setdefault(s['key'], {'status': 'no_info', 'analyzedAt': now_iso()})
+    return out
+
+
+def held_list():
+    index = read_json(DATA / 'index.json') or {'stocks': []}
+    return [{'key': e['market'] + ':' + e['symbol'], 'symbol': e['symbol'], 'market': e['market'], 'name': e.get('name') or e['symbol']}
+            for e in index['stocks'] if e.get('holding')][:12], {e['market'] + ':' + e['symbol']: e.get('tech') for e in index['stocks']}
+
+
 def keep_previous(reason):
     prev = previous_published('research.json')
     if prev:
@@ -685,6 +755,13 @@ def keep_previous(reason):
         if reason is None and os.environ.get('LIGHT_RUN') != 'true' and PROVIDER:
             master = {(x[1], x[0]): x[2] for x in (read_json(DATA / 'symbols-master.json') or {}).get('items', [])}
             refresh_topics(prev, master, only_new=True)  # a newly added topic is analysed right away
+            held, techs = held_list()
+            new = [h for h in held if (prev.get('holdings') or {}).get(h['key'], {}).get('status') != 'ok']
+            if new:
+                try:
+                    prev['holdings'] = {**(prev.get('holdings') or {}), **holding_analysis(new, techs, prev.get('briefs') or {})}
+                except Exception as exc:
+                    print('holding step failed', exc)
         else:
             add_featured([x for r in (prev.get('topics') or {}).values() for x in (r.get('related') or [])], 'topic')
         write_json(DATA / 'research.json', prev)
@@ -736,11 +813,18 @@ def main():
     errors += add_featured(featured)
     holder = {}
     errors += refresh_topics(holder, master, only_new=False)
+    holdings = {}
+    try:
+        held, _ = held_list()
+        holdings = holding_analysis(held, techs, briefs)
+    except Exception as exc:
+        errors.append('保有株の分析: ' + str(exc)[:300])
+        print('holding step failed', exc)
     USAGE.pop('allModels', None)
     search_off = USAGE.pop('searchOff', False)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
-                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'errors': errors,
+                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'holdings': holdings, 'errors': errors,
                 'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}, 'searchOff': search_off}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))
