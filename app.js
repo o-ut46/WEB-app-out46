@@ -371,10 +371,19 @@ function topicCard(name, t) {
     (first ? '<h3>関連する銘柄・ETF</h3><div data-mini="' + esc(keyOf(first.market, first.symbol)) + '"></div><ul class="list">' + t.related.map(r => row(keyOf(r.market, r.symbol), r.why ? '　' + esc(r.why) : '')).join('') + '</ul>' : '') +
     (t.risks?.length ? '<h3>気をつけたい点</h3><div class="chips">' + chips(t.risks, 'bad') + '</div>' : '') + sources(t.sources) + '</article>';
 }
+function drawTopicSuggest() {
+  const box = $('#tps'); if (!box) return;
+  const raw = $('#tp').value.trim();
+  if (!raw) { box.innerHTML = ''; return; }
+  const list = searchPool(raw, 8).filter(x => x.market !== 'INDEX');
+  box.innerHTML = list.map(x => { const k = keyOf(x.market, x.symbol), on = S.watch.some(w => w.key === k);
+    return '<li><button class="row" data-fav="' + esc(k) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">' + (on ? '★ 追加済み' : '☆ 銘柄を追加') + '</span></button></li>'; }).join('') +
+    '<li><button class="row" id="tpAsTheme"><span class="nm"><b>「' + esc(raw) + '」をテーマとして追加</b><small>金・オールカントリー・宇宙関係のような、銘柄以外の対象</small></span><span></span><span class="px">＋ テーマ</span></button></li>';
+}
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
   let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
-    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="例：金、オールカントリー、宇宙関係" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>';
+    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="銘柄名・コード、またはテーマ（例：とよた、金、宇宙関係）" autocomplete="off" aria-label="気になる銘柄やテーマ"><button class="btn primary" id="addTopic">追加</button></div><ul id="tps" class="list pick-list"></ul>';
   h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
@@ -538,6 +547,11 @@ document.addEventListener('click', ev => {
   if (pk) { const [k, name] = [pk.dataset.pick, pk.dataset.name]; const [market, symbol] = k.split(':'); picked = { key: k, market, symbol, name }; $('#hsr').innerHTML = ''; $('#hs').value = ''; drawHoldForm(); $('#nq').focus(); return; }
   if (ev.target.id === 'cancelHold') { picked = null; $('#holdForm').innerHTML = ''; return; }
   if (ev.target.id === 'addHold') { if (saveHolding(picked, parseFloat($('#nq').value), parseFloat($('#nc').value), $('#na').value)) { picked = null; renderHold(); window.scrollTo(0, 0); } return; }
+  const fv = ev.target.closest('[data-fav]');
+  if (fv) { const k = fv.dataset.fav, [market, symbol] = k.split(':');
+    if (!S.watch.some(w => w.key === k)) { S.watch.push({ key: k, market, symbol, name: fv.dataset.name }); save(); autoSyncFavorites(); toast('「' + fv.dataset.name + '」を気になる銘柄に追加しました。'); }
+    $('#tp').value = ''; renderInterest(); return; }
+  if (ev.target.closest('#tpAsTheme')) { $('#addTopic').click(); return; }
   if (ev.target.id === 'addTopic') {
     const n = topicFile($('#tp').value); if (!n) return;
     if (!S.topics.includes(n)) S.topics.push(n); save();
@@ -581,6 +595,7 @@ $('#star').onclick = () => {
 };
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(runSearch, 120); });
 document.addEventListener('input', ev => {
+  if (ev.target.id === 'tp') { loadMaster(); drawTopicSuggest(); return; }
   if (ev.target.id !== 'hs') return; loadMaster();
   const list = searchPool(ev.target.value.trim(), 12);
   $('#hsr').innerHTML = list.map(x => '<li><button class="row" data-pick="' + esc(keyOf(x.market, x.symbol)) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">選ぶ</span></button></li>').join('');
