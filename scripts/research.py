@@ -181,6 +181,8 @@ def gemini(system, user, search=False, max_tokens=8192, model=None):
             'generationConfig': {'temperature': 0.2, 'maxOutputTokens': max_tokens}}
     if search:
         body['tools'] = [{'google_search': {}}]
+    else:
+        body['generationConfig']['responseMimeType'] = 'application/json'  # always valid JSON
     data = gemini_http('models/' + (model or gemini_model()) + ':generateContent', body)
     time.sleep(6)  # stay under the free tier's requests-per-minute limit
     USAGE['calls'] += 1
@@ -217,6 +219,8 @@ def gemini_web_notes(today):
 def grounded_notes(prompt, prefix='W'):
     """Google-Search-grounded Gemini call; returns bullet notes citing [W1..] and the credible pages behind them."""
     # Google Search grounding quota can differ per model: try the default, then other stable Flash models
+    if os.environ.get('GEMINI_SEARCH', '').strip().lower() != 'on':
+        USAGE['searchOff'] = True
     if USAGE.get('searchOff'):
         raise RuntimeError('Google search grounding unavailable (quota) — skipped')
     first = gemini_model()
@@ -226,7 +230,7 @@ def grounded_notes(prompt, prefix='W'):
     text, meta, last = '', {}, None
     flash = [a for a in alts if a != first and 'lite' not in a][:2]
     lite = [a for a in alts if 'lite' in a][:2]
-    for model in [first] + flash + lite:
+    for model in ([first] + flash + lite)[:2]:
         try:
             text, meta = gemini('あなたは正確さを最優先する金融ニュースのリサーチャーです。', prompt, search=True, model=model)
             print('web search model:', model)
@@ -261,16 +265,18 @@ def grounded_notes(prompt, prefix='W'):
 def llm(light, system, user, tools=None, max_tokens=8000):
     if PROVIDER == 'claude':
         return claude(MODEL_LIGHT if light else MODEL, system, user, tools=tools, max_tokens=max_tokens)
-    if light:  # many small calls -> Flash-Lite (larger free daily allowance), fall back to Flash
-        gemini_model()
-        for m in [lite_model(), None]:
-            try:
-                return [{'type': 'text', 'text': gemini(system, user, model=m)[0]}]
-            except RuntimeError as exc:
-                if m is None or '429' not in str(exc):
-                    raise
-                print('lite model quota, falling back:', str(exc)[:80])
-    return [{'type': 'text', 'text': gemini(system, user)[0]}]
+    # Free tier: Flash allows ~20 requests/day, Flash-Lite ~100. Small calls go to Lite first, the
+    # market summary to Flash first; either falls back to the other on quota/overload errors.
+    gemini_model()
+    order = [lite_model(), None] if light else [None, lite_model()]
+    last = None
+    for m in dict.fromkeys(order):
+        try:
+            return [{'type': 'text', 'text': gemini(system, user, model=m)[0]}]
+        except RuntimeError as exc:
+            last = exc
+            print('model', m or 'flash', 'failed, trying next:', str(exc)[:80])
+    raise last
 
 
 def lite_model():
