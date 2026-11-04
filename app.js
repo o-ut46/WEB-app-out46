@@ -14,8 +14,10 @@ const STORE = 'stockscope2';
 let S = { watch: [], hold: {}, topics: [], owner: '', repo: '', theme: 'auto' };
 try { S = { ...S, ...JSON.parse(localStorage.getItem(STORE) || '{}') }; } catch (e) {}
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
+const FONT = { s: ['小', 0.9], m: ['中', 1], l: ['大', 1.18] };
+const applyFont = () => { document.documentElement.dataset.font = FONT[S.font] ? S.font : 'm'; const b = document.getElementById('fontBtn'); if (b) b.textContent = 'Aa ' + FONT[S.font || 'm'][0]; };
 const applyTheme = () => { if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme; };
-applyTheme();
+applyTheme(); applyFont();
 
 /* ---------- data ---------- */
 const D = { index: null, research: null, master: null, masterP: null, files: new Map() };
@@ -422,6 +424,14 @@ function openChooser(k, name) {
     '<div class="btns"><button class="btn" id="chClose">閉じる</button></div></div>';
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
+function openFontPicker() {
+  let box = $('#fontSheet');
+  if (!box) { box = document.createElement('div'); box.id = 'fontSheet'; box.className = 'sheet-wrap'; document.body.appendChild(box); }
+  box.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fs-h"><div class="sheet-grip"></div><h2 id="fs-h">文字の大きさ</h2><div class="sheet-actions">' +
+    Object.entries(FONT).map(([k, [l, z]]) => '<button class="btn' + ((S.font || 'm') === k ? ' primary' : '') + '" data-font="' + k + '" style="font-size:' + Math.round(15 * z) + 'px">' + l + (k === 'm' ? '（標準）' : '') + '　あいう Abc 123</button>').join('') +
+    '</div><div class="btns"><button class="btn" data-fontclose="1">閉じる</button></div></div>';
+  box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
+}
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
 const REL_ICON = { '取引先・供給元': '🔧', '販売先・顧客': '🛒', 競合: '⚔️', 同業: '🏭', '親会社・子会社': '🏢', '同じテーマ': '🧭', '指数・ETF': '📊', '為替・商品': '💱' };
 function relatedHTML(favs) {
@@ -473,6 +483,7 @@ function renderSettings() {
     '<article class="group"><h2>単体版（1ファイル）</h2><p>アプリとその時点のデータを1つのファイルにまとめたものです。パソコンに保存して、ダブルクリックで開けばネットなしでも見られます。データは毎朝新しくなるので、最新にしたいときはダウンロードし直してください。</p>' +
     '<div class="btns"><a class="btn" href="./stockscope-standalone.html" download="o-ut-kabu.html">単体版をダウンロード</a></div>' +
     '<p class="hint">iPhoneでは「ファイル」アプリから開くとボタンが動かないため、iPhoneはホーム画面に追加して使うのがおすすめです（一度開いたデータは電波がなくても表示されます）。</p></article>';
+  h += '<article class="group"><h2>文字の大きさ</h2><div class="btns"><button class="btn primary" data-fontpick="1">今の大きさ：' + FONT[S.font || 'm'][0] + '（変える）</button></div></article>';
   h += '<article class="group"><h2>表示</h2><div class="btns" role="group" aria-label="配色">' + [['auto', '端末に合わせる'], ['light', 'ライト'], ['dark', 'ダーク']].map(([v, l]) => '<button class="btn' + (S.theme === v ? ' primary' : '') + '" data-theme-set="' + v + '">' + l + '</button>').join('') + '</div></article>';
   h += '<article class="group"><h2>バックアップ</h2><p>保有株・ウォッチ・気になるテーマの記録はこの端末だけに保存されます。機種変更の前に書き出してください。</p><div class="btns"><button class="btn" id="exportBtn">書き出す</button><label class="btn" for="importFile">読み込む</label><input id="importFile" type="file" accept="application/json" hidden></div></article>';
   h += '<p class="foot">株価はYahoo Financeの日足データ（遅延・非公式取得）で、リアルタイムではありません。統計的な参考レンジやAIまとめは売買の推奨ではありません。</p>';
@@ -604,6 +615,10 @@ document.addEventListener('click', ev => {
   if (pk) { const [k, name] = [pk.dataset.pick, pk.dataset.name]; const [market, symbol] = k.split(':'); picked = { key: k, market, symbol, name }; $('#hsr').innerHTML = ''; $('#hs').value = ''; drawHoldForm(); $('#nq').focus(); return; }
   if (ev.target.id === 'cancelHold') { picked = null; $('#holdForm').innerHTML = ''; return; }
   if (ev.target.id === 'addHold') { if (saveHolding(picked, parseFloat($('#nq').value), parseFloat($('#nc').value), $('#na').value)) { picked = null; renderHold(); window.scrollTo(0, 0); } return; }
+  if (ev.target.closest('[data-fontpick]')) { openFontPicker(); return; }
+  const fo = ev.target.closest('[data-font]');
+  if (fo) { S.font = fo.dataset.font; save(); applyFont(); $('#fontSheet').hidden = true; if (active === 'settings') renderSettings(); toast('文字の大きさを「' + FONT[S.font][0] + '」にしました。'); return; }
+  if (ev.target.closest('[data-fontclose]') || ev.target.id === 'fontSheet') { $('#fontSheet').hidden = true; return; }
   const ch = ev.target.closest('[data-choose]');
   if (ch) { openChooser(ch.dataset.choose, ch.dataset.name); return; }
   const gt = ev.target.closest('[data-goto]');
@@ -692,7 +707,8 @@ window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild
   renderToday();
   const [ix, rs] = await Promise.all([getJSON('index.json', true).catch(() => null), getJSON('research.json', true).catch(() => null)]);
   D.index = ix; D.research = rs;
-  $('#stamp').textContent = ix?.generatedAt ? dateJP(ix.generatedAt, true) + ' 更新' : 'データ未取得';
+  const gd = ix?.generatedAt ? new Date(ix.generatedAt) : null;
+  $('#stamp').textContent = gd ? (gd.getMonth() + 1) + '/' + gd.getDate() + ' ' + String(gd.getHours()).padStart(2, '0') + ':' + String(gd.getMinutes()).padStart(2, '0') : '—'; $('#stamp').title = gd ? 'データ更新：' + gd.toLocaleString('ja-JP') : '';
   renderActive(); route(); loadMaster();
   try {
     const st = D.index?.stocks || [], serverFav = st.filter(e => e.favorite).map(e => e.symbol).sort().join(), serverHold = st.filter(e => e.holding).map(e => e.symbol).sort().join();
