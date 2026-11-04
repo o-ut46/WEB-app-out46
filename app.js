@@ -392,14 +392,14 @@ function openChooser(k, name) {
     '<h2 id="ch-name">' + esc(st.name) + '<span class="code">' + esc(symbol) + '</span></h2><p class="d-meta">' + esc([mkt(market), st.segment, st.sector].filter(Boolean).join('／')) +
     (e?.tech ? '　<span class="num">' + fmt(e.tech.close, market) + unit(market) + '</span> <span class="' + dir(e.tech.chg1d) + '">' + pct(e.tech.chg1d) + '</span>' : '') + '</p>' +
     '<div class="sheet-actions">' +
-    '<button class="btn ' + (fav ? '' : 'primary') + '" id="chFav">' + (fav ? '★ お気に入り登録済み（外す）' : '☆ お気に入りに登録') + '</button>' +
+    '<button class="btn ' + (fav ? '' : 'primary') + '" id="chFav">' + (fav ? '★ 気になるに追加済み（外す）' : '☆ 気になるに追加') + '</button>' +
     '<button class="btn ' + (hd ? '' : 'primary') + '" id="chHoldOpen">' + (hd ? '保有株の内容を変える' : '保有株に登録') + '</button>' +
     '<button class="btn" id="chView">チャート・分析を見る</button></div>' +
     '<div id="chHoldForm" hidden><div class="field"><div><label for="cq">株数</label><input id="cq" class="input num" inputmode="decimal" value="' + esc(hd?.qty ?? '') + '"></div>' +
     '<div><label for="cc">取得単価（' + unit(market) + '）</label><input id="cc" class="input num" inputmode="decimal" value="' + esc(hd?.cost ?? '') + '"></div></div>' +
     '<label class="lbl" for="ca">口座</label><select id="ca" class="input">' + ACCOUNTS.map(a => '<option' + (a === hd?.account ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +
     '<div class="btns"><button class="btn primary" id="chHoldSave">保有株に登録する</button></div></div>' +
-    '<p class="hint">登録した銘柄は毎朝自動で分析されます（「気になる」「保有株」タブに表示）。</p>' +
+    '<p class="hint">追加した銘柄は「気になる」「保有株」タブに並び、毎朝自動で分析されます。</p>' +
     '<div class="btns"><button class="btn" id="chClose">閉じる</button></div></div>';
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
@@ -408,11 +408,11 @@ function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
   let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
     '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="テーマ（例：金、オールカントリー、宇宙関係）" autocomplete="off" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>' +
-    '<div class="btns" style="margin:-6px 0 18px"><button class="btn" data-goto="search">☆ 銘柄を探してお気に入りに登録</button></div>';
+    '<div class="btns" style="margin:-6px 0 18px"><button class="btn" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
   h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
-    (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ ウォッチ」を押すと、ここに並び、毎朝自動で分析されます。</p>');
+    (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ 気になる」を押すと、ここに並び、毎朝自動で分析されます。</p>');
   const list = (D.index?.stocks || []).filter(e => e.kind === 'tracked');
   h += '<details class="group flush more"><summary>毎朝の自動更新リスト（' + list.length + '銘柄）</summary><ul class="list">' + list.map(e => row(keyOf(e.market, e.symbol))).join('') + '</ul></details>';
   $('#interest').innerHTML = h;
@@ -544,7 +544,7 @@ function plText(k, last) {
 }
 function updateStar() {
   const on = current && S.watch.some(w => w.key === current.key);
-  $('#star').setAttribute('aria-pressed', !!on); $('#star').textContent = on ? '★ ウォッチ中' : '☆ ウォッチ';
+  $('#star').setAttribute('aria-pressed', !!on); $('#star').textContent = on ? '★ 気になる' : '☆ 気になる';
 }
 function closeDetail() { $('#detail').hidden = true; document.body.style.overflow = ''; current = null; renderActive(); }
 
@@ -582,8 +582,8 @@ document.addEventListener('click', ev => {
     if (ev.target.id === 'chView') { closeChooser(); location.hash = 's=' + encodeURIComponent(st.key) + '&n=' + encodeURIComponent(st.name); return; }
     if (ev.target.id === 'chFav') {
       const i = S.watch.findIndex(w => w.key === st.key);
-      if (i >= 0) { S.watch.splice(i, 1); toast('「' + st.name + '」をお気に入りから外しました。'); }
-      else { S.watch.push({ key: st.key, market: st.market, symbol: st.symbol, name: st.name }); toast('「' + st.name + '」をお気に入りに登録しました。'); }
+      if (i >= 0) { S.watch.splice(i, 1); toast('「' + st.name + '」を気になるから外しました。'); }
+      else { S.watch.push({ key: st.key, market: st.market, symbol: st.symbol, name: st.name }); toast('「' + st.name + '」を気になるに追加しました。'); }
       save(); autoSyncFavorites(); closeChooser(); runSearch(); return;
     }
     if (ev.target.id === 'chHoldOpen') { $('#chHoldForm').hidden = false; $('#cq').focus(); return; }
