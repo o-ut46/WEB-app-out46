@@ -1,0 +1,51 @@
+name: Sync changes from the app
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      selftest:
+        description: '接続テスト（テスト用メッセージを送って読み戻す）'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: sync-from-app
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Fetch the published symbol list (for validation)
+        run: |
+          mkdir -p data
+          curl -sf "https://o-ut46.github.io/WEB-app-out46/data/symbols-master.json" -o data/symbols-master.json || true
+      - name: Connection self-test
+        if: github.event.inputs.selftest == 'true'
+        run: |
+          T=$(cat sync-topic.txt)
+          curl -sf -d '{"v":1,"selftest":1}' "https://ntfy.sh/$T" && echo posted
+          curl -sf "https://ntfy.sh/$T/json?poll=1&since=5m"
+      - id: sync
+        run: python scripts/sync_from_app.py
+      - name: Commit
+        run: |
+          git checkout -- data 2>/dev/null || true
+          git config user.name "stockscope-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add favorites holdings topics sync-state.json
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "アプリからの変更を反映（自動）"
+          git push
+      - name: Refresh data and analysis
+        if: steps.sync.outputs.changed == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run update-stocks.yml -f force_research=false

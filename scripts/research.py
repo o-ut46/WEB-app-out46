@@ -801,7 +801,7 @@ def main():
     if os.environ.get('LIGHT_RUN') == 'true' and prev and prev.get('status') == 'ok':
         print('Hourly price-only run: keeping the latest AI summary.')
         return keep_previous(None)
-    if os.environ.get('GITHUB_EVENT_NAME') == 'push' and os.environ.get('FORCE_RESEARCH') != 'true' and prev and prev.get('generatedAt'):
+    if os.environ.get('GITHUB_EVENT_NAME') in ('push', 'workflow_dispatch') and os.environ.get('FORCE_RESEARCH') != 'true' and prev and prev.get('generatedAt'):
         age = datetime.now(timezone.utc) - datetime.fromisoformat(prev['generatedAt'])
         if age < timedelta(hours=18):
             print('Recent research exists; push run reuses it to save API cost.')

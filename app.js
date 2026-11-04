@@ -96,8 +96,25 @@ async function ghDo(job, doneMsg) {
 }
 const holdingsText = () => Object.entries(S.hold).map(([k, h]) => k.split(':')[1] + ' ' + (h.name || info(k).name)).join('\n') + '\n';
 let holdSyncTimer;
+/* トークンなしの自動送信：変更をntfy.shの専用チャンネルに送り、GitHub側が20分ごとに取り込む */
+let relayTopic = null;
+async function relay(body, label) {
+  try {
+    if (!relayTopic) relayTopic = (await fetch('./sync-topic.txt', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '')).trim();
+    if (!relayTopic) throw new Error('送信先が見つかりません');
+    const r = await fetch('https://ntfy.sh/' + encodeURIComponent(relayTopic), { method: 'POST', body: JSON.stringify({ v: 1, t: Date.now(), ...body }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    try { localStorage.setItem('stockscope2-relayed', String(Date.now())); } catch (e) {}
+    if (label) toast(label + ' 20〜30分ほどで自動分析に反映されます。');
+    return true;
+  } catch (e) { if (label) toast('送信できませんでした（電波の良い所でアプリを開き直すと再送します）：' + e.message); return false; }
+}
+const favCodes = () => S.watch.filter(w => w.market !== 'INDEX').map(w => w.symbol);
+const holdCodes = () => Object.keys(S.hold).map(k => k.split(':')[1]);
+let relayTimer;
+function relaySoon(label) { clearTimeout(relayTimer); relayTimer = setTimeout(() => relay({ fav: favCodes(), hold: holdCodes() }, label), 1200); }
 function autoSyncHoldings() {
-  if (!ghToken()) return;
+  if (!ghToken()) return relaySoon('保有株を自動分析に送りました。');
   clearTimeout(holdSyncTimer);
   holdSyncTimer = setTimeout(() => ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'), 1500);
 }
@@ -109,6 +126,7 @@ function ghUrl(kind, dir, file, value) {
 }
 function addLink(st, label) {
   if (ghToken()) return '<button class="btn primary" data-ghadd="' + esc(keyOf(st.market, st.symbol)) + '" data-name="' + esc(st.name) + '">' + (label || '毎朝の自動更新に追加') + '</button>';
+  return '<button class="btn primary" data-favadd="' + esc(keyOf(st.market, st.symbol)) + '" data-name="' + esc(st.name) + '">☆ 気になるに追加して自動更新</button>';
   const url = ghUrl('new', 'watchlist', st.symbol + '.txt', st.name); if (!url) return '';
   return '<a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">' + (label || '毎朝の自動更新に追加') + '</a>';
 }
@@ -299,14 +317,14 @@ function holdingCard(r) {
       outlooks(a.outlooks).replace('<h3>見通し</h3>', '') +
       (a.watch?.length ? '<div class="chips">' + chips(a.watch, '') + '</div>' : '') + (a.risks?.length ? '<div class="chips">' + chips(a.risks, 'bad') + '</div>' : '') + sources(a.sources);
   } else if (b?.status === 'ok' && b.outlooks?.length) h += '<h3>今後の動向予想</h3>' + outlooks(b.outlooks).replace('<h3>見通し</h3>', '');
-  else if (!entry(k)?.holding && !entry(k)?.favorite) h += '<p class="hint">' + (r.fav ? '上の「気になる銘柄を自動分析に送る」' : '上の「保有株を自動分析に送る」') + 'で送ると、数分後から分析が入ります。</p>';
+  else if (!entry(k)?.holding && !entry(k)?.favorite) h += '<p class="hint">' + (r.fav ? '自動で送信済みです。' : '自動で送信済みです。') + '20〜30分ほどで分析が入ります。</p>';
   else h += '<p class="hint">' + (a ? '信頼できる媒体で、今後の見通しに関する記事は見つかりませんでした。' : '次の自動更新で分析が入ります。') + '</p>';
   return h + '</article>';
 }
 const favText = () => S.watch.map(w => w.symbol + ' ' + (w.name || info(w.key).name)).join('\n') + '\n';
 let favSyncTimer;
 function autoSyncFavorites() {
-  if (!ghToken()) return;
+  if (!ghToken()) return relaySoon('気になる銘柄を自動分析に送りました。');
   clearTimeout(favSyncTimer);
   favSyncTimer = setTimeout(() => ghDo(() => ghPut('favorites/latest.txt', favText(), '気になる銘柄リストを更新（アプリから自動）'), '気になる銘柄を自動分析に送りました。'), 1500);
 }
@@ -315,10 +333,8 @@ function favSyncCard() {
   const removed = (D.index?.stocks || []).filter(e => e.favorite && !S.watch.some(w => w.key === keyOf(e.market, e.symbol)));
   if (!notSent.length && !removed.length) return '';
   if (ghToken()) return '<div class="notice"><b>気になる銘柄は自動で送られます</b>' + (notSent.length ? 'まだ反映されていない銘柄：' + notSent.map(w => esc(w.name)).join('、') + '。数分で反映されます。' : '') + '<div class="btns"><button class="btn" id="syncFav">今すぐ送り直す</button></div></div>';
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14), url = ghUrl('new', 'favorites', stamp + '.txt', favText());
-  return '<div class="notice"><b>気になる銘柄を自動分析に送る</b>' + (notSent.length ? '分析に入っていない銘柄：' + notSent.map(w => esc(w.name)).join('、') + '。' : '☆を外した銘柄があります。') +
-    'ボタンでGitHubが開くので、緑の「Commit changes」を押してください（設定タブでGitHub連携をすると、これも自動になります）。' +
-    (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">気になる銘柄を自動分析に送る</a></div>' : '') + '</div>';
+  return '<div class="notice"><b>自動分析に反映待ち</b>' + (notSent.length ? notSent.map(w => esc(w.name)).join('、') + ' を送りました。' : '外した銘柄の反映待ちです。') +
+    '20〜30分ほどで自動で反映され、分析が始まります。<div class="btns"><button class="btn" id="relayNow">今すぐ送り直す</button></div></div>';
 }
 function syncCard(rows, notSent) {
   const list = rows.map(r => r.k.split(':')[1] + ' ' + (r.h.name || info(r.k).name)).join('\n');
@@ -327,9 +343,8 @@ function syncCard(rows, notSent) {
   if (!notSent.length && Object.keys(S.hold).length === (D.index?.stocks || []).filter(e => e.holding).length) return '';
   if (ghToken()) return '<div class="notice"><b>保有株は自動で送られます</b>' + (notSent.length ? '自動分析にまだ反映されていない保有株：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。送ってから数分で反映されます。' : '') +
     '<div class="btns"><button class="btn" id="syncHold">今すぐ送り直す</button></div></div>';
-  return '<div class="notice"><b>保有株を自動分析に送る</b>' + (notSent.length ? '自動分析に入っていない保有株：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。' : '保有株の登録内容が、自動分析の対象と違っています。') +
-    '下のボタンでGitHubが開くので、緑の「Commit changes」を押してください。数分後から毎朝、自動で分析されます。<br><small>送るのは銘柄コードと名前だけで、株数・取得単価は送りません。GitHubのリポジトリが公開設定の場合、銘柄名は誰でも見られる状態になります。</small>' +
-    (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">保有株を自動分析に送る</a></div>' : '') + '</div>';
+  return '<div class="notice"><b>保有株は自動で送られます</b>' + (notSent.length ? '反映待ち：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。' : '登録内容の変更を反映中です。') +
+    '20〜30分ほどで自動分析に入ります。<br><small>送るのは銘柄コードだけで、株数・取得単価は送りません。</small><div class="btns"><button class="btn" id="relayNow">今すぐ送り直す</button></div></div>';
 }
 function searchPool(raw, limit) { return raw ? SearchEngine.query(raw, D.master || fallbackPool(), limit) : []; }
 function drawHoldForm() {
@@ -405,7 +420,7 @@ function openChooser(k, name) {
 }
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
 function renderInterest() {
-  const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
+  const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])].filter(n => !(S.hiddenTopics || []).includes(n));
   let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
   if (names.length) h += '<div class="section-head"><h2>気になるテーマ</h2><p>毎朝自動で分析</p></div>' + names.map(n => topicCard(n, res[n])).join('');
   const favs = S.watch.filter(w => w.market !== 'INDEX');
@@ -428,7 +443,7 @@ function renderSettings() {
     (ix?.errors?.length ? '<p class="hint">前回、取得できなかった銘柄：' + esc(ix.errors.map(e => e.symbol).join('、')) + '（前のデータを表示中）</p>' : '') +
     (u ? '<p class="hint num">前回のAI使用量：入力 ' + (u.input_tokens || 0).toLocaleString() + '／出力 ' + (u.output_tokens || 0).toLocaleString() + ' トークン、Web検索 ' + (u.web_search_requests || 0) + '回</p>' : '') + '</article>';
   if (r?.status !== 'ok') h += '<article class="group"><h2>AIまとめを使えるようにする（無料）</h2><ol class="mkt-points"><li>Safariで <b>aistudio.google.com</b> を開き、Googleアカウントでログイン</li><li>「Get API key」→「Create API key」でキーを作ってコピー（カード登録は不要）</li><li>GitHubで <b>github.com/' + esc(rp?.owner || 'o-ut46') + '/' + esc(rp?.repo || 'WEB-app-out46') + '/settings/secrets/actions</b> を開き、「New repository secret」</li><li>Name に <b>GEMINI_API_KEY</b>、Secret にキーを貼り付けて「Add secret」</li></ol><p class="hint">翌朝から自動でまとめが入ります。無料枠では、送った内容がGoogleのサービス改善に使われることがあります（ここで送るのは公開ニュースの見出しだけです）。</p></article>';
-  h += '<article class="group"><h2>GitHubへの自動登録</h2>' + (ghToken() ? '<p><b>連携中です。</b>銘柄・気になるテーマ・保有株の登録は、ボタンを押すだけで自動でGitHubに送られます（Commit changes は不要）。</p>' :
+  h += '<article class="group"><h2>GitHub連携（任意）</h2><p class="hint">設定しなくても、気になる・保有株の追加や解除は自動で送られ、20〜30分ほどで反映されます。連携すると、それが数分に短くなります。</p>' + (ghToken() ? '<p><b>連携中です。</b>銘柄・気になるテーマ・保有株の登録は、ボタンを押すだけで自動でGitHubに送られます（Commit changes は不要）。</p>' :
     '<p>一度だけ設定すると、銘柄やテーマの追加、保有株の送信が、GitHubの画面を開かずに自動で済みます。</p><ol class="mkt-points">' +
     '<li>Safariで <b>github.com/settings/personal-access-tokens/new</b> を開く</li><li>Token name に「株アプリ」など、Expiration は好きな期限（最長1年）</li>' +
     '<li>Repository access で <b>Only select repositories</b> →「' + esc(rp?.repo || 'WEB-app-out46') + '」だけを選ぶ</li><li>Permissions の Repository permissions で <b>Contents</b> を「Read and write」にする</li>' +
@@ -436,7 +451,7 @@ function renderSettings() {
     '<label class="lbl" for="ghtk">トークン（この端末にだけ保存。外部へは送りません）</label><input id="ghtk" class="input" type="password" autocomplete="off" placeholder="' + (ghToken() ? '設定済み（変えるときだけ入力）' : 'github_pat_…') + '">' +
     '<div class="btns"><button class="btn primary" id="saveToken">' + (ghToken() ? '保存し直す（空なら解除）' : '保存してつなぐ') + '</button></div>' +
     '<p class="hint">このリポジトリのファイル書き込みだけを許可したトークンを使います。端末をなくしたときは github.com/settings/personal-access-tokens で削除してください。</p></article>';
-  h += '<article class="group"><h2>銘柄の追加と削除</h2><p>銘柄の画面で「毎朝の自動更新に追加」を押すとGitHubが開きます。緑の <b>Commit changes</b> を押せば完了で、数分後に株価が、翌朝からニュースのまとめが入ります。</p><p>外すときは、GitHubの <b>watchlist</b> フォルダにある銘柄のファイル（例 7203.txt）を削除します。</p>' +
+  h += '<article class="group"><h2>銘柄の追加と削除</h2><p>「探す」で銘柄を選び、「気になるに追加」か「保有株に登録」を押すだけです。外すときも同じ画面から。GitHubの操作は要りません（20〜30分ほどで自動分析に反映）。</p>' +
     '<div class="field"><div><label for="ow">GitHubのユーザー名</label><input id="ow" class="input" placeholder="' + esc(rp?.owner || 'o-ut46') + '" value="' + esc(S.owner) + '"></div><div><label for="rp">リポジトリ名</label><input id="rp" class="input" placeholder="' + esc(rp?.repo || 'WEB-app-out46') + '" value="' + esc(S.repo) + '"></div></div>' +
     '<p class="hint">GitHub Pagesで開いている場合は自動で判別するので、空欄のままで構いません。</p><div class="btns"><button class="btn" id="saveRepo">保存する</button></div></article>';
   h += '<article class="group"><h2>表示</h2><div class="btns" role="group" aria-label="配色">' + [['auto', '端末に合わせる'], ['light', 'ライト'], ['dark', 'ダーク']].map(([v, l]) => '<button class="btn' + (S.theme === v ? ' primary' : '') + '" data-theme-set="' + v + '">' + l + '</button>').join('') + '</div></article>';
@@ -505,7 +520,7 @@ async function openDetail(k, hint) {
   const brief = D.research?.briefs?.[k], feat = D.research?.featured?.find(f => keyOf(f.market, f.symbol) === k);
   let h = '';
   if (!rows || rows.length < 21) {
-    h += '<div class="notice"><b>この銘柄の株価データはまだありません</b>「毎朝の自動更新に追加」を押してGitHubで <b>Commit changes</b> を押すと、数分後にチャートが表示されます。</div><div class="btns">' + addLink(st) + yahooLink(st) + '</div>';
+    h += '<div class="notice"><b>この銘柄の株価データはまだありません</b>下のボタンで「気になる」に追加すると、20〜30分ほどで株価と分析が自動で入ります。</div><div class="btns">' + addLink(st) + yahooLink(st) + '</div>';
     if (st.market === 'US') h += '<div class="tv" id="tv"></div><p class="hint">仮表示：TradingViewのチャート（遅延あり）。東証の銘柄はTradingViewの埋め込みに対応していないため表示できません。</p>';
     $('#dmain').innerHTML = h;
     if (st.market === 'US') { const s = document.createElement('script'); s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'; s.async = true; s.text = JSON.stringify({ autosize: true, symbol: (st.segment.startsWith('NASDAQ') ? 'NASDAQ:' : st.segment.startsWith('NYSE') && !st.segment.includes('Arca') ? 'NYSE:' : '') + st.symbol.replace('-', '.'), interval: 'D', timezone: 'Asia/Tokyo', theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', locale: 'ja', hide_side_toolbar: true, allow_symbol_change: false }); const w = document.createElement('div'); w.style.height = '100%'; $('#tv').append(w, s); }
@@ -606,15 +621,21 @@ document.addEventListener('click', ev => {
   const dt = ev.target.closest('[data-deltopic]');
   if (dt) {
     const n = dt.dataset.deltopic, onServer = !!D.research?.topics?.[n];
-    if (!confirm('「' + n + '」を外しますか？' + (onServer && !ghToken() ? '\nGitHubが開くので、緑の「Commit changes」を押すと分析も止まります。' : ''))) return;
+    if (!confirm('「' + n + '」を外しますか？')) return;
     S.topics = S.topics.filter(x => x !== n); save();
-    if (onServer) { delete D.research.topics[n]; if (ghToken()) ghDo(() => ghDelete('topics/' + n + '.txt', '気になるテーマ「' + n + '」を削除（アプリから自動）'), '「' + n + '」を外しました。'); else { const u = ghUrl('del', 'topics', n + '.txt'); if (u) window.open(u, '_blank', 'noopener'); } }
+    S.hiddenTopics = [...new Set([...(S.hiddenTopics || []), n])]; save();
+    if (onServer) { delete D.research.topics[n]; if (ghToken()) ghDo(() => ghDelete('topics/' + n + '.txt', '気になるテーマ「' + n + '」を削除（アプリから自動）'), '「' + n + '」を外しました。'); else relay({ delTopic: [n] }, '「' + n + '」を外しました。'); }
     renderInterest(); return;
   }
   const ga = ev.target.closest('[data-ghadd]');
   if (ga) { const [m, sym] = ga.dataset.ghadd.split(':'); ga.disabled = true; ga.textContent = '登録中…';
     ghDo(() => ghPut('watchlist/' + sym + '.txt', ga.dataset.name || sym, '「' + (ga.dataset.name || sym) + '」を自動更新リストに追加（アプリから自動）'), '「' + (ga.dataset.name || sym) + '」を毎朝の自動更新に追加しました。')
       .then(ok => { ga.textContent = ok ? '追加しました' : '毎朝の自動更新に追加'; ga.disabled = ok; }); return; }
+  const fa = ev.target.closest('[data-favadd]');
+  if (fa) { const k = fa.dataset.favadd, [market, symbol] = k.split(':');
+    if (!S.watch.some(w => w.key === k)) { S.watch.push({ key: k, market, symbol, name: fa.dataset.name }); save(); }
+    relay({ fav: favCodes(), hold: holdCodes() }, '「' + fa.dataset.name + '」を気になるに追加しました。'); fa.disabled = true; fa.textContent = '追加しました'; updateStar(); return; }
+  if (ev.target.id === 'relayNow') { relay({ fav: favCodes(), hold: holdCodes() }, '送り直しました。'); return; }
   if (ev.target.id === 'syncFav') { ghDo(() => ghPut('favorites/latest.txt', favText(), '気になる銘柄リストを更新（アプリから自動）'), '気になる銘柄を自動分析に送りました。'); return; }
   if (ev.target.id === 'syncHold') { ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'); return; }
   if (ev.target.id === 'saveToken') {
@@ -654,5 +675,10 @@ window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild
   D.index = ix; D.research = rs;
   $('#stamp').textContent = ix?.generatedAt ? dateJP(ix.generatedAt, true) + ' 更新' : 'データ未取得';
   renderActive(); route(); loadMaster();
+  try {
+    const st = D.index?.stocks || [], serverFav = st.filter(e => e.favorite).map(e => e.symbol).sort().join(), serverHold = st.filter(e => e.holding).map(e => e.symbol).sort().join();
+    const last = +localStorage.getItem('stockscope2-relayed') || 0;
+    if (!ghToken() && ix && (serverFav !== favCodes().sort().join() || serverHold !== holdCodes().sort().join()) && Date.now() - last > 2 * 3600e3) relay({ fav: favCodes(), hold: holdCodes() });
+  } catch (e) {}
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 })();
