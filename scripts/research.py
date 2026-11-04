@@ -711,7 +711,7 @@ def holding_analysis(held, techs, briefs):
                 + '、'.join(f'{s["name"]}（{s["symbol"]}）' for s in held) + '。信頼できる報道機関・金融機関・取引所・会社の公式発表だけを使い、掲示板・SNS・個人ブログ・噂は使わないこと。数値は情報源にあるものだけ。', 'W')
         except Exception as exc:
             print('holding web notes failed', exc)
-    user = (f'今日は{today}（日本時間）。利用者が保有している銘柄の分析をしてください。\n\n' + '\n\n'.join(parts) +
+    user = (f'今日は{today}（日本時間）。利用者が保有している、または気になっている銘柄の分析をしてください。\n\n' + '\n\n'.join(parts) +
             ('\n\n# WEB検索メモ（[W番号]が根拠ID）\n' + notes if notes else '') +
             '\n\n# 作業\n各銘柄について、上の見出し' + ('とWEB検索メモ' if notes else '') + 'と値動きだけを根拠に、'
             '「現在の動向」と「今後の動向予想」をまとめる。今後の動向予想は、記事にある会社や証券会社・アナリストの見通し（誰の見方か明記）と、'
@@ -749,7 +749,7 @@ def holding_analysis(held, techs, briefs):
 def held_list():
     index = read_json(DATA / 'index.json') or {'stocks': []}
     return [{'key': e['market'] + ':' + e['symbol'], 'symbol': e['symbol'], 'market': e['market'], 'name': e.get('name') or e['symbol']}
-            for e in index['stocks'] if e.get('holding')][:12], {e['market'] + ':' + e['symbol']: e.get('tech') for e in index['stocks']}
+            for e in sorted(index['stocks'], key=lambda e: not e.get('holding')) if e.get('holding') or e.get('favorite')][:16], {e['market'] + ':' + e['symbol']: e.get('tech') for e in index['stocks']}
 
 
 def keep_previous(reason):

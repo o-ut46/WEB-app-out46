@@ -33,20 +33,21 @@ def load_targets():
         name = names.get((market, code)) or (lines[0].strip()[:60] if lines else '')
         targets.append({'symbol': code, 'market': market, 'name': name, 'yahoo': yahoo})
     # 保有株：holdings/ の一番新しいファイルが今の保有リスト（銘柄コードのみ。株数・単価は送らない）
-    held = load_holdings()
-    for code, market in held:
-        yahoo = yahoo_code(code, market)
-        hit = next((t for t in targets if t['yahoo'] == yahoo), None)
-        if hit:
-            hit['holding'] = True
-        else:
-            seen.add(yahoo)
-            targets.append({'symbol': code, 'market': market, 'name': names.get((market, code), ''), 'yahoo': yahoo, 'holding': True})
+    # 気になる銘柄（☆）：favorites/ も同じ形式
+    for flag, folder in (('holding', 'holdings'), ('favorite', 'favorites')):
+        for code, market in load_holdings(folder):
+            yahoo = yahoo_code(code, market)
+            hit = next((t for t in targets if t['yahoo'] == yahoo), None)
+            if hit:
+                hit[flag] = True
+            else:
+                seen.add(yahoo)
+                targets.append({'symbol': code, 'market': market, 'name': names.get((market, code), ''), 'yahoo': yahoo, flag: True})
     return targets
 
 
-def load_holdings():
-    folder = ROOT / 'holdings'
+def load_holdings(name='holdings'):
+    folder = ROOT / name
     files = sorted(folder.glob('*.txt')) if folder.exists() else []
     latest = folder / 'latest.txt'
     if latest.exists():  # written by the app automatically (GitHub連携) — always the current list
@@ -60,7 +61,7 @@ def load_holdings():
             out.append((tok, 'JP'))
         elif re.fullmatch(r'[A-Z][A-Z0-9.-]{0,9}', tok):
             out.append((tok.replace('.', '-'), 'US'))
-    print('holdings list', files[-1].name, len(out))
+    print(name, 'list', files[-1].name, len(out))
     return out[:30]
 
 
@@ -91,8 +92,9 @@ def main():
             else:
                 print(config['yahoo'], len(record['rows']), record['rows'][-1]['date'], flush=True)
             entry = save_record(record, 'tracked')
-            if config.get('holding'):
-                entry['holding'] = True
+            for flag in ('holding', 'favorite'):
+                if config.get(flag):
+                    entry[flag] = True
             entries.append(entry)
     if not entries:
         raise RuntimeError('No price data at all; aborting so the live site is not replaced')

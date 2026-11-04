@@ -299,9 +299,26 @@ function holdingCard(r) {
       outlooks(a.outlooks).replace('<h3>見通し</h3>', '') +
       (a.watch?.length ? '<div class="chips">' + chips(a.watch, '') + '</div>' : '') + (a.risks?.length ? '<div class="chips">' + chips(a.risks, 'bad') + '</div>' : '') + sources(a.sources);
   } else if (b?.status === 'ok' && b.outlooks?.length) h += '<h3>今後の動向予想</h3>' + outlooks(b.outlooks).replace('<h3>見通し</h3>', '');
-  else if (!entry(k)?.holding) h += '<p class="hint">上の「保有株を自動分析に送る」で送ると、翌朝から（すぐ送れば数分後から）分析が入ります。</p>';
+  else if (!entry(k)?.holding && !entry(k)?.favorite) h += '<p class="hint">' + (r.fav ? '上の「気になる銘柄を自動分析に送る」' : '上の「保有株を自動分析に送る」') + 'で送ると、数分後から分析が入ります。</p>';
   else h += '<p class="hint">' + (a ? '信頼できる媒体で、今後の見通しに関する記事は見つかりませんでした。' : '次の自動更新で分析が入ります。') + '</p>';
   return h + '</article>';
+}
+const favText = () => S.watch.map(w => w.symbol + ' ' + (w.name || info(w.key).name)).join('\n') + '\n';
+let favSyncTimer;
+function autoSyncFavorites() {
+  if (!ghToken()) return;
+  clearTimeout(favSyncTimer);
+  favSyncTimer = setTimeout(() => ghDo(() => ghPut('favorites/latest.txt', favText(), '気になる銘柄リストを更新（アプリから自動）'), '気になる銘柄を自動分析に送りました。'), 1500);
+}
+function favSyncCard() {
+  const notSent = S.watch.filter(w => w.market !== 'INDEX' && !entry(w.key)?.favorite && !entry(w.key)?.holding);
+  const removed = (D.index?.stocks || []).filter(e => e.favorite && !S.watch.some(w => w.key === keyOf(e.market, e.symbol)));
+  if (!notSent.length && !removed.length) return '';
+  if (ghToken()) return '<div class="notice"><b>気になる銘柄は自動で送られます</b>' + (notSent.length ? 'まだ反映されていない銘柄：' + notSent.map(w => esc(w.name)).join('、') + '。数分で反映されます。' : '') + '<div class="btns"><button class="btn" id="syncFav">今すぐ送り直す</button></div></div>';
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14), url = ghUrl('new', 'favorites', stamp + '.txt', favText());
+  return '<div class="notice"><b>気になる銘柄を自動分析に送る</b>' + (notSent.length ? '分析に入っていない銘柄：' + notSent.map(w => esc(w.name)).join('、') + '。' : '☆を外した銘柄があります。') +
+    'ボタンでGitHubが開くので、緑の「Commit changes」を押してください（設定タブでGitHub連携をすると、これも自動になります）。' +
+    (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">気になる銘柄を自動分析に送る</a></div>' : '') + '</div>';
 }
 function syncCard(rows, notSent) {
   const list = rows.map(r => r.k.split(':')[1] + ' ' + (r.h.name || info(r.k).name)).join('\n');
@@ -355,7 +372,9 @@ function renderInterest() {
   let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
     '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="例：金、オールカントリー、宇宙関係" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>';
   h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
-  h += '<div class="section-head"><h2>ウォッチ中の銘柄</h2><p>☆を押した銘柄</p></div>' + (S.watch.length ? '<div class="group flush"><ul class="list">' + S.watch.map(w => row(w.key)).join('') + '</ul></div>' : '<p class="empty">銘柄の画面で「☆ ウォッチ」を押すと、ここに並びます。</p>');
+  const favs = S.watch.filter(w => w.market !== 'INDEX');
+  h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
+    (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ ウォッチ」を押すと、ここに並び、毎朝自動で分析されます。</p>');
   const list = (D.index?.stocks || []).filter(e => e.kind === 'tracked');
   h += '<details class="group flush more"><summary>毎朝の自動更新リスト（' + list.length + '銘柄）</summary><ul class="list">' + list.map(e => row(keyOf(e.market, e.symbol))).join('') + '</ul></details>';
   $('#interest').innerHTML = h;
@@ -535,6 +554,7 @@ document.addEventListener('click', ev => {
   if (ga) { const [m, sym] = ga.dataset.ghadd.split(':'); ga.disabled = true; ga.textContent = '登録中…';
     ghDo(() => ghPut('watchlist/' + sym + '.txt', ga.dataset.name || sym, '「' + (ga.dataset.name || sym) + '」を自動更新リストに追加（アプリから自動）'), '「' + (ga.dataset.name || sym) + '」を毎朝の自動更新に追加しました。')
       .then(ok => { ga.textContent = ok ? '追加しました' : '毎朝の自動更新に追加'; ga.disabled = ok; }); return; }
+  if (ev.target.id === 'syncFav') { ghDo(() => ghPut('favorites/latest.txt', favText(), '気になる銘柄リストを更新（アプリから自動）'), '気になる銘柄を自動分析に送りました。'); return; }
   if (ev.target.id === 'syncHold') { ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'); return; }
   if (ev.target.id === 'saveToken') {
     const v = $('#ghtk').value.trim(); try { v ? localStorage.setItem('stockscope2-ghtoken', v) : localStorage.removeItem('stockscope2-ghtoken'); } catch (e) {}
@@ -553,7 +573,7 @@ $('#back').onclick = () => { if (location.hash) history.back(); else closeDetail
 $('#star').onclick = () => {
   if (!current) return; const i = S.watch.findIndex(w => w.key === current.key);
   if (i >= 0) S.watch.splice(i, 1); else S.watch.push({ key: current.key, market: current.market, symbol: current.symbol, name: current.name });
-  save(); updateStar();
+  save(); updateStar(); autoSyncFavorites();
 };
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(runSearch, 120); });
 document.addEventListener('input', ev => {
