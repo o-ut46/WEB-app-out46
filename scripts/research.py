@@ -140,7 +140,7 @@ def gemini_http(path, body=None):
         req = urllib.request.Request(GEMINI_BASE + path, data=json.dumps(body).encode() if body else None,
                                      headers={'x-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json'})
         try:
-            with urllib.request.urlopen(req, timeout=240) as res:
+            with urllib.request.urlopen(req, timeout=150) as res:
                 return json.loads(res.read())
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode('utf-8', 'replace')[:400]
@@ -151,6 +151,11 @@ def gemini_http(path, body=None):
                 time.sleep(30 * (attempt + 1))
                 continue
             raise RuntimeError(f'Gemini HTTP {exc.code}: {detail}')
+        except (TimeoutError, urllib.error.URLError, ConnectionError) as exc:  # slow/overloaded: retry, then let caller switch model
+            if attempt < 1:
+                time.sleep(15)
+                continue
+            raise RuntimeError(f'Gemini timeout/connection error: {exc}')
 
 
 def gemini_model():
@@ -306,7 +311,15 @@ def searched_pages(blocks):
 
 
 def json_from(blocks):
-    text = ''.join(b.get('text', '') for b in blocks if b.get('type') == 'text')
+    text = ''.join(b.get('text', '') for b in blocks if b.get('type') == 'text').strip()
+    try:  # JSON mode usually returns clean JSON; the model sometimes returns a bare list instead of the object
+        data = json.loads(text)
+        if isinstance(data, list):
+            return {'stocks': data, 'holdings': data, 'topics': data, 'featured': []}
+        if isinstance(data, dict):
+            return data
+    except ValueError:
+        pass
     m = re.search(r'<json>\s*(\{[\s\S]*\})\s*</json>', text) or re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', text)
     raw = m.group(1) if m else text[text.find('{'): text.rfind('}') + 1]
     return json.loads(raw)
