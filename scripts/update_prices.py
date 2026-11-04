@@ -48,6 +48,9 @@ def load_targets():
 def load_holdings():
     folder = ROOT / 'holdings'
     files = sorted(folder.glob('*.txt')) if folder.exists() else []
+    latest = folder / 'latest.txt'
+    if latest.exists():  # written by the app automatically (GitHub連携) — always the current list
+        files = [p for p in files if p != latest] + [latest]
     if not files:
         return []
     out = []

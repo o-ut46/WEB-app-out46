@@ -213,3 +213,8 @@ details.explain summary::after{content:' ＋'}
 details.explain[open] summary::after{content:' －'}
 .hold-card h3{margin-top:14px}
 .hold-card .evlist .ev{padding:6px 0}
+
+#toast{position:fixed;left:50%;bottom:calc(var(--tabh) + env(safe-area-inset-bottom) + 14px);transform:translate(-50%,20px);opacity:0;z-index:30;
+  max-width:min(92vw,520px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:12px;font-size:14px;transition:.25s;pointer-events:none}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}

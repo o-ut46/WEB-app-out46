@@ -66,6 +66,41 @@ function repo() {
   const seg = location.pathname.split('/').filter(Boolean)[0];
   return { owner: m[1], repo: seg && !seg.includes('.') ? seg : m[1] + '.github.io' };
 }
+/* GitHubへの自動登録：この端末にだけ保存したトークンで、アプリから直接ファイルを書き込む */
+const ghToken = () => { try { return localStorage.getItem('stockscope2-ghtoken') || ''; } catch (e) { return ''; } };
+const b64 = t => btoa(unescape(encodeURIComponent(t)));
+function toast(msg) {
+  let el = $('#toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 4200);
+}
+async function ghApi(path, opt = {}) {
+  const r = repo(), tk = ghToken(); if (!r || !tk) throw new Error('GitHub連携が未設定です（設定タブ）');
+  const res = await fetch('https://api.github.com/repos/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.repo) + path, {
+    ...opt, headers: { Authorization: 'Bearer ' + tk, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opt.body ? { 'Content-Type': 'application/json' } : {}) } });
+  if (res.status === 404 && opt.allow404) return null;
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(res.status === 401 ? 'トークンが無効か期限切れです' : res.status === 403 || res.status === 404 ? 'このリポジトリへの書き込み権限がありません（トークンの設定を確認）' : (j.message || 'HTTP ' + res.status)); }
+  return res.status === 204 ? {} : res.json();
+}
+async function ghPut(file, text, message) {
+  const cur = await ghApi('/contents/' + file.split('/').map(encodeURIComponent).join('/') + '?ref=main', { allow404: true });
+  return ghApi('/contents/' + file.split('/').map(encodeURIComponent).join('/'), { method: 'PUT', body: JSON.stringify({ message, content: b64(text), branch: 'main', ...(cur?.sha ? { sha: cur.sha } : {}) }) });
+}
+async function ghDelete(file, message) {
+  const p = '/contents/' + file.split('/').map(encodeURIComponent).join('/');
+  const cur = await ghApi(p + '?ref=main', { allow404: true }); if (!cur?.sha) return;
+  return ghApi(p, { method: 'DELETE', body: JSON.stringify({ message, sha: cur.sha, branch: 'main' }) });
+}
+async function ghDo(job, doneMsg) {
+  try { await job(); toast(doneMsg + ' 数分後に反映されます。'); return true; }
+  catch (e) { toast('GitHubに登録できませんでした：' + e.message); return false; }
+}
+const holdingsText = () => Object.entries(S.hold).map(([k, h]) => k.split(':')[1] + ' ' + (h.name || info(k).name)).join('\n') + '\n';
+let holdSyncTimer;
+function autoSyncHoldings() {
+  if (!ghToken()) return;
+  clearTimeout(holdSyncTimer);
+  holdSyncTimer = setTimeout(() => ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'), 1500);
+}
 function ghUrl(kind, dir, file, value) {
   const r = repo(); if (!r) return '';
   const base = 'https://github.com/' + encodeURIComponent(r.owner) + '/' + encodeURIComponent(r.repo);
@@ -73,6 +108,7 @@ function ghUrl(kind, dir, file, value) {
     : base + '/delete/main/' + dir + '/' + encodeURIComponent(file);
 }
 function addLink(st, label) {
+  if (ghToken()) return '<button class="btn primary" data-ghadd="' + esc(keyOf(st.market, st.symbol)) + '" data-name="' + esc(st.name) + '">' + (label || '毎朝の自動更新に追加') + '</button>';
   const url = ghUrl('new', 'watchlist', st.symbol + '.txt', st.name); if (!url) return '';
   return '<a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">' + (label || '毎朝の自動更新に追加') + '</a>';
 }
@@ -272,6 +308,8 @@ function syncCard(rows, notSent) {
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
   const url = ghUrl('new', 'holdings', stamp + '.txt', list);
   if (!notSent.length && Object.keys(S.hold).length === (D.index?.stocks || []).filter(e => e.holding).length) return '';
+  if (ghToken()) return '<div class="notice"><b>保有株は自動で送られます</b>' + (notSent.length ? '自動分析にまだ反映されていない保有株：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。送ってから数分で反映されます。' : '') +
+    '<div class="btns"><button class="btn" id="syncHold">今すぐ送り直す</button></div></div>';
   return '<div class="notice"><b>保有株を自動分析に送る</b>' + (notSent.length ? '自動分析に入っていない保有株：' + notSent.map(r => esc(r.h.name || r.k)).join('、') + '。' : '保有株の登録内容が、自動分析の対象と違っています。') +
     '下のボタンでGitHubが開くので、緑の「Commit changes」を押してください。数分後から毎朝、自動で分析されます。<br><small>送るのは銘柄コードと名前だけで、株数・取得単価は送りません。GitHubのリポジトリが公開設定の場合、銘柄名は誰でも見られる状態になります。</small>' +
     (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">保有株を自動分析に送る</a></div>' : '') + '</div>';
@@ -286,7 +324,10 @@ function drawHoldForm() {
 }
 function saveHolding(st, qty, cost, account) {
   if (!(qty > 0) || !(cost >= 0)) { alert('株数と取得単価を数字で入れてください。'); return false; }
-  S.hold[st.key] = { qty, cost, account, name: st.name, market: st.market, symbol: st.symbol }; save(); return true;
+  const isNew = !S.hold[st.key];
+  S.hold[st.key] = { qty, cost, account, name: st.name, market: st.market, symbol: st.symbol }; save();
+  if (isNew) autoSyncHoldings();
+  return true;
 }
 
 /* ---------- 気になる ---------- */
@@ -295,6 +336,7 @@ const stars = n => '<span class="stars" aria-label="5段階中' + n + '">' + '�
 function topicCard(name, t) {
   const del = '<button class="btn small" data-deltopic="' + esc(name) + '">外す</button>';
   if (!t || t.status === 'pending') {
+    if (ghToken()) return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。登録は自動で済んでいるので、数分〜次の朝の自動更新で分析が入ります。</p></article>';
     const url = ghUrl('new', 'topics', topicFile(name) + '.txt', '');
     return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。下のボタンでGitHubを開き、緑の <b>Commit changes</b> を押すと、数分後にここに分析が出ます。</p>' + (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">分析を始める（GitHub）</a></div>' : '') + '</article>';
   }
@@ -331,6 +373,14 @@ function renderSettings() {
     (ix?.errors?.length ? '<p class="hint">前回、取得できなかった銘柄：' + esc(ix.errors.map(e => e.symbol).join('、')) + '（前のデータを表示中）</p>' : '') +
     (u ? '<p class="hint num">前回のAI使用量：入力 ' + (u.input_tokens || 0).toLocaleString() + '／出力 ' + (u.output_tokens || 0).toLocaleString() + ' トークン、Web検索 ' + (u.web_search_requests || 0) + '回</p>' : '') + '</article>';
   if (r?.status !== 'ok') h += '<article class="group"><h2>AIまとめを使えるようにする（無料）</h2><ol class="mkt-points"><li>Safariで <b>aistudio.google.com</b> を開き、Googleアカウントでログイン</li><li>「Get API key」→「Create API key」でキーを作ってコピー（カード登録は不要）</li><li>GitHubで <b>github.com/' + esc(rp?.owner || 'o-ut46') + '/' + esc(rp?.repo || 'WEB-app-out46') + '/settings/secrets/actions</b> を開き、「New repository secret」</li><li>Name に <b>GEMINI_API_KEY</b>、Secret にキーを貼り付けて「Add secret」</li></ol><p class="hint">翌朝から自動でまとめが入ります。無料枠では、送った内容がGoogleのサービス改善に使われることがあります（ここで送るのは公開ニュースの見出しだけです）。</p></article>';
+  h += '<article class="group"><h2>GitHubへの自動登録</h2>' + (ghToken() ? '<p><b>連携中です。</b>銘柄・気になるテーマ・保有株の登録は、ボタンを押すだけで自動でGitHubに送られます（Commit changes は不要）。</p>' :
+    '<p>一度だけ設定すると、銘柄やテーマの追加、保有株の送信が、GitHubの画面を開かずに自動で済みます。</p><ol class="mkt-points">' +
+    '<li>Safariで <b>github.com/settings/personal-access-tokens/new</b> を開く</li><li>Token name に「株アプリ」など、Expiration は好きな期限（最長1年）</li>' +
+    '<li>Repository access で <b>Only select repositories</b> →「' + esc(rp?.repo || 'WEB-app-out46') + '」だけを選ぶ</li><li>Permissions の Repository permissions で <b>Contents</b> を「Read and write」にする</li>' +
+    '<li>下の「Generate token」を押し、表示された <b>github_pat_</b> で始まる文字をコピーして、下の欄に貼り付ける</li></ol>') +
+    '<label class="lbl" for="ghtk">トークン（この端末にだけ保存。外部へは送りません）</label><input id="ghtk" class="input" type="password" autocomplete="off" placeholder="' + (ghToken() ? '設定済み（変えるときだけ入力）' : 'github_pat_…') + '">' +
+    '<div class="btns"><button class="btn primary" id="saveToken">' + (ghToken() ? '保存し直す（空なら解除）' : '保存してつなぐ') + '</button></div>' +
+    '<p class="hint">このリポジトリのファイル書き込みだけを許可したトークンを使います。端末をなくしたときは github.com/settings/personal-access-tokens で削除してください。</p></article>';
   h += '<article class="group"><h2>銘柄の追加と削除</h2><p>銘柄の画面で「毎朝の自動更新に追加」を押すとGitHubが開きます。緑の <b>Commit changes</b> を押せば完了で、数分後に株価が、翌朝からニュースのまとめが入ります。</p><p>外すときは、GitHubの <b>watchlist</b> フォルダにある銘柄のファイル（例 7203.txt）を削除します。</p>' +
     '<div class="field"><div><label for="ow">GitHubのユーザー名</label><input id="ow" class="input" placeholder="' + esc(rp?.owner || 'o-ut46') + '" value="' + esc(S.owner) + '"></div><div><label for="rp">リポジトリ名</label><input id="rp" class="input" placeholder="' + esc(rp?.repo || 'WEB-app-out46') + '" value="' + esc(S.repo) + '"></div></div>' +
     '<p class="hint">GitHub Pagesで開いている場合は自動で判別するので、空欄のままで構いません。</p><div class="btns"><button class="btn" id="saveRepo">保存する</button></div></article>';
@@ -427,7 +477,7 @@ async function openDetail(k, hint) {
   $('#dmain').onclick = ev => {
     const b = ev.target.closest('[data-range]'); if (b) { range = +b.dataset.range; document.querySelectorAll('[data-range]').forEach(x => x.setAttribute('aria-pressed', x === b)); bigChart(rows, range, m); }
     if (ev.target.id === 'saveHold' && saveHolding(st, parseFloat($('#hq').value), parseFloat($('#hc').value), $('#ha').value)) $('#pl').textContent = plText(k, s.last) + '　保存しました。';
-    if (ev.target.id === 'delHold' && confirm('保有の記録を消しますか？')) { delete S.hold[k]; save(); $('#pl').textContent = '記録を消しました。'; ev.target.remove(); }
+    if (ev.target.id === 'delHold' && confirm('保有の記録を消しますか？')) { delete S.hold[k]; save(); autoSyncHoldings(); $('#pl').textContent = '記録を消しました。'; ev.target.remove(); }
   };
 }
 function plText(k, last) {
@@ -468,16 +518,30 @@ document.addEventListener('click', ev => {
   if (ev.target.id === 'addTopic') {
     const n = topicFile($('#tp').value); if (!n) return;
     if (!S.topics.includes(n)) S.topics.push(n); save();
-    const url = ghUrl('new', 'topics', n + '.txt', ''); renderInterest();
-    if (url) window.open(url, '_blank', 'noopener');
+    $('#tp').value = ''; renderInterest();
+    if (ghToken()) ghDo(() => ghPut('topics/' + n + '.txt', n + '\n', '気になるテーマ「' + n + '」を追加（アプリから自動）'), '「' + n + '」を分析対象に登録しました。');
+    else { const url = ghUrl('new', 'topics', n + '.txt', ''); if (url) window.open(url, '_blank', 'noopener'); }
     return;
   }
   const dt = ev.target.closest('[data-deltopic]');
   if (dt) {
     const n = dt.dataset.deltopic, onServer = !!D.research?.topics?.[n];
-    if (!confirm('「' + n + '」を外しますか？' + (onServer ? '\nGitHubが開くので、緑の「Commit changes」を押すと分析も止まります。' : ''))) return;
-    S.topics = S.topics.filter(x => x !== n); save(); if (onServer) { delete D.research.topics[n]; const u = ghUrl('del', 'topics', n + '.txt'); if (u) window.open(u, '_blank', 'noopener'); }
+    if (!confirm('「' + n + '」を外しますか？' + (onServer && !ghToken() ? '\nGitHubが開くので、緑の「Commit changes」を押すと分析も止まります。' : ''))) return;
+    S.topics = S.topics.filter(x => x !== n); save();
+    if (onServer) { delete D.research.topics[n]; if (ghToken()) ghDo(() => ghDelete('topics/' + n + '.txt', '気になるテーマ「' + n + '」を削除（アプリから自動）'), '「' + n + '」を外しました。'); else { const u = ghUrl('del', 'topics', n + '.txt'); if (u) window.open(u, '_blank', 'noopener'); } }
     renderInterest(); return;
+  }
+  const ga = ev.target.closest('[data-ghadd]');
+  if (ga) { const [m, sym] = ga.dataset.ghadd.split(':'); ga.disabled = true; ga.textContent = '登録中…';
+    ghDo(() => ghPut('watchlist/' + sym + '.txt', ga.dataset.name || sym, '「' + (ga.dataset.name || sym) + '」を自動更新リストに追加（アプリから自動）'), '「' + (ga.dataset.name || sym) + '」を毎朝の自動更新に追加しました。')
+      .then(ok => { ga.textContent = ok ? '追加しました' : '毎朝の自動更新に追加'; ga.disabled = ok; }); return; }
+  if (ev.target.id === 'syncHold') { ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'); return; }
+  if (ev.target.id === 'saveToken') {
+    const v = $('#ghtk').value.trim(); try { v ? localStorage.setItem('stockscope2-ghtoken', v) : localStorage.removeItem('stockscope2-ghtoken'); } catch (e) {}
+    $('#ghtk').value = ''; if (!v) { toast('GitHub連携を解除しました。'); renderSettings(); return; }
+    ghApi('').then(j => { toast(j.permissions?.push ? 'GitHubとつながりました。登録は自動になります。' : '接続はできましたが、書き込み権限がありません。'); renderSettings(); })
+      .catch(e => { toast('確認できませんでした：' + e.message); renderSettings(); });
+    return;
   }
   if (ev.target.id === 'exportBtn') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = 'stockscope-backup.json'; a.click(); }
 });
