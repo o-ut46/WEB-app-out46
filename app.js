@@ -352,7 +352,11 @@ const STANCE = { bullish: ['強気寄り', 'pos'], neutral: ['中立', 'mix'], b
 const stars = n => '<span class="stars" aria-label="5段階中' + n + '">' + '★'.repeat(n) + '<span>' + '★'.repeat(5 - n) + '</span></span>';
 function topicCard(name, t) {
   const del = '<button class="btn small" data-deltopic="' + esc(name) + '">外す</button>';
-  if (!t || t.status === 'pending') {
+  if (t?.status === 'pending' || (!t && ghToken())) {
+    // すでに登録済み（サーバー側にある）→ ボタン不要。次の自動更新で分析される
+    return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">登録済みです。次の自動更新（毎朝7:23頃）で分析が入ります。</p></article>';
+  }
+  if (!t) {
     if (ghToken()) return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。登録は自動で済んでいるので、数分〜次の朝の自動更新で分析が入ります。</p></article>';
     const url = ghUrl('new', 'topics', topicFile(name) + '.txt', '');
     return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。下のボタンでGitHubを開き、緑の <b>Commit changes</b> を押すと、数分後にここに分析が出ます。</p>' + (url ? '<div class="btns"><a class="btn primary" href="' + esc(url) + '" target="_blank" rel="noopener">分析を始める（GitHub）</a></div>' : '') + '</article>';
