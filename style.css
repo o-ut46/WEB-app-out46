@@ -254,3 +254,8 @@ details.explain[open] summary::after{content:' －'}
 
 .section-head{flex-wrap:wrap;row-gap:2px}
 @media (max-width:370px){.stamp{display:none}}
+
+.pick .rank{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);font-family:var(--num);font-size:13px;margin-right:8px;vertical-align:1px}
+.pick .feat-name{display:flex;align-items:center;flex-wrap:wrap}
+.spark.wide{width:100%;height:36px;margin:6px 0 0}
+.pick-sub{margin:14px 2px 8px;font-size:15px;color:var(--ink)}

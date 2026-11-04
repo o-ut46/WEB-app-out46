@@ -800,6 +800,132 @@ def related_stocks(favs, master):
     return out[:24]
 
 
+# ---------------- 購入オススメ（参考）と IPO・PO 注目 ----------------
+
+def buy_picks(index, briefs, analyses):
+    """Rank analysed stocks by: news tone, analysts' outlook, and price trend. Top 5 with AI-written reasons (sources = the stock's own articles)."""
+    pool = []
+    for e in index.get('stocks', []):
+        k = e['market'] + ':' + e['symbol']
+        b, t, a = briefs.get(k) or {}, e.get('tech') or {}, analyses.get(k) or {}
+        if e['market'] == 'INDEX' or b.get('status') != 'ok' or not t:
+            continue
+        sc = 10 * b.get('tone', 0) + {'bullish': 15, 'bearish': -15}.get(a.get('stance'), 0) + 4 * len(b.get('outlooks') or [])
+        sc += 3 * len(b.get('good') or []) - 4 * len(b.get('bad') or [])
+        if (t.get('chg60d') or 0) > 0 and (t.get('vsMA75') or 0) > 0:
+            sc += 8
+        if (t.get('vsMA25') or 0) > 0:
+            sc += 3
+        if (t.get('rsi14') or 50) > 75 or (t.get('vsMA25') or 0) > 15:
+            sc -= 8  # already overheated
+        pool.append((sc, k, e, b, t, a))
+    pool.sort(key=lambda x: -x[0])
+    cand = pool[:8]
+    if not cand:
+        return []
+    parts = []
+    for i, (sc, k, e, b, t, a) in enumerate(cand):
+        parts.append(f'## {k} {e.get("name")}\n要約: {b.get("summary")}\n好材料: {"、".join(b.get("good") or [])}\n懸念: {"、".join(b.get("bad") or [])}\n'
+                     f'見通し: {"／".join((o.get("who") or "") + "：" + (o.get("view") or "") for o in (b.get("outlooks") or []) + (a.get("outlooks") or []))}\n値動き: {fmt_tech(t)}')
+    user = ('次の候補は、ニュースの論調・見通し・値動きの点数が高い銘柄です。この中から、今後数か月で株価が伸びる根拠が強い順に最大5つ選び、理由をまとめてください。'
+            '根拠は与えた要約・材料・見通し・値動きだけ。断定や売買の推奨はせず「〜が材料」「〜との見方」の形で書く。\n\n' + '\n\n'.join(parts) +
+            '\n\n# 出力JSON\n{"picks":[{"key":"JP:7203","reason":"伸びる根拠のまとめ(100字以内)","points":["根拠(各25字以内)"],"risks":["注意点(各25字以内)"]}]}')
+    picked = []
+    try:
+        data = json_from(llm(True, RULES, user, max_tokens=3000))
+        keys = {c[1]: c for c in cand}
+        for pk in data.get('picks') or data.get('stocks') or []:
+            c = keys.get(pk.get('key'))
+            if c and pk.get('reason') and all(x['key'] != c[1] for x in picked):
+                picked.append({'key': c[1], 'name': c[2].get('name'), 'score': c[0], 'reason': clip(pk['reason'], 160),
+                               'points': [clip(x, 40) for x in (pk.get('points') or [])][:3], 'risks': [clip(x, 40) for x in (pk.get('risks') or [])][:2],
+                               'sources': (c[3].get('sources') or [])[:4]})
+    except Exception as exc:
+        print('buy picks AI failed', exc)
+    for sc, k, e, b, t, a in cand:  # fill from the ranking if the AI returned fewer than 5
+        if len(picked) >= 5:
+            break
+        if all(x['key'] != k for x in picked):
+            picked.append({'key': k, 'name': e.get('name'), 'score': sc, 'reason': b.get('summary'), 'points': (b.get('good') or [])[:3],
+                           'risks': (b.get('bad') or [])[:2], 'sources': (b.get('sources') or [])[:4]})
+    return picked[:5]
+
+
+JPX_NEW = 'https://www.jpx.co.jp/listing/stocks/new/index.html'
+
+
+def jpx_ipos():
+    """Upcoming IPOs from JPX's official new-listing page (listing date today or later)."""
+    html = http_get(JPX_NEW, timeout=30).decode('utf-8', 'replace')
+    today = datetime.now(JST).strftime('%Y/%m/%d')
+    out = []
+    for tr in re.findall(r'<tr[^>]*>([\s\S]*?)</tr>', html):
+        cells = [re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', c)).strip() for c in re.findall(r'<t[dh][^>]*>([\s\S]*?)</t[dh]>', tr)]
+        txt = ' '.join(cells)
+        m = re.search(r'(\d{4}/\d{2}/\d{2})\s*[（(](\d{4}/\d{2}/\d{2})[）)]', txt)
+        code = next((c for c in cells if re.fullmatch(r'[0-9]{3}[0-9A-Z]', c)), None)
+        if not m or not code or m.group(1) < today:
+            continue
+        name = next((c for c in cells if c and c != code and not re.search(r'\d{4}/\d{2}/\d{2}', c) and len(c) > 1), '')
+        out.append({'type': 'IPO', 'code': code, 'name': name[:40], 'date': m.group(1).replace('/', '-'), 'approved': m.group(2).replace('/', '-'),
+                    'row': txt[:300]})
+    print('JPX upcoming IPOs', len(out))
+    return out[:30]
+
+
+def ipo_po_picks(master):
+    today = datetime.now(JST).strftime('%Y-%m-%d')
+    ipos = []
+    try:
+        ipos = jpx_ipos()
+    except Exception as exc:
+        print('JPX IPO list failed', exc)
+    heads = []
+    for q in ('新規上場 承認 IPO', 'IPO 公開価格 仮条件', '公募増資 売出し 決議', '株式の売出し 決定'):
+        heads += google_news(q, NEWS_SOURCES_JP + ['release.tdnet.info'], days=21, limit=6)
+    seen, uniq = set(), []
+    for h in heads:
+        if h['url'] not in seen:
+            seen.add(h['url']); uniq.append(h)
+    idmap = {f'N{i + 1}': h for i, h in enumerate(uniq[:24])}
+    if not ipos and not idmap:
+        return {'ipo': [], 'po': []}
+    jlist = '\n'.join(f'I{i + 1}: [JPX 上場日{x["date"]}] {x["row"]}' for i, x in enumerate(ipos)) or '（なし）'
+    user = (f'今日は{today}。\n# JPXの新規上場予定（公式）\n{jlist}\n\n# ニュース見出し\n{fmt_headlines(list(idmap.values()), "N")}\n\n'
+            '# 作業\n1. IPO：上のJPXの新規上場予定から、注目度が高い順に最大5社。事業内容・市場・仮条件や公募価格・見出しの材料など、与えた情報にある点を理由にする。\n'
+            '2. PO（公募増資・株式の売出し）：見出しから、まだ実施（受渡し）前の案件を最大5件。銘柄コードが分かるものだけ。予定日（受渡日、分からなければ売出価格の決定予定日）を書く。\n'
+            '断定や売買の推奨はしない。\n# 出力JSON\n{"ipo":[{"ref":"I1","reason":"注目理由(80字以内)","points":["材料"],"risks":["注意点"]}],'
+            '"po":[{"code":"7203","name":"会社名","kind":"公募増資|売出し|公募・売出し","date":"YYYY-MM-DD","reason":"ポイント(80字以内)","risks":["注意点"],"source":"N3"}]}')
+    data = json_from(llm(True, RULES, user, max_tokens=3000))
+    out = {'ipo': [], 'po': []}
+    jpx_src = {'title': 'JPX 新規上場会社情報', 'url': JPX_NEW, 'publisher': '日本取引所グループ', 'date': today}
+    for r in data.get('ipo') or []:
+        ref = str(r.get('ref') or '')
+        if not re.fullmatch(r'I\d+', ref) or int(ref[1:]) > len(ipos) or not r.get('reason'):
+            continue
+        x = ipos[int(ref[1:]) - 1]
+        if any(y['code'] == x['code'] for y in out['ipo']):
+            continue
+        out['ipo'].append({**{k: x[k] for k in ('type', 'code', 'name', 'date', 'approved')}, 'reason': clip(r['reason'], 120),
+                           'points': [clip(p, 40) for p in (r.get('points') or [])][:3], 'risks': [clip(p, 40) for p in (r.get('risks') or [])][:2], 'sources': [jpx_src]})
+    for r in data.get('po') or []:
+        code = str(r.get('code') or '').upper().strip()
+        src = idmap.get(str(r.get('source') or ''))
+        date = str(r.get('date') or '')
+        if not re.fullmatch(r'[0-9]{3}[0-9A-Z]', code) or not src or (master and ('JP', code) not in master):
+            continue
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
+            date = (datetime.fromisoformat(src['date']) + timedelta(days=14)).strftime('%Y-%m-%d')  # unknown: keep for about 2 weeks
+        if date < today or any(y['code'] == code for y in out['po']):
+            continue
+        out['po'].append({'type': 'PO', 'code': code, 'name': (master or {}).get(('JP', code)) or clip(r.get('name'), 40), 'kind': clip(r.get('kind'), 10) or '公募・売出し',
+                          'date': date, 'reason': clip(r.get('reason'), 120), 'risks': [clip(p, 40) for p in (r.get('risks') or [])][:2],
+                          'sources': [{k: src.get(k, '') for k in ('title', 'url', 'publisher', 'date')}]})
+    out['ipo'], out['po'] = out['ipo'][:5], out['po'][:5]
+    print('picks ipo', len(out['ipo']), 'po', len(out['po']))
+    return out
+
+
 def keep_previous(reason):
     prev = previous_published('research.json')
     if prev:
@@ -889,6 +1015,12 @@ def main():
     errors += add_featured(featured)
     holder = {}
     errors += refresh_topics(holder, master, only_new=False)
+    picks = {}
+    try:
+        picks['ipo_po'] = ipo_po_picks(master)
+    except Exception as exc:
+        errors.append('IPO・PO: ' + str(exc)[:200])
+        print('ipo/po step failed', exc)
     holdings = {}
     try:
         held, _ = held_list()
@@ -896,11 +1028,16 @@ def main():
     except Exception as exc:
         errors.append('保有株の分析: ' + str(exc)[:300])
         print('holding step failed', exc)
+    try:
+        picks['buy'] = buy_picks(read_json(DATA / 'index.json') or index, briefs, holdings)
+    except Exception as exc:
+        errors.append('購入オススメ: ' + str(exc)[:200])
+        print('buy picks failed', exc)
     USAGE.pop('allModels', None)
     search_off = USAGE.pop('searchOff', False)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
-                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'holdings': holdings, 'related': related, 'errors': errors,
+                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'holdings': holdings, 'related': related, 'picks': picks, 'errors': errors,
                 'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}, 'searchOff': search_off}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))

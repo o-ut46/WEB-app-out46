@@ -433,6 +433,28 @@ function openFontPicker() {
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
+function picksHTML() {
+  const p = D.research?.picks; if (!p) return '';
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+  let h = '';
+  if (p.buy?.length) h += '<div class="section-head"><h2>購入オススメ銘柄 トップ5</h2><p>数か月先を見た参考ランキング</p></div>' +
+    p.buy.map((x, i) => { const [m, sym] = x.key.split(':'), e = entry(x.key), t = e?.tech;
+      return '<article class="group pick"><div class="feat-head"><button class="feat-name" data-choose="' + esc(x.key) + '" data-name="' + esc(x.name) + '"><span class="rank">' + (i + 1) + '</span>' + esc(x.name) + '<span class="code">' + esc(sym) + '</span></button>' +
+        (t ? '<span class="num ' + dir(t.chg20d) + '">20日 ' + pct(t.chg20d) + '</span>' : '') + '</div>' + (e ? spark(e.spark).replace('class="spark"', 'class="spark wide"') : '') +
+        '<p>' + esc(x.reason) + '</p><div class="chips">' + chips(x.points, 'good') + chips(x.risks, 'bad') + '</div>' + sources(x.sources) + '</article>'; }).join('') +
+    '<p class="hint">ニュースの論調・アナリストなどの見通し・値動きの点数が高い銘柄を選び、理由をAIがまとめた参考情報です。値上がりを保証するものでも、売買の推奨でもありません。押すと「気になる」「保有株」に追加できます。</p>';
+  const ipo = (p.ipo_po?.ipo || []).filter(x => x.date >= today), po = (p.ipo_po?.po || []).filter(x => x.date >= today);
+  if (ipo.length || po.length) {
+    h += '<div class="section-head"><h2>IPO・PO 注目トップ5</h2><p>実施日を過ぎたものは自動で外れます</p></div>';
+    const card = (x, i, label) => '<article class="group pick"><div class="feat-head"><b class="feat-name"><span class="rank">' + (i + 1) + '</span>' + esc(x.name) + '<span class="code">' + esc(x.code) + '</span></b><span class="tone mix">' + esc(label) + '</span></div>' +
+      '<p class="d-meta">' + (x.type === 'IPO' ? '上場予定日 ' + esc(x.date.replace(/-/g, '/')) + (x.approved ? '（承認 ' + esc(x.approved.slice(5).replace('-', '/')) + '）' : '') : esc(x.kind || '') + '　予定日 ' + esc(x.date.replace(/-/g, '/'))) + '</p>' +
+      '<p>' + esc(x.reason) + '</p><div class="chips">' + chips(x.points, 'good') + chips(x.risks, 'bad') + '</div>' + sources(x.sources) + '</article>';
+    if (ipo.length) h += '<h3 class="pick-sub">IPO（新規上場）</h3>' + ipo.map((x, i) => card(x, i, 'IPO')).join('');
+    if (po.length) h += '<h3 class="pick-sub">PO（公募増資・売出し）</h3>' + po.map((x, i) => card(x, i, 'PO')).join('');
+    h += '<p class="hint">IPOは日本取引所グループ（JPX）の公式の新規上場予定から、POは信頼できる媒体・適時開示の見出しから作っています。注目度の参考で、推奨ではありません。</p>';
+  }
+  return h;
+}
 const REL_ICON = { '取引先・供給元': '🔧', '販売先・顧客': '🛒', 競合: '⚔️', 同業: '🏭', '親会社・子会社': '🏢', '同じテーマ': '🧭', '指数・ETF': '📊', '為替・商品': '💱' };
 function relatedHTML(favs) {
   const rel = D.research?.related || [];
@@ -447,7 +469,7 @@ function relatedHTML(favs) {
 }
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])].filter(n => !(S.hiddenTopics || []).includes(n));
-  let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
+  let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>' + picksHTML();
   if (names.length) h += '<div class="section-head"><h2>気になるテーマ</h2><p>毎朝自動で分析</p></div>' + names.map(n => topicCard(n, res[n])).join('');
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
