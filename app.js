@@ -406,10 +406,8 @@ function openChooser(k, name) {
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
-  let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
-    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="テーマ（例：金、オールカントリー、宇宙関係）" autocomplete="off" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>' +
-    '<div class="btns" style="margin:-6px 0 18px"><button class="btn" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
-  h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
+  let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
+  if (names.length) h += '<div class="section-head"><h2>気になるテーマ</h2><p>毎朝自動で分析</p></div>' + names.map(n => topicCard(n, res[n])).join('');
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
     (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ 気になる」を押すと、ここに並び、毎朝自動で分析されます。</p>');
