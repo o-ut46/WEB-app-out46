@@ -419,6 +419,18 @@ function openChooser(k, name) {
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
+const REL_ICON = { '取引先・供給元': '🔧', '販売先・顧客': '🛒', 競合: '⚔️', 同業: '🏭', '親会社・子会社': '🏢', '同じテーマ': '🧭', '指数・ETF': '📊', '為替・商品': '💱' };
+function relatedHTML(favs) {
+  const rel = D.research?.related || [];
+  if (!favs.length) return '';
+  let h = '<div class="section-head"><h2>関係・影響する銘柄</h2><p>毎朝組み替えて分析</p></div>';
+  const groups = favs.map(w => [w, rel.filter(r => r.for === w.key)]).filter(([, l]) => l.length);
+  if (!groups.length) return h + '<p class="empty">次の自動更新で、気になる銘柄に関係する銘柄（取引先・競合・同業など）を選んで分析します。</p>';
+  return h + groups.map(([w, l]) => '<div class="group flush rel-group"><p class="rel-head">' + esc(w.name) + ' に関係</p><ul class="list">' +
+    l.map(r => { const k = keyOf(r.market, r.symbol), b = D.research?.briefs?.[k];
+      return row(k, '　' + (REL_ICON[r.kind] || '🔗') + ' ' + esc(r.kind) + (r.why ? '：' + esc(r.why) : '') + (b?.status === 'ok' ? '　' + (b.tone > 0 ? '好材料' : b.tone < 0 ? '悪材料' : 'ニュースあり') : '')); }).join('') +
+    '</ul></div>').join('') + '<p class="hint">関係はAIが一般に知られた事実から選び、公式の銘柄一覧で確認したものだけを表示しています。各銘柄を押すとチャート・ニュース要約・最近のできごとが見られます。</p>';
+}
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])].filter(n => !(S.hiddenTopics || []).includes(n));
   let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>';
@@ -426,8 +438,7 @@ function renderInterest() {
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
     (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ 気になる」を押すと、ここに並び、毎朝自動で分析されます。</p>');
-  const list = (D.index?.stocks || []).filter(e => e.kind === 'tracked');
-  h += '<details class="group flush more"><summary>毎朝の自動更新リスト（' + list.length + '銘柄）</summary><ul class="list">' + list.map(e => row(keyOf(e.market, e.symbol))).join('') + '</ul></details>';
+  h += relatedHTML(favs);
   $('#interest').innerHTML = h;
   document.querySelectorAll('#interest [data-mini]').forEach(async el => { el.innerHTML = miniCandles(await rowsOf(el.dataset.mini)); });
 }

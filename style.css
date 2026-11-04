@@ -230,3 +230,7 @@ details.explain[open] summary::after{content:' －'}
 .sheet h2{margin:0}
 .sheet-actions{display:grid;gap:8px;margin:14px 0 6px}
 .sheet-actions .btn{width:100%}
+
+.rel-group{margin-bottom:12px}
+.rel-head{margin:0;padding:12px 16px 4px;font-size:13px;font-weight:700;color:var(--sub)}
+.rel-group .row .nm small{white-space:normal}

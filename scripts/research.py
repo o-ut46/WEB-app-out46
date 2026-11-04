@@ -22,7 +22,7 @@ GEMINI_MODEL = os.environ.get('GEMINI_MODEL', '').strip()
 # Claude API (paid) if its key is set; otherwise Google Gemini API free tier (Google Search grounding included)
 PROVIDER = 'claude' if API_KEY else 'gemini' if GEMINI_KEY else None
 MAX_SEARCHES = int(os.environ.get('MAX_WEB_SEARCHES', '') or 6)
-MAX_BRIEFS = int(os.environ.get('MAX_STOCK_BRIEFS', '') or 40)
+MAX_BRIEFS = int(os.environ.get('MAX_STOCK_BRIEFS', '') or 60)
 JST = timezone(timedelta(hours=9))
 
 # Outlets treated as credible: wire services, major business press, exchanges/regulators, securities firms' research.
@@ -765,15 +765,59 @@ def held_list():
             for e in sorted(index['stocks'], key=lambda e: not e.get('holding')) if e.get('holding') or e.get('favorite')][:16], {e['market'] + ':' + e['symbol']: e.get('tech') for e in index['stocks']}
 
 
+# ---------------- 気になる銘柄に関係・影響する銘柄（毎朝組み替え） ----------------
+
+REL_KINDS = ('取引先・供給元', '販売先・顧客', '競合', '同業', '親会社・子会社', '同じテーマ', '指数・ETF', '為替・商品')
+
+
+def related_stocks(favs, master):
+    """For each 気になる stock, pick listed securities that are related to it or move it (validated against the official list)."""
+    if not favs:
+        return []
+    names = '\n'.join(f'- {f["key"]} {f["name"]}' for f in favs)
+    user = ('次の銘柄それぞれについて、事業上の関係がある、または株価に影響を与えやすい上場銘柄を選んでください。'
+            '取引先・供給元、販売先・顧客、競合、同業の大手、親会社・子会社、同じテーマの代表銘柄、連動しやすい指数ETFなど。'
+            '一般に知られた事実に基づく関係だけを挙げ、推測や噂による関係は入れない。日本株は4桁コード、米国株はティッカー。各銘柄につき最大4つ。\n\n'
+            + names + '\n\n# 出力JSON\n{"related":[{"for":"JP:7203","market":"JP|US","symbol":"6902","name":"名称","kind":"' + '|'.join(REL_KINDS) + '","why":"関係(30字以内)"}]}')
+    data = json_from(llm(True, RULES.replace('根拠となる記事（下に与えた見出しID、またはweb検索で実際に開いたページ）に書かれている事実・見通しだけを使う。', '広く知られた事実だけを使う。'), user, max_tokens=4000))
+    keys = {f['key'] for f in favs}
+    out, seen = [], set()
+    for r in data.get('related') or []:
+        mk = 'JP' if str(r.get('market')).upper() == 'JP' else 'US'
+        sym = str(r.get('symbol') or '').upper().strip().removesuffix('.T')
+        sym = sym.replace('.', '-') if mk == 'US' else sym
+        k, f = mk + ':' + sym, r.get('for')
+        if f not in keys or k in keys or (mk, sym) not in master or (f, k) in seen:
+            continue
+        seen.add((f, k))
+        out.append({'for': f, 'market': mk, 'symbol': sym, 'name': master[(mk, sym)],
+                    'kind': r.get('kind') if r.get('kind') in REL_KINDS else '同業', 'why': clip(r.get('why'), 40)})
+    per = {}
+    out = [x for x in out if per.setdefault(x['for'], 0) < 4 and not per.__setitem__(x['for'], per[x['for']] + 1)]
+    print('related stocks', len(out), 'for', len(favs), 'favorites')
+    return out[:24]
+
+
 def keep_previous(reason):
     prev = previous_published('research.json')
     if prev:
         if reason:
             prev['notice'] = reason
         add_featured(prev.get('featured'))
+        add_featured(prev.get('related'), 'related')
         if reason is None and os.environ.get('LIGHT_RUN') != 'true' and PROVIDER:
             master = {(x[1], x[0]): x[2] for x in (read_json(DATA / 'symbols-master.json') or {}).get('items', [])}
             refresh_topics(prev, master, only_new=True)  # a newly added topic is analysed right away
+            try:  # related stocks for newly added 気になる stocks, right away
+                idx = read_json(DATA / 'index.json') or {'stocks': []}
+                done = {r['for'] for r in prev.get('related') or []}
+                favs = [{'key': e['market'] + ':' + e['symbol'], 'name': e.get('name') or e['symbol']} for e in idx['stocks']
+                        if e.get('favorite') and e['market'] + ':' + e['symbol'] not in done][:6]
+                keep = {e['market'] + ':' + e['symbol'] for e in idx['stocks'] if e.get('favorite')}
+                prev['related'] = [r for r in prev.get('related') or [] if r['for'] in keep] + (related_stocks(favs, master) if favs else [])
+                add_featured(prev['related'], 'related')
+            except Exception as exc:
+                print('related step failed', exc)
             held, techs = held_list()
             new = [h for h in held if (prev.get('holdings') or {}).get(h['key'], {}).get('status') != 'ok']
             if new:
@@ -809,12 +853,23 @@ def main():
     index = read_json(DATA / 'index.json') or {'stocks': []}
     master_doc = read_json(DATA / 'symbols-master.json') or {}
     master = {(x[1], x[0]): x[2] for x in master_doc.get('items', [])}
+    errors = []
+    # 気になる銘柄に関係・影響する銘柄を毎朝選び直し、株価を取ってから分析対象に加える
+    related = []
+    try:
+        favs = [{'key': e['market'] + ':' + e['symbol'], 'name': e.get('name') or e['symbol']} for e in index['stocks'] if e.get('favorite')][:12]
+        related = related_stocks(favs, master)
+        errors += add_featured(related, 'related')
+        index = read_json(DATA / 'index.json') or index
+    except Exception as exc:
+        errors.append('関連銘柄: ' + str(exc)[:200])
+        print('related step failed', exc)
+    rel_keys = {r['market'] + ':' + r['symbol'] for r in related}
     tracked, techs = [], {}
-    for e in index['stocks']:
+    for e in sorted(index['stocks'], key=lambda e: 0 if e.get('holding') or e.get('favorite') else 1 if e['market'] + ':' + e['symbol'] in rel_keys else 2):
         key = e['market'] + ':' + e['symbol']
         tracked.append({'key': key, 'symbol': e['symbol'], 'market': e['market'], 'name': e.get('name') or e['symbol']})
         techs[key] = e.get('tech')
-    errors = []
     market, featured, page_count = {}, [], 0
     try:
         market, featured, page_count = market_and_featured(tracked, techs, master)
@@ -843,7 +898,7 @@ def main():
     search_off = USAGE.pop('searchOff', False)
     research = {'version': 2, 'status': 'ok', 'generatedAt': now_iso(), 'provider': PROVIDER, 'model': MODEL if PROVIDER == 'claude' else USAGE.get('model', ''),
                 'modelLight': MODEL_LIGHT if PROVIDER == 'claude' else USAGE.get('model', ''),
-                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'holdings': holdings, 'errors': errors,
+                'market': market, 'featured': featured, 'briefs': briefs, 'topics': holder.get('topics', {}), 'holdings': holdings, 'related': related, 'errors': errors,
                 'usage': {**USAGE, 'pagesRead': page_count or USAGE.get('pagesRead', 0)}, 'searchOff': search_off}
     write_json(DATA / 'research.json', research)
     print('research ok', json.dumps(research['usage']), 'featured', len(featured), 'briefs', len(briefs))
