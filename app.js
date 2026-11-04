@@ -207,7 +207,7 @@ function runSearch() {
   box.innerHTML = list.map(x => {
     const k = keyOf(x.market, x.symbol), e = entry(k);
     const tag = e?.kind === 'tracked' ? '<span class="badge live">毎朝更新</span>' : e ? '<span class="badge">注目</span>' : '';
-    return '<li><button class="row" data-open="' + esc(k) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + tag + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment, x.sector].filter(Boolean).join('／')) + '</small></span>' + spark(e?.spark) +
+    return '<li><button class="row" data-choose="' + esc(k) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + tag + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment, x.sector].filter(Boolean).join('／')) + '</small></span>' + spark(e?.spark) +
       '<span class="px num">' + (e?.tech ? fmt(e.tech.close, x.market) + '<small class="' + dir(e.tech.chg1d) + '">' + pct(e.tech.chg1d) + '</small>' : '') + '</span></button></li>';
   }).join('');
 }
@@ -274,7 +274,7 @@ function renderHold() {
     const missing = [];
     if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価・ニュース・トピックが入ります。</p>';
   } else h += '<p class="empty">まだ登録がありません。下で銘柄を探して、株数と取得単価を入れてください。登録内容はこの端末だけに保存されます。</p>';
-  h += '<div class="section-head"><h2>保有株を追加</h2></div><div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="hs" type="search" autocomplete="off" placeholder="会社名・コードで探す" aria-label="追加する銘柄を探す"></div><ul id="hsr" class="list pick-list"></ul><div id="holdForm"></div>';
+  h += '<div class="btns" style="margin-top:20px"><button class="btn primary" data-goto="search">＋ 銘柄を探して保有株に登録</button></div>';
   $('#hold').innerHTML = h;
   if (picked) drawHoldForm();
 }
@@ -380,10 +380,35 @@ function drawTopicSuggest() {
     return '<li><button class="row" data-fav="' + esc(k) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">' + (on ? '★ 追加済み' : '☆ 銘柄を追加') + '</span></button></li>'; }).join('') +
     '<li><button class="row" id="tpAsTheme"><span class="nm"><b>「' + esc(raw) + '」をテーマとして追加</b><small>金・オールカントリー・宇宙関係のような、銘柄以外の対象</small></span><span></span><span class="px">＋ テーマ</span></button></li>';
 }
+/* 探すで選んだ銘柄：お気に入り／保有株に登録するポップアップ */
+let chooseKey = null;
+function openChooser(k, name) {
+  const [market, symbol] = k.split(':'), st = { ...info(k), name: name || info(k).name, key: k, market, symbol };
+  chooseKey = st;
+  const fav = S.watch.some(w => w.key === k), hd = S.hold[k], e = entry(k);
+  let box = $('#chooser');
+  if (!box) { box = document.createElement('div'); box.id = 'chooser'; box.className = 'sheet-wrap'; document.body.appendChild(box); }
+  box.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ch-name"><div class="sheet-grip"></div>' +
+    '<h2 id="ch-name">' + esc(st.name) + '<span class="code">' + esc(symbol) + '</span></h2><p class="d-meta">' + esc([mkt(market), st.segment, st.sector].filter(Boolean).join('／')) +
+    (e?.tech ? '　<span class="num">' + fmt(e.tech.close, market) + unit(market) + '</span> <span class="' + dir(e.tech.chg1d) + '">' + pct(e.tech.chg1d) + '</span>' : '') + '</p>' +
+    '<div class="sheet-actions">' +
+    '<button class="btn ' + (fav ? '' : 'primary') + '" id="chFav">' + (fav ? '★ お気に入り登録済み（外す）' : '☆ お気に入りに登録') + '</button>' +
+    '<button class="btn ' + (hd ? '' : 'primary') + '" id="chHoldOpen">' + (hd ? '保有株の内容を変える' : '保有株に登録') + '</button>' +
+    '<button class="btn" id="chView">チャート・分析を見る</button></div>' +
+    '<div id="chHoldForm" hidden><div class="field"><div><label for="cq">株数</label><input id="cq" class="input num" inputmode="decimal" value="' + esc(hd?.qty ?? '') + '"></div>' +
+    '<div><label for="cc">取得単価（' + unit(market) + '）</label><input id="cc" class="input num" inputmode="decimal" value="' + esc(hd?.cost ?? '') + '"></div></div>' +
+    '<label class="lbl" for="ca">口座</label><select id="ca" class="input">' + ACCOUNTS.map(a => '<option' + (a === hd?.account ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +
+    '<div class="btns"><button class="btn primary" id="chHoldSave">保有株に登録する</button></div></div>' +
+    '<p class="hint">登録した銘柄は毎朝自動で分析されます（「気になる」「保有株」タブに表示）。</p>' +
+    '<div class="btns"><button class="btn" id="chClose">閉じる</button></div></div>';
+  box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
+}
+function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])];
   let h = '<p class="hint">金、オールカントリー、スペースX、宇宙関係など、気になるものを自由に書いて追加できます。毎朝、WEBの信頼できる情報から「現在の動向」「今後の見通し」「関連銘柄」をまとめます。</p>' +
-    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="銘柄名・コード、またはテーマ（例：とよた、金、宇宙関係）" autocomplete="off" aria-label="気になる銘柄やテーマ"><button class="btn primary" id="addTopic">追加</button></div><ul id="tps" class="list pick-list"></ul>';
+    '<div class="addrow"><input id="tp" class="input" maxlength="40" placeholder="テーマ（例：金、オールカントリー、宇宙関係）" autocomplete="off" aria-label="気になるテーマ"><button class="btn primary" id="addTopic">追加</button></div>' +
+    '<div class="btns" style="margin:-6px 0 18px"><button class="btn" data-goto="search">☆ 銘柄を探してお気に入りに登録</button></div>';
   h += names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">まだありません。上の欄に書いて「追加」を押してください。</p>';
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
@@ -547,6 +572,26 @@ document.addEventListener('click', ev => {
   if (pk) { const [k, name] = [pk.dataset.pick, pk.dataset.name]; const [market, symbol] = k.split(':'); picked = { key: k, market, symbol, name }; $('#hsr').innerHTML = ''; $('#hs').value = ''; drawHoldForm(); $('#nq').focus(); return; }
   if (ev.target.id === 'cancelHold') { picked = null; $('#holdForm').innerHTML = ''; return; }
   if (ev.target.id === 'addHold') { if (saveHolding(picked, parseFloat($('#nq').value), parseFloat($('#nc').value), $('#na').value)) { picked = null; renderHold(); window.scrollTo(0, 0); } return; }
+  const ch = ev.target.closest('[data-choose]');
+  if (ch) { openChooser(ch.dataset.choose, ch.dataset.name); return; }
+  const gt = ev.target.closest('[data-goto]');
+  if (gt) { showTab(gt.dataset.goto); return; }
+  if (chooseKey) {
+    const st = chooseKey;
+    if (ev.target.id === 'chClose' || ev.target.id === 'chooser') { closeChooser(); return; }
+    if (ev.target.id === 'chView') { closeChooser(); location.hash = 's=' + encodeURIComponent(st.key) + '&n=' + encodeURIComponent(st.name); return; }
+    if (ev.target.id === 'chFav') {
+      const i = S.watch.findIndex(w => w.key === st.key);
+      if (i >= 0) { S.watch.splice(i, 1); toast('「' + st.name + '」をお気に入りから外しました。'); }
+      else { S.watch.push({ key: st.key, market: st.market, symbol: st.symbol, name: st.name }); toast('「' + st.name + '」をお気に入りに登録しました。'); }
+      save(); autoSyncFavorites(); closeChooser(); runSearch(); return;
+    }
+    if (ev.target.id === 'chHoldOpen') { $('#chHoldForm').hidden = false; $('#cq').focus(); return; }
+    if (ev.target.id === 'chHoldSave') {
+      if (saveHolding(st, parseFloat($('#cq').value), parseFloat($('#cc').value), $('#ca').value)) { toast('「' + st.name + '」を保有株に登録しました。'); closeChooser(); runSearch(); }
+      return;
+    }
+  }
   const fv = ev.target.closest('[data-fav]');
   if (fv) { const k = fv.dataset.fav, [market, symbol] = k.split(':');
     if (!S.watch.some(w => w.key === k)) { S.watch.push({ key: k, market, symbol, name: fv.dataset.name }); save(); autoSyncFavorites(); toast('「' + fv.dataset.name + '」を気になる銘柄に追加しました。'); }
@@ -595,7 +640,6 @@ $('#star').onclick = () => {
 };
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(runSearch, 120); });
 document.addEventListener('input', ev => {
-  if (ev.target.id === 'tp') { loadMaster(); drawTopicSuggest(); return; }
   if (ev.target.id !== 'hs') return; loadMaster();
   const list = searchPool(ev.target.value.trim(), 12);
   $('#hsr').innerHTML = list.map(x => '<li><button class="row" data-pick="' + esc(keyOf(x.market, x.symbol)) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">選ぶ</span></button></li>').join('');
