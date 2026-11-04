@@ -113,8 +113,17 @@ async function relay(body, label) {
 }
 const favCodes = () => S.watch.filter(w => w.market !== 'INDEX').map(w => w.symbol);
 const holdCodes = () => Object.keys(S.hold).map(k => k.split(':')[1]);
+const serverCodes = flag => (D.index?.stocks || []).filter(e => e[flag]).map(e => e.symbol);
+// 送るのは「追加」と「外す」だけ（何も登録していない端末が、サーバーの一覧を消してしまわないように）
+function diffBody() {
+  const sf = serverCodes('favorite'), sh = serverCodes('holding'), lf = favCodes(), lh = holdCodes(), gone = S.removed || { fav: [], hold: [] };
+  return { favAdd: lf.filter(c => !sf.includes(c)), favDel: (gone.fav || []).filter(c => sf.includes(c) && !lf.includes(c)),
+           holdAdd: lh.filter(c => !sh.includes(c)), holdDel: (gone.hold || []).filter(c => sh.includes(c) && !lh.includes(c)) };
+}
+function markRemoved(kind, code) { S.removed = S.removed || { fav: [], hold: [] }; if (!S.removed[kind].includes(code)) S.removed[kind].push(code); save(); }
+function markAdded(kind, code) { if (S.removed?.[kind]) { S.removed[kind] = S.removed[kind].filter(c => c !== code); save(); } }
 let relayTimer;
-function relaySoon(label) { clearTimeout(relayTimer); relayTimer = setTimeout(() => relay({ fav: favCodes(), hold: holdCodes() }, label), 1200); }
+function relaySoon(label) { clearTimeout(relayTimer); relayTimer = setTimeout(() => { const b = diffBody(); if (Object.values(b).some(a => a.length)) relay(b, label); }, 1200); }
 function autoSyncHoldings() {
   if (!ghToken()) return relaySoon('保有株を自動分析に送りました。');
   clearTimeout(holdSyncTimer);
@@ -362,7 +371,7 @@ function drawHoldForm() {
 }
 function saveHolding(st, qty, cost, account) {
   if (!(qty > 0) || !(cost >= 0)) { alert('株数と取得単価を数字で入れてください。'); return false; }
-  const isNew = !S.hold[st.key];
+  const isNew = !S.hold[st.key]; markAdded('hold', st.symbol);
   S.hold[st.key] = { qty, cost, account, name: st.name, market: st.market, symbol: st.symbol }; save();
   if (isNew) autoSyncHoldings();
   return true;
@@ -599,7 +608,7 @@ async function openDetail(k, hint) {
   $('#dmain').onclick = ev => {
     const b = ev.target.closest('[data-range]'); if (b) { range = +b.dataset.range; document.querySelectorAll('[data-range]').forEach(x => x.setAttribute('aria-pressed', x === b)); bigChart(rows, range, m); }
     if (ev.target.id === 'saveHold' && saveHolding(st, parseFloat($('#hq').value), parseFloat($('#hc').value), $('#ha').value)) $('#pl').textContent = plText(k, s.last) + '　保存しました。';
-    if (ev.target.id === 'delHold' && confirm('保有の記録を消しますか？')) { delete S.hold[k]; save(); autoSyncHoldings(); $('#pl').textContent = '記録を消しました。'; ev.target.remove(); }
+    if (ev.target.id === 'delHold' && confirm('保有の記録を消しますか？')) { delete S.hold[k]; markRemoved('hold', k.split(':')[1]); save(); autoSyncHoldings(); $('#pl').textContent = '記録を消しました。'; ev.target.remove(); }
   };
 }
 function plText(k, last) {
@@ -651,8 +660,8 @@ document.addEventListener('click', ev => {
     if (ev.target.id === 'chView') { closeChooser(); location.hash = 's=' + encodeURIComponent(st.key) + '&n=' + encodeURIComponent(st.name); return; }
     if (ev.target.id === 'chFav') {
       const i = S.watch.findIndex(w => w.key === st.key);
-      if (i >= 0) { S.watch.splice(i, 1); toast('「' + st.name + '」を気になるから外しました。'); }
-      else { S.watch.push({ key: st.key, market: st.market, symbol: st.symbol, name: st.name }); toast('「' + st.name + '」を気になるに追加しました。'); }
+      if (i >= 0) { S.watch.splice(i, 1); markRemoved('fav', st.symbol); toast('「' + st.name + '」を気になるから外しました。'); }
+      else { S.watch.push({ key: st.key, market: st.market, symbol: st.symbol, name: st.name }); markAdded('fav', st.symbol); toast('「' + st.name + '」を気になるに追加しました。'); }
       save(); autoSyncFavorites(); closeChooser(); runSearch(); return;
     }
     if (ev.target.id === 'chHoldOpen') { $('#chHoldForm').hidden = false; $('#cq').focus(); return; }
@@ -690,8 +699,8 @@ document.addEventListener('click', ev => {
   const fa = ev.target.closest('[data-favadd]');
   if (fa) { const k = fa.dataset.favadd, [market, symbol] = k.split(':');
     if (!S.watch.some(w => w.key === k)) { S.watch.push({ key: k, market, symbol, name: fa.dataset.name }); save(); }
-    relay({ fav: favCodes(), hold: holdCodes() }, '「' + fa.dataset.name + '」を気になるに追加しました。'); fa.disabled = true; fa.textContent = '追加しました'; updateStar(); return; }
-  if (ev.target.id === 'relayNow') { relay({ fav: favCodes(), hold: holdCodes() }, '送り直しました。'); return; }
+    (markAdded('fav', symbol), relay(diffBody(), '「' + fa.dataset.name + '」を気になるに追加しました。')); fa.disabled = true; fa.textContent = '追加しました'; updateStar(); return; }
+  if (ev.target.id === 'relayNow') { relay(diffBody(), '送り直しました。'); return; }
   if (ev.target.id === 'syncFav') { ghDo(() => ghPut('favorites/latest.txt', favText(), '気になる銘柄リストを更新（アプリから自動）'), '気になる銘柄を自動分析に送りました。'); return; }
   if (ev.target.id === 'syncHold') { ghDo(() => ghPut('holdings/latest.txt', holdingsText(), '保有株リストを更新（アプリから自動）'), '保有株を自動分析に送りました。'); return; }
   if (ev.target.id === 'saveToken') {
@@ -710,7 +719,7 @@ document.addEventListener('change', async ev => {
 $('#back').onclick = () => { if (location.hash) history.back(); else closeDetail(); };
 $('#star').onclick = () => {
   if (!current) return; const i = S.watch.findIndex(w => w.key === current.key);
-  if (i >= 0) S.watch.splice(i, 1); else S.watch.push({ key: current.key, market: current.market, symbol: current.symbol, name: current.name });
+  if (i >= 0) { S.watch.splice(i, 1); markRemoved('fav', current.symbol); } else { S.watch.push({ key: current.key, market: current.market, symbol: current.symbol, name: current.name }); markAdded('fav', current.symbol); }
   save(); updateStar(); autoSyncFavorites();
 };
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(runSearch, 120); });
@@ -735,7 +744,8 @@ window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild
   try {
     const st = D.index?.stocks || [], serverFav = st.filter(e => e.favorite).map(e => e.symbol).sort().join(), serverHold = st.filter(e => e.holding).map(e => e.symbol).sort().join();
     const last = +localStorage.getItem('stockscope2-relayed') || 0;
-    if (!ghToken() && ix && (serverFav !== favCodes().sort().join() || serverHold !== holdCodes().sort().join()) && Date.now() - last > 2 * 3600e3) relay({ fav: favCodes(), hold: holdCodes() });
+    const pend = diffBody();
+    if (!ghToken() && ix && Object.values(pend).some(a => a.length) && Date.now() - last > 2 * 3600e3) relay(pend);
   } catch (e) {}
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 })();

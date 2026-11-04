@@ -29,6 +29,21 @@ def valid_codes(items, master):
     return out[:30]
 
 
+def current_list(folder):
+    files = sorted(p for p in folder.glob('*.txt'))
+    latest = folder / 'latest.txt'
+    if latest.exists():
+        files = [p for p in files if p != latest] + [latest]
+    if not files:
+        return []
+    out = []
+    for line in files[-1].read_text(encoding='utf-8', errors='ignore').splitlines():
+        parts = line.strip().split(' ', 1)
+        if parts and parts[0]:
+            out.append((parts[0].upper(), parts[1] if len(parts) > 1 else ''))
+    return out
+
+
 def topic_file(name):
     return re.sub(r'[\\/:*?"<>|#%\x00-\x1f]', ' ', str(name)).strip()[:40]
 
@@ -53,15 +68,19 @@ def main():
             continue
         if body.get('v') != 1:
             continue
+        # add / remove operations only — a device that has nothing stored can never wipe the list
         for key, folder in (('fav', 'favorites'), ('hold', 'holdings')):
-            if key in body:
-                codes = valid_codes(body[key], master)
-                path = ROOT / folder / 'latest.txt'
-                path.parent.mkdir(exist_ok=True)
-                text = ''.join(f'{c} {n}\n' for c, n in codes)
-                if not path.exists() or path.read_text(encoding='utf-8') != text:
-                    path.write_text(text, encoding='utf-8')
-                    changed.append(f'{folder}: {len(codes)}')
+            add, rem = valid_codes(body.get(key + 'Add'), master), {c for c, _ in valid_codes(body.get(key + 'Del'), {})}
+            if not add and not rem:
+                continue
+            path = ROOT / folder / 'latest.txt'
+            path.parent.mkdir(exist_ok=True)
+            cur = current_list(ROOT / folder)
+            new = [(c, n) for c, n in cur if c not in rem] + [(c, n) for c, n in add if c not in {x for x, _ in cur}]
+            text = ''.join(f'{c} {n}\n' for c, n in new[:30])
+            if not path.exists() or path.read_text(encoding='utf-8') != text:
+                path.write_text(text, encoding='utf-8')
+                changed.append(f'{folder}: {len(new)}')
         for name in body.get('delTopic') or []:
             p = ROOT / 'topics' / (topic_file(name) + '.txt')
             if p.exists():
