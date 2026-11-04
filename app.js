@@ -19,7 +19,7 @@ applyTheme();
 
 /* ---------- data ---------- */
 const D = { index: null, research: null, master: null, masterP: null, files: new Map() };
-const getJSON = (path, fresh) => fetch('./data/' + path + (fresh ? '?t=' + Date.now() : ''), { cache: fresh ? 'no-store' : 'no-cache' })
+const getJSON = (path, fresh) => window.STOCKSCOPE_EMBED?.[path] ? Promise.resolve(window.STOCKSCOPE_EMBED[path]) : fetch('./data/' + path + (fresh ? '?t=' + Date.now() : ''), { cache: fresh ? 'no-store' : 'no-cache' })
   .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
 const entry = k => D.index?.stocks.find(e => keyOf(e.market, e.symbol) === k);
 const tracked = k => entry(k)?.kind === 'tracked';
@@ -100,7 +100,7 @@ let holdSyncTimer;
 let relayTopic = null;
 async function relay(body, label) {
   try {
-    if (!relayTopic) relayTopic = (await fetch('./sync-topic.txt', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '')).trim();
+    if (!relayTopic) relayTopic = window.STOCKSCOPE_EMBED?.['sync-topic.txt'] || (await fetch('./sync-topic.txt', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '')).trim();
     if (!relayTopic) throw new Error('送信先が見つかりません');
     const r = await fetch('https://ntfy.sh/' + encodeURIComponent(relayTopic), { method: 'POST', body: JSON.stringify({ v: 1, t: Date.now(), ...body }) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -180,7 +180,11 @@ function renderToday() {
   const r = D.research, ok = r?.status === 'ok';
   const when = r?.generatedAt || D.index?.generatedAt;
   let h = '<div class="lead"><div class="date">' + (when ? esc(dateJP(when)) : '') + '</div><h1>' + (ok ? '今朝のマーケット' : '今日の値動き') + '</h1></div>';
-  if (!ok) h += '<div class="notice"><b>ニュースのAIまとめはまだありません</b>' + esc(r?.notice || 'GitHubにClaudeのAPIキーを登録すると、毎朝ここに相場のまとめと注目銘柄が表示されます。') + ' 手順は「設定」タブにあります。</div>';
+  const idx = [['^N225', '日経平均'], ['^DJI', 'NYダウ'], ['^GSPC', 'S&P500'], ['^IXIC', 'ナスダック'], ['USDJPY', 'ドル円']].map(([sym, label]) => [entry('INDEX:' + sym), label, sym]).filter(([e]) => e?.tech);
+  if (idx.length) h += '<div class="idx-row">' + idx.map(([e, label, sym]) => '<button class="idx" data-open="INDEX:' + esc(sym) + '"><span class="idx-name">' + label + '</span><b class="num">' +
+    e.tech.close.toLocaleString('ja-JP', { minimumFractionDigits: sym === 'USDJPY' ? 2 : 0, maximumFractionDigits: sym === 'USDJPY' ? 2 : 0 }) + '</b><span class="num ' + dir(e.tech.chg1d) + '">' + pct(e.tech.chg1d) + '</span>' + spark(e.spark) +
+    '<small class="idx-date">' + esc(e.tech.date.slice(5).replace('-', '/')) + '</small></button>').join('') + '</div>';
+  if (!ok) h += '<div class="notice"><b>ニュースのAIまとめはまだありません</b>' + esc(r?.notice || '毎朝7:23頃の自動更新で、相場のまとめと注目銘柄が作られます。') + '</div>';
   else if (r.notice) h += '<p class="hint">' + esc(r.notice) + '</p>';
   if (ok) for (const [code, label] of [['jp', '日本株'], ['us', '米国株']]) {
     const m = r.market?.[code]; if (!m) continue;
@@ -465,6 +469,10 @@ function renderSettings() {
   h += '<article class="group"><h2>銘柄の追加と削除</h2><p>「探す」で銘柄を選び、「気になるに追加」か「保有株に登録」を押すだけです。外すときも同じ画面から。GitHubの操作は要りません（20〜30分ほどで自動分析に反映）。</p>' +
     '<div class="field"><div><label for="ow">GitHubのユーザー名</label><input id="ow" class="input" placeholder="' + esc(rp?.owner || 'o-ut46') + '" value="' + esc(S.owner) + '"></div><div><label for="rp">リポジトリ名</label><input id="rp" class="input" placeholder="' + esc(rp?.repo || 'WEB-app-out46') + '" value="' + esc(S.repo) + '"></div></div>' +
     '<p class="hint">GitHub Pagesで開いている場合は自動で判別するので、空欄のままで構いません。</p><div class="btns"><button class="btn" id="saveRepo">保存する</button></div></article>';
+  h += window.STOCKSCOPE_EMBED ? '<article class="group"><h2>単体版で表示中</h2><p>このファイルに入っているデータ（作成時点）を表示しています。最新にするには、公開版から単体版をダウンロードし直してください。</p></article>' :
+    '<article class="group"><h2>単体版（1ファイル）</h2><p>アプリとその時点のデータを1つのファイルにまとめたものです。パソコンに保存して、ダブルクリックで開けばネットなしでも見られます。データは毎朝新しくなるので、最新にしたいときはダウンロードし直してください。</p>' +
+    '<div class="btns"><a class="btn" href="./stockscope-standalone.html" download="o-ut-kabu.html">単体版をダウンロード</a></div>' +
+    '<p class="hint">iPhoneでは「ファイル」アプリから開くとボタンが動かないため、iPhoneはホーム画面に追加して使うのがおすすめです（一度開いたデータは電波がなくても表示されます）。</p></article>';
   h += '<article class="group"><h2>表示</h2><div class="btns" role="group" aria-label="配色">' + [['auto', '端末に合わせる'], ['light', 'ライト'], ['dark', 'ダーク']].map(([v, l]) => '<button class="btn' + (S.theme === v ? ' primary' : '') + '" data-theme-set="' + v + '">' + l + '</button>').join('') + '</div></article>';
   h += '<article class="group"><h2>バックアップ</h2><p>保有株・ウォッチ・気になるテーマの記録はこの端末だけに保存されます。機種変更の前に書き出してください。</p><div class="btns"><button class="btn" id="exportBtn">書き出す</button><label class="btn" for="importFile">読み込む</label><input id="importFile" type="file" accept="application/json" hidden></div></article>';
   h += '<p class="foot">株価はYahoo Financeの日足データ（遅延・非公式取得）で、リアルタイムではありません。統計的な参考レンジやAIまとめは売買の推奨ではありません。</p>';

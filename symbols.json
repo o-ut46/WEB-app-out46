@@ -12,6 +12,24 @@
   "yahoo": "JPY=X"
  },
  {
+  "symbol": "^IXIC",
+  "market": "INDEX",
+  "name": "ナスダック総合",
+  "yahoo": "^IXIC"
+ },
+ {
+  "symbol": "^GSPC",
+  "market": "INDEX",
+  "name": "S&P500",
+  "yahoo": "^GSPC"
+ },
+ {
+  "symbol": "^DJI",
+  "market": "INDEX",
+  "name": "NYダウ",
+  "yahoo": "^DJI"
+ },
+ {
   "symbol": "7203",
   "market": "JP",
   "name": "トヨタ自動車",

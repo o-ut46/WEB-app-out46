@@ -80,6 +80,8 @@ def parse_chart(payload, config, max_rows=1600):
     if meta.get('symbol', '').upper() != config['yahoo'].upper():
         raise ValueError('Returned symbol does not match request')
     expected = 'USD' if config['market'] == 'US' else 'JPY'
+    if config['market'] == 'INDEX':  # indices / FX: keep the provider's currency (^DJI, ^GSPC are USD)
+        expected = meta.get('currency') or expected
     if meta.get('currency') != expected:
         raise ValueError('Unexpected currency ' + str(meta.get('currency')))
     quote = result['indicators']['quote'][0]

@@ -399,8 +399,10 @@ def market_and_featured(tracked, techs, master):
 {fmt_headlines(jp_news, 'J')}
 # 米国市場の見出し（直近4日）
 {fmt_headlines(us_news, 'U')}
-# 日経平均の値動き（Yahoo Finance）
-{fmt_tech(n225)}
+# 主要指数の値動き（Yahoo Finance）
+日経平均: {fmt_tech(n225)}
+NYダウ: {fmt_tech(techs.get('INDEX:^DJI'))}
+S&P500: {fmt_tech(techs.get('INDEX:^GSPC'))}
 # 利用者がすでに追跡中の銘柄
 {tracked_txt}
 

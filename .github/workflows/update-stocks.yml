@@ -69,6 +69,8 @@ jobs:
           for file in icon-192.png icon-512.png CNAME; do
             if [ -f "$file" ]; then cp "$file" public/; fi
           done
+      - name: Build the single-file (offline) version
+        run: python scripts/build_standalone.py public
       - uses: actions/upload-pages-artifact@v4
         with:
           path: public
