@@ -32,7 +32,8 @@ jobs:
         run: |
           T=$(cat sync-topic.txt)
           curl -sf -d '{"v":1,"selftest":1}' "https://ntfy.sh/$T" && echo posted
-          curl -sf "https://ntfy.sh/$T/json?poll=1&since=5m"
+          sleep 8
+          echo "poll:"; curl -sf "https://ntfy.sh/$T/json?poll=1&since=10m"
       - id: sync
         run: python scripts/sync_from_app.py
       - name: Commit
@@ -40,7 +41,7 @@ jobs:
           git checkout -- data 2>/dev/null || true
           git config user.name "stockscope-sync[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add favorites holdings topics sync-state.json
+          git add -A favorites holdings topics; [ -f sync-state.json ] && git add sync-state.json
           if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
           git commit -m "アプリからの変更を反映（自動）"
           git push
