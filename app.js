@@ -382,9 +382,9 @@ const STANCE = { bullish: ['強気寄り', 'pos'], neutral: ['中立', 'mix'], b
 const stars = n => '<span class="stars" aria-label="5段階中' + n + '">' + '★'.repeat(n) + '<span>' + '★'.repeat(5 - n) + '</span></span>';
 function topicCard(name, t) {
   const del = '<button class="btn small" data-deltopic="' + esc(name) + '">外す</button>';
-  if (t?.status === 'pending' || (!t && ghToken())) {
+  if (t?.status === 'pending' || !t) {
     // すでに登録済み（サーバー側にある）→ ボタン不要。次の自動更新で分析される
-    return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">登録済みです。次の自動更新（毎朝7:23頃）で分析が入ります。</p></article>';
+    return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">登録しました。20〜30分ほどで反映され、分析が入ります（遅くても翌朝の自動更新で入ります）。</p></article>';
   }
   if (!t) {
     if (ghToken()) return '<article class="group topic"><div class="feat-head"><h2>' + esc(name) + '</h2>' + del + '</div><p class="hint">分析待ちです。登録は自動で済んでいるので、数分〜次の朝の自動更新で分析が入ります。</p></article>';
@@ -441,6 +441,17 @@ function openFontPicker() {
     '</div><div class="btns"><button class="btn" data-fontclose="1">閉じる</button></div></div>';
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
+function openTopicSheet() {
+  let box = $('#topicSheet');
+  if (!box) { box = document.createElement('div'); box.id = 'topicSheet'; box.className = 'sheet-wrap'; document.body.appendChild(box); }
+  const ex = ['金', 'オールカントリー', '半導体', '宇宙関連', '高配当株', '原油', 'ビットコイン', '円安'];
+  box.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tp-h"><div class="sheet-grip"></div><h2 id="tp-h">気になるテーマを追加</h2>' +
+    '<p class="hint">資産・投資信託・業界・出来事など、銘柄以外の気になるものを自由に書けます。毎朝、現在の動向・今後の見通し・関連銘柄を分析します。</p>' +
+    '<input id="tpIn" class="input" maxlength="40" autocomplete="off" placeholder="例：金、宇宙関連、円安" aria-label="テーマ">' +
+    '<div class="chips" style="margin:10px 0">' + ex.map(x => '<button class="chip" data-tpex="' + esc(x) + '">' + esc(x) + '</button>').join('') + '</div>' +
+    '<div class="sheet-actions"><button class="btn primary" id="addTopic">追加する</button><button class="btn" data-topicclose="1">やめる</button></div></div>';
+  box.hidden = false; requestAnimationFrame(() => box.classList.add('open')); setTimeout(() => $('#tpIn').focus(), 80);
+}
 function closeChooser() { const b = $('#chooser'); if (b) { b.classList.remove('open'); b.hidden = true; } chooseKey = null; }
 function picksHTML() {
   const p = D.research?.picks; if (!p) return '';
@@ -479,7 +490,8 @@ function relatedHTML(favs) {
 function renderInterest() {
   const res = D.research?.topics || {}, names = [...new Set([...S.topics, ...Object.keys(res)])].filter(n => !(S.hiddenTopics || []).includes(n));
   let h = '<div class="btns" style="margin:4px 0 18px"><button class="btn primary" data-goto="search">☆ 銘柄を探して気になるに追加</button></div>' + picksHTML();
-  if (names.length) h += '<div class="section-head"><h2>気になるテーマ</h2><p>毎朝自動で分析</p></div>' + names.map(n => topicCard(n, res[n])).join('');
+  h += '<div class="section-head"><h2>気になるテーマ</h2><p>毎朝自動で分析</p></div><div class="btns" style="margin:0 0 12px"><button class="btn primary" data-topicadd="1">＋ テーマを追加</button></div>' +
+    (names.length ? names.map(n => topicCard(n, res[n])).join('') : '<p class="empty">金・オールカントリー・宇宙関係など、銘柄以外の気になるものを追加できます。</p>');
   const favs = S.watch.filter(w => w.market !== 'INDEX');
   h += '<div class="section-head"><h2>気になる銘柄</h2><p>☆を押した銘柄・毎朝自動で分析</p></div>' + favSyncCard() +
     (favs.length ? favs.map(w => holdingCard({ k: w.key, h: { name: w.name }, fav: true })).join('') : '<p class="empty">銘柄の画面で「☆ 気になる」を押すと、ここに並び、毎朝自動で分析されます。</p>');
@@ -675,12 +687,16 @@ document.addEventListener('click', ev => {
     if (!S.watch.some(w => w.key === k)) { S.watch.push({ key: k, market, symbol, name: fv.dataset.name }); save(); autoSyncFavorites(); toast('「' + fv.dataset.name + '」を気になる銘柄に追加しました。'); }
     $('#tp').value = ''; renderInterest(); return; }
   if (ev.target.closest('#tpAsTheme')) { $('#addTopic').click(); return; }
+  if (ev.target.closest('[data-topicadd]')) { openTopicSheet(); return; }
+  const tx = ev.target.closest('[data-tpex]'); if (tx) { $('#tpIn').value = tx.dataset.tpex; $('#tpIn').focus(); return; }
+  if (ev.target.id === 'topicSheet' || ev.target.closest('[data-topicclose]')) { $('#topicSheet').hidden = true; return; }
   if (ev.target.id === 'addTopic') {
-    const n = topicFile($('#tp').value); if (!n) return;
-    if (!S.topics.includes(n)) S.topics.push(n); save();
-    $('#tp').value = ''; renderInterest();
+    const n = topicFile($('#tpIn')?.value || ''); if (!n) { $('#tpIn')?.focus(); return; }
+    if (!S.topics.includes(n)) S.topics.push(n);
+    S.hiddenTopics = (S.hiddenTopics || []).filter(x => x !== n); save();
+    $('#topicSheet').hidden = true; renderInterest();
     if (ghToken()) ghDo(() => ghPut('topics/' + n + '.txt', n + '\n', '気になるテーマ「' + n + '」を追加（アプリから自動）'), '「' + n + '」を分析対象に登録しました。');
-    else { const url = ghUrl('new', 'topics', n + '.txt', ''); if (url) window.open(url, '_blank', 'noopener'); }
+    else relay({ addTopic: [n] }, '「' + n + '」を気になるテーマに追加しました。');
     return;
   }
   const dt = ev.target.closest('[data-deltopic]');
@@ -689,7 +705,9 @@ document.addEventListener('click', ev => {
     if (!confirm('「' + n + '」を外しますか？')) return;
     S.topics = S.topics.filter(x => x !== n); save();
     S.hiddenTopics = [...new Set([...(S.hiddenTopics || []), n])]; save();
-    if (onServer) { delete D.research.topics[n]; if (ghToken()) ghDo(() => ghDelete('topics/' + n + '.txt', '気になるテーマ「' + n + '」を削除（アプリから自動）'), '「' + n + '」を外しました。'); else relay({ delTopic: [n] }, '「' + n + '」を外しました。'); }
+    if (onServer) delete D.research.topics[n];
+    if (onServer && ghToken()) ghDo(() => ghDelete('topics/' + n + '.txt', '気になるテーマ「' + n + '」を削除（アプリから自動）'), '「' + n + '」を外しました。');
+    else relay({ delTopic: [n] }, '「' + n + '」を外しました。');
     renderInterest(); return;
   }
   const ga = ev.target.closest('[data-ghadd]');
@@ -728,7 +746,7 @@ document.addEventListener('input', ev => {
   const list = searchPool(ev.target.value.trim(), 12);
   $('#hsr').innerHTML = list.map(x => '<li><button class="row" data-pick="' + esc(keyOf(x.market, x.symbol)) + '" data-name="' + esc(x.name) + '"><span class="nm"><b>' + esc(x.name) + '</b><small>' + esc(x.symbol) + '　' + esc([mkt(x.market), x.segment].filter(Boolean).join('／')) + '</small></span><span></span><span class="px">選ぶ</span></button></li>').join('');
 });
-document.addEventListener('keydown', ev => { if (ev.target.id === 'tp' && ev.key === 'Enter') { ev.preventDefault(); $('#addTopic').click(); } });
+document.addEventListener('keydown', ev => { if ((ev.target.id === 'tp' || ev.target.id === 'tpIn') && ev.key === 'Enter') { ev.preventDefault(); $('#addTopic').click(); } });
 $('#q').addEventListener('focus', loadMaster);
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild) rowsOf(current.key).then(r => r && bigChart(r, range, current.market)); });
