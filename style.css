@@ -261,3 +261,5 @@ details.explain[open] summary::after{content:' －'}
 .pick-sub{margin:14px 2px 8px;font-size:15px;color:var(--ink)}
 
 button.chip{cursor:pointer;color:inherit;font-family:inherit;font-size:13px}
+.pick-px{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto;text-align:right;white-space:nowrap}
+.pick-px b{font-size:17px}.pick-px small{font-size:11px;margin-left:2px;font-weight:600}.pick-px span{font-size:12px}

@@ -460,7 +460,8 @@ function picksHTML() {
   if (p.buy?.length) h += '<div class="section-head"><h2>購入オススメ銘柄 トップ5</h2><p>数か月先を見た参考ランキング</p></div>' +
     p.buy.map((x, i) => { const [m, sym] = x.key.split(':'), e = entry(x.key), t = e?.tech;
       return '<article class="group pick"><div class="feat-head"><button class="feat-name" data-choose="' + esc(x.key) + '" data-name="' + esc(x.name) + '"><span class="rank">' + (i + 1) + '</span>' + esc(x.name) + '<span class="code">' + esc(sym) + '</span></button>' +
-        (t ? '<span class="num ' + dir(t.chg20d) + '">20日 ' + pct(t.chg20d) + '</span>' : '') + '</div>' + (e ? spark(e.spark).replace('class="spark"', 'class="spark wide"') : '') +
+        (t ? '<span class="pick-px"><b class="num">' + fmt(t.close, m) + '<small>' + unit(m) + '</small></b><span class="num ' + dir(t.chg1d) + '">前日比 ' + pct(t.chg1d) + '</span></span>' : '') + '</div>' +
+        (t ? '<p class="d-meta">' + esc(t.date.slice(5).replace('-', '/')) + ' 時点　20日 <span class="num ' + dir(t.chg20d) + '">' + pct(t.chg20d) + '</span></p>' : '') + (e ? spark(e.spark).replace('class="spark"', 'class="spark wide"') : '') +
         '<p>' + esc(x.reason) + '</p><div class="chips">' + chips(x.points, 'good') + chips(x.risks, 'bad') + '</div>' + sources(x.sources) + '</article>'; }).join('') +
     '<p class="hint">ニュースの論調・アナリストなどの見通し・値動きの点数が高い銘柄を選び、理由をAIがまとめた参考情報です。値上がりを保証するものでも、売買の推奨でもありません。押すと「気になる」「保有株」に追加できます。</p>';
   const ipo = (p.ipo_po?.ipo || []).filter(x => x.date >= today), po = (p.ipo_po?.po || []).filter(x => x.date >= today);
