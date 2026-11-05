@@ -437,7 +437,7 @@ function openFontPicker() {
   let box = $('#fontSheet');
   if (!box) { box = document.createElement('div'); box.id = 'fontSheet'; box.className = 'sheet-wrap'; document.body.appendChild(box); }
   box.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fs-h"><div class="sheet-grip"></div><h2 id="fs-h">文字の大きさ</h2><div class="sheet-actions">' +
-    Object.entries(FONT).map(([k, [l, z]]) => '<button class="btn' + ((S.font || 'm') === k ? ' primary' : '') + '" data-font="' + k + '" style="font-size:' + Math.round(15 * z) + 'px">' + l + (k === 'm' ? '（標準）' : '') + '　あいう Abc 123</button>').join('') +
+    Object.entries(FONT).map(([k, [l, z]]) => '<button class="btn' + ((S.font || 'm') === k ? ' primary' : '') + '" data-fontset="' + k + '" style="font-size:' + Math.round(15 * z) + 'px">' + l + (k === 'm' ? '（標準）' : '') + '　あいう Abc 123</button>').join('') +
     '</div><div class="btns"><button class="btn" data-fontclose="1">閉じる</button></div></div>';
   box.hidden = false; requestAnimationFrame(() => box.classList.add('open'));
 }
@@ -647,8 +647,8 @@ document.addEventListener('click', ev => {
   if (ev.target.id === 'cancelHold') { picked = null; $('#holdForm').innerHTML = ''; return; }
   if (ev.target.id === 'addHold') { if (saveHolding(picked, parseFloat($('#nq').value), parseFloat($('#nc').value), $('#na').value)) { picked = null; renderHold(); window.scrollTo(0, 0); } return; }
   if (ev.target.closest('[data-fontpick]')) { openFontPicker(); return; }
-  const fo = ev.target.closest('[data-font]');
-  if (fo) { S.font = fo.dataset.font; save(); applyFont(); $('#fontSheet').hidden = true; if (active === 'settings') renderSettings(); toast('文字の大きさを「' + FONT[S.font][0] + '」にしました。'); return; }
+  const fo = ev.target.closest('button[data-fontset]');
+  if (fo) { S.font = fo.dataset.fontset; save(); applyFont(); if ($('#fontSheet')) $('#fontSheet').hidden = true; if (active === 'settings') renderSettings(); toast('文字の大きさを「' + FONT[S.font][0] + '」にしました。'); return; }
   if (ev.target.closest('[data-fontclose]') || ev.target.id === 'fontSheet') { $('#fontSheet').hidden = true; return; }
   const ch = ev.target.closest('[data-choose]');
   if (ch) { openChooser(ch.dataset.choose, ch.dataset.name); return; }
