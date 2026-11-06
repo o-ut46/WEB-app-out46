@@ -66,6 +66,7 @@ jobs:
           cp index.html app.js search.js style.css sw.js manifest.webmanifest icon.svg logo.png logo-mark.png apple-touch-icon.png sync-topic.txt public/
           cp -R data public/data
           cp -R guitar public/guitar
+          cp -R hx-stomp public/hx-stomp
           for file in icon-192.png icon-512.png CNAME; do
             if [ -f "$file" ]; then cp "$file" public/; fi
           done
