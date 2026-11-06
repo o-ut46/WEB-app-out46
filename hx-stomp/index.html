@@ -36,7 +36,7 @@
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.75 var(--sans); }
-main { max-width: 760px; margin: 0 auto; padding-top: 20px; padding-bottom: calc(var(--bar-h) + 30vh); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 760px; margin: 0 auto; padding-top: 20px; padding-bottom: calc(var(--bar-h) + 72px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .brand { font-size: 12px; color: var(--muted); letter-spacing: .04em; margin: 0 0 16px; }
 section > h1 { font-size: 24px; line-height: 1.35; margin: 0 0 8px; display: flex; align-items: center; gap: 10px; text-wrap: balance; }
 h1 .dot { width: 12px; height: 12px; flex: none; }
@@ -145,12 +145,37 @@ tr.speaking { box-shadow: none; }
 .buy a { color: var(--fg); }
 .need { font-size: 14px; }
 
-.mast { margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+.mast { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
 .mast > div { min-width: 0; }
-.mast-logo { width: 64px; height: 64px; flex: none; display: block; }
-.mast-t { font: 600 22px/1.25 var(--sans); margin: 0 0 4px; letter-spacing: .01em; }
-.mast-t span { display: block; font-size: 15px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.mast-logo { width: 44px; height: 44px; flex: none; display: block; }
+.mast-t { font: 600 16px/1.25 var(--sans); margin: 0 0 4px; letter-spacing: .01em; }
+.mast-t span { display: inline; margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 2px; }
 .mast .brand { margin: 0; }
+
+#subs-wrap { display: flex; align-items: center; border-bottom: 1px solid var(--line); padding-left: max(8px, env(safe-area-inset-left, 0px)); }
+#subs-wrap #subs { flex: 1; min-width: 0; border-bottom: 0; padding-left: 8px; }
+#list-btn { font: 600 12.5px/1 var(--sans) !important; color: var(--bg) !important; background: var(--fg) !important; border-radius: 6px !important; padding: 9px 11px !important; flex: none; }
+section > h1 { margin-bottom: 4px; }
+.pg > h2:first-of-type { margin-top: 10px; }
+.pg-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 24px; }
+.pg-nav button { font: 400 13px/1.35 var(--sans); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 10px; cursor: pointer; text-align: left; min-width: 0; }
+.pg-nav button small { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.pg-nav .nx { text-align: right; grid-column: 2; }
+#list-pop { position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+#list-box { background: var(--bar); width: 100%; max-width: 620px; height: 85%; display: flex; flex-direction: column; border-radius: 12px 12px 0 0; padding: 14px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+#list-head { display: flex; align-items: center; gap: 8px; }
+#list-q { flex: 1; min-width: 0; font: 16px var(--sans); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; }
+#list-close { font: 600 13px var(--sans); color: var(--fg); background: var(--key); border: 1px solid var(--key-line); border-radius: 999px; padding: 8px 14px; cursor: pointer; flex: none; }
+#list-cats { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+#list-cats button { font: 12.5px/1 var(--sans); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 8px 10px; cursor: pointer; }
+#list-cats button[aria-pressed="true"] { color: var(--fg); font-weight: 600; border-color: var(--fg); background: var(--key); }
+#list-items { flex: 1; min-height: 0; overflow: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+#list-items button { display: block; width: 100%; font: 14px/1.4 var(--sans); color: var(--fg); background: none; border: 0; border-top: 1px solid var(--line); padding: 11px 4px; text-align: left; cursor: pointer; }
+#list-items button.l-h { font-weight: 600; }
+#list-items button.l-t { padding-left: 18px; color: var(--muted); }
+#list-items button[aria-current="true"] { background: var(--key); border-radius: 4px; }
+#list-items small { display: block; font-size: 11px; color: var(--muted); }
+#list-empty { font-size: 14px; color: var(--muted); padding: 16px 4px; margin: 0; }
 
 /* fixed bottom bar */
 #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bar); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
@@ -736,10 +761,11 @@ tr.speaking { box-shadow: none; }
 <p class="tts-lab">速さ</p><div class="tts-opts three" id="tts-rate"></div>
 <p class="tts-lab">声</p><div class="tts-opts" id="tts-voice"></div>
 <p id="tts-msg" hidden></p><button type="button" id="tts-start">読み上げを始める</button></div></div>
+<div id="list-pop" hidden role="dialog" aria-modal="true" aria-label="項目の一覧"><div id="list-box"><div id="list-head"><input id="list-q" type="search" placeholder="言葉で探す（例: ワウ、USB）" aria-label="言葉で探す" autocomplete="off"><button type="button" id="list-close">閉じる</button></div><div id="list-cats"></div><div id="list-items"></div></div></div>
 <div id="zoom" hidden><button type="button" id="zoom-close">閉じる</button><img id="zoom-img" alt=""></div>
 
 <nav id="bar" aria-label="カテゴリーとリスト">
-  <div class="row" id="subs"><div class="row-inner" id="subs-in"></div></div>
+  <div id="subs-wrap"><button type="button" id="list-btn" aria-haspopup="dialog">一覧</button><div class="row" id="subs"><div class="row-inner" id="subs-in"></div></div></div>
   <div class="row" id="cats"><div class="row-inner" id="cats-in"></div></div>
 </nav>
 
@@ -778,11 +804,59 @@ tr.speaking { box-shadow: none; }
     s.querySelectorAll('h2').forEach(function (h, i) { h.id = s.id + '-' + (i + 1); });
   });
 
+  /* one item per page */
+  sections.forEach(function (s) {
+    var nodes = Array.prototype.slice.call(s.children), page = null, intro = [];
+    nodes.forEach(function (n) {
+      if (n.tagName === 'H1') return;
+      if (n.tagName === 'H2') {
+        page = document.createElement('div'); page.className = 'pg';
+        s.appendChild(page);
+        intro.forEach(function (x) { page.appendChild(x); }); intro = [];
+        page.appendChild(n);
+      } else if (page) { page.appendChild(n); } else { intro.push(n); }
+    });
+  });
+  var allHeads = Array.prototype.slice.call(document.querySelectorAll('main section h2'));
+  function goTo(h2, keepTop) {
+    var sec = h2.closest('section');
+    if (sec !== current) show(sec.id, true);
+    setSub(h2);
+    if (!keepTop) window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  allHeads.forEach(function (h2, i) {
+    var nav = document.createElement('div'); nav.className = 'pg-nav';
+    function mk(target, label, cls) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = cls;
+      var sm = document.createElement('small'); sm.textContent = label; b.appendChild(sm);
+      b.appendChild(document.createTextNode(target.dataset.short));
+      b.addEventListener('click', function () { goTo(target); });
+      nav.appendChild(b);
+    }
+    if (allHeads[i - 1]) mk(allHeads[i - 1], '前へ', 'pv');
+    if (allHeads[i + 1]) mk(allHeads[i + 1], '次へ', 'nx');
+    h2.closest('.pg').appendChild(nav);
+  });
+  function showPage(h2) {
+    if (!h2) return;
+    var pg = h2.closest('.pg'), sec = h2.closest('section'), changed = false;
+    Array.prototype.forEach.call(sec.querySelectorAll('.pg'), function (p) {
+      var on = p === pg;
+      if (on && p.hidden) changed = true;
+      p.hidden = !on;
+    });
+    if (changed) {
+      if (!ttsPlaying) sec.querySelectorAll('details[open]').forEach(function (d) { d.open = false; });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    set('hx-page', h2.id);
+  }
   function setSub(h2) {
     Array.prototype.forEach.call(subsIn.children, function (b) {
       var on = b.dataset.target === (h2 && h2.id);
       if (on) { b.setAttribute('aria-current', 'true'); reveal(b); } else { b.removeAttribute('aria-current'); }
     });
+    showPage(h2);
   }
 
   function show(id, toTop) {
@@ -802,7 +876,6 @@ tr.speaking { box-shadow: none; }
       b.addEventListener('click', function () {
         lockUntil = Date.now() + 900;
         setSub(h);
-        h.scrollIntoView({ block: 'start' });
       });
       subsIn.appendChild(b);
     });
@@ -813,7 +886,7 @@ tr.speaking { box-shadow: none; }
       subsIn.appendChild(all);
     }
     subs.scrollLeft = 0;
-    if (toTop) window.scrollTo({ top: 0, behavior: 'auto' });
+    if (toTop) window.scrollTo({ top: 0, behavior: 'instant' });
     setSub(s.querySelector('h2'));
     set('hx-cat', s.id);
     if (location.hash.slice(1) !== s.id) { try { history.replaceState(null, '', '#' + s.id); } catch (e) { location.hash = s.id; } }
@@ -824,18 +897,6 @@ tr.speaking { box-shadow: none; }
   function measure() { document.documentElement.style.setProperty('--bar-h', bar.offsetHeight + 'px'); }
   window.addEventListener('resize', measure);
 
-  var ticking = false;
-  window.addEventListener('scroll', function () {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(function () {
-      ticking = false;
-      if (!current || Date.now() < lockUntil) return;
-      var heads = current.querySelectorAll('h2'), active = heads[0];
-      heads.forEach(function (h) { if (h.getBoundingClientRect().top < window.innerHeight * 0.35) active = h; });
-      setSub(active);
-    });
-  }, { passive: true });
 
 
   var zoom = document.getElementById('zoom'), zoomImg = document.getElementById('zoom-img'), lastFig = null;
@@ -972,7 +1033,7 @@ tr.speaking { box-shadow: none; }
     if (activeHead) setSub(activeHead);
     var r = el.getBoundingClientRect(), bottom = window.innerHeight - bar.offsetHeight - ttsCtl.offsetHeight;
     if (r.top < 8 || r.bottom > bottom) {
-      requestAnimationFrame(function () { window.scrollBy({ top: el.getBoundingClientRect().top - Math.max(16, (bottom - el.getBoundingClientRect().height) / 2), behavior: 'auto' }); });
+      requestAnimationFrame(function () { window.scrollBy({ top: el.getBoundingClientRect().top - Math.max(16, (bottom - el.getBoundingClientRect().height) / 2), behavior: 'instant' }); });
     }
   }
   function pickVoice() {
@@ -1075,9 +1136,59 @@ tr.speaking { box-shadow: none; }
   if (synth) { loadVoices(); if (synth.addEventListener) synth.addEventListener('voiceschanged', loadVoices); }
   window.addEventListener('pagehide', function () { if (synth) synth.cancel(); });
 
+
+  /* popup list */
+  var listPop = document.getElementById('list-pop'), listQ = document.getElementById('list-q'), listCats = document.getElementById('list-cats'), listItems = document.getElementById('list-items'), listCat = null;
+  function listRow(cls, text, sub, onPick, isCur) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = cls;
+    if (sub) { var s = document.createElement('small'); s.textContent = sub; b.appendChild(s); }
+    b.appendChild(document.createTextNode(text));
+    if (isCur) b.setAttribute('aria-current', 'true');
+    b.addEventListener('click', onPick);
+    listItems.appendChild(b);
+  }
+  function pickHead(h2) { closeList(); goTo(h2); }
+  function pickTip(h2, d) { closeList(); goTo(h2, true); d.open = true; }
+  function renderList() {
+    var q = listQ.value.trim().toLowerCase();
+    listCats.hidden = !!q;
+    listCats.textContent = '';
+    sections.forEach(function (s) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = s.dataset.name;
+      b.setAttribute('aria-pressed', s === listCat ? 'true' : 'false');
+      b.addEventListener('click', function () { listCat = s; renderList(); listItems.scrollTop = 0; });
+      listCats.appendChild(b);
+    });
+    listItems.textContent = '';
+    var chip = subsIn.querySelector('.sub[aria-current]'), curId = chip ? chip.dataset.target : '', hits = 0;
+    (q ? sections : [listCat]).forEach(function (s) {
+      s.querySelectorAll('h2').forEach(function (h2) {
+        var pg = h2.closest('.pg'), tips = Array.prototype.slice.call(pg.querySelectorAll('details.tip'));
+        if (!q) {
+          listRow('l-h', h2.dataset.short, '', function () { pickHead(h2); }, h2.id === curId);
+          tips.forEach(function (d) { listRow('l-t', d.querySelector('summary').textContent, '', function () { pickTip(h2, d); }); });
+          return;
+        }
+        var label = s.dataset.name + ' ・ ' + h2.dataset.short;
+        var tipHit = tips.filter(function (d) { return d.textContent.toLowerCase().indexOf(q) >= 0; });
+        tipHit.forEach(function (d) { hits++; listRow('l-h', d.querySelector('summary').textContent, label, function () { pickTip(h2, d); }); });
+        if (!tipHit.length && pg.textContent.toLowerCase().indexOf(q) >= 0) { hits++; listRow('l-h', h2.dataset.short, s.dataset.name, function () { pickHead(h2); }); }
+      });
+    });
+    if (q && !hits) { var e = document.createElement('p'); e.id = 'list-empty'; e.textContent = '見つかりませんでした。別の言葉で試してください。'; listItems.appendChild(e); }
+  }
+  function openList() { listCat = current; listQ.value = ''; renderList(); listPop.hidden = false; listItems.scrollTop = 0; document.getElementById('list-close').focus(); }
+  function closeList() { listPop.hidden = true; }
+  document.getElementById('list-btn').addEventListener('click', openList);
+  document.getElementById('list-close').addEventListener('click', closeList);
+  listPop.addEventListener('click', function (e) { if (e.target === listPop) closeList(); });
+  listQ.addEventListener('input', renderList);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !listPop.hidden) closeList(); });
+
   window.addEventListener('hashchange', function () { show(location.hash.slice(1), true); });
   show(location.hash.slice(1) || get('hx-cat') || 'basic', false);
-  window.addEventListener('load', function () { setTimeout(function () { window.scrollTo({ top: 0, behavior: 'auto' }); }, 0); });
+  (function () { var last = document.getElementById(get('hx-page') || ''); if (last && last.tagName === 'H2' && last.closest('section') === current) setSub(last); })();
+  window.addEventListener('load', function () { setTimeout(function () { window.scrollTo({ top: 0, behavior: 'instant' }); }, 0); });
 })();
 </script>
 
