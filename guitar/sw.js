@@ -1,6 +1,6 @@
 // Scale & Chord — オフライン対応用 Service Worker
 // ページ本体はネット優先（更新がすぐ届く）、実音サンプル(samples/)は一度読み込んだらキャッシュ優先。
-const CACHE = 'scale-chord-v97';
+const CACHE = 'scale-chord-v98';
 const CORE = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
