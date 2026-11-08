@@ -1,13 +1,13 @@
 // Scale & Chord — オフライン対応用 Service Worker
 // ページ本体はネット優先（更新がすぐ届く）、実音サンプル(samples/)は一度読み込んだらキャッシュ優先。
-const CACHE = 'scale-chord-v96';
+const CACHE = 'scale-chord-v97';
 const CORE = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => {})))));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('scale-chord') && k !== CACHE && k !== 'scale-chord-page').map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== 'scale-chord-page').map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
