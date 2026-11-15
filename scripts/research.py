@@ -867,10 +867,36 @@ def jpx_ipos():
         if not m or not code or m.group(1) < today:
             continue
         name = next((c for c in cells if c and c != code and not re.search(r'\d{4}/\d{2}/\d{2}', c) and len(c) > 1), '')
+        pdfs = re.findall(r'href="([^"]+\.pdf)"', tr, re.I)  # 「会社概要」は行の最初のPDF（名前に Outline を含むことが多い）
+        outline = next((h for h in pdfs if 'outline' in h.lower()), pdfs[0] if pdfs else '')
         out.append({'type': 'IPO', 'code': code, 'name': name[:40], 'date': m.group(1).replace('/', '-'), 'approved': m.group(2).replace('/', '-'),
-                    'row': txt[:300]})
+                    'row': txt[:300], 'outline': urllib.parse.urljoin(JPX_NEW, outline) if outline else ''})
     print('JPX upcoming IPOs', len(out))
     return out[:30]
+
+
+def outline_business(url):
+    """「事業の内容」 from JPX's 新規上場会社概要 PDF (official, as of the listing approval)."""
+    if not url:
+        return ''
+    try:
+        from pypdf import PdfReader
+        import io
+        reader = PdfReader(io.BytesIO(http_get(url, timeout=30)))
+        text = ''.join(page.extract_text() or '' for page in reader.pages[:2])
+    except Exception as exc:
+        print('outline pdf failed', url, exc)
+        return ''
+    flat = re.sub(r'\s+', '', text)
+    m = re.search(r'事業の内容(.+?)(?:業種別分類|銘柄略称|発行可能株式総数)', flat)
+    return clip(m.group(1).strip('：:・'), 200) if m else ''
+
+
+def add_business(ipos):
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for x, biz in zip(ipos, ex.map(lambda x: outline_business(x.get('outline')), ipos)):
+            x['business'] = biz
+    print('IPO business text', sum(1 for x in ipos if x.get('business')), '/', len(ipos))
 
 
 def ipo_po_picks(master):
@@ -878,6 +904,7 @@ def ipo_po_picks(master):
     ipos = []
     try:
         ipos = jpx_ipos()
+        add_business(ipos)
     except Exception as exc:
         print('JPX IPO list failed', exc)
     heads = []
@@ -890,7 +917,8 @@ def ipo_po_picks(master):
     idmap = {f'N{i + 1}': h for i, h in enumerate(uniq[:24])}
     if not ipos and not idmap:
         return {'ipo': [], 'po': []}
-    jlist = '\n'.join(f'I{i + 1}: [JPX 上場日{x["date"]}] {x["row"]}' for i, x in enumerate(ipos)) or '（なし）'
+    jlist = '\n'.join(f'I{i + 1}: [JPX 上場日{x["date"]}] {x["row"]}' + (f' 事業の内容：{x["business"]}' if x.get('business') else '')
+                      for i, x in enumerate(ipos)) or '（なし）'
     user = (f'今日は{today}。\n# JPXの新規上場予定（公式）\n{jlist}\n\n# ニュース見出し\n{fmt_headlines(list(idmap.values()), "N")}\n\n'
             '# 作業\n1. IPO：上のJPXの新規上場予定から、注目度が高い順に最大5社。事業内容・市場・仮条件や公募価格・見出しの材料など、与えた情報にある点を理由にする。\n'
             '2. PO（公募増資・株式の売出し）：見出しから、まだ実施（受渡し）前の案件を最大5件。銘柄コードが分かるものだけ。予定日（受渡日、分からなければ売出価格の決定予定日）を書く。\n'
@@ -906,8 +934,9 @@ def ipo_po_picks(master):
         x = ipos[int(ref[1:]) - 1]
         if any(y['code'] == x['code'] for y in out['ipo']):
             continue
-        out['ipo'].append({**{k: x[k] for k in ('type', 'code', 'name', 'date', 'approved')}, 'reason': clip(r['reason'], 120),
-                           'points': [clip(p, 40) for p in (r.get('points') or [])][:3], 'risks': [clip(p, 40) for p in (r.get('risks') or [])][:2], 'sources': [jpx_src]})
+        src = [{'title': x['name'] + ' 新規上場会社概要（JPX）', 'url': x['outline'], 'publisher': '日本取引所グループ', 'date': x['approved']}] if x.get('business') and x.get('outline') else []
+        out['ipo'].append({**{k: x[k] for k in ('type', 'code', 'name', 'date', 'approved')}, 'business': x.get('business', ''), 'reason': clip(r['reason'], 120),
+                           'points': [clip(p, 40) for p in (r.get('points') or [])][:3], 'risks': [clip(p, 40) for p in (r.get('risks') or [])][:2], 'sources': src + [jpx_src]})
     for r in data.get('po') or []:
         code = str(r.get('code') or '').upper().strip()
         src = idmap.get(str(r.get('source') or ''))

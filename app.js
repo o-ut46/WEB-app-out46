@@ -469,10 +469,11 @@ function picksHTML() {
     h += '<div class="section-head"><h2>IPO・PO 注目トップ5</h2><p>実施日を過ぎたものは自動で外れます</p></div>';
     const card = (x, i, label) => '<article class="group pick"><div class="feat-head"><b class="feat-name"><span class="rank">' + (i + 1) + '</span>' + esc(x.name) + '<span class="code">' + esc(x.code) + '</span></b><span class="tone mix">' + esc(label) + '</span></div>' +
       '<p class="d-meta">' + (x.type === 'IPO' ? '上場予定日 ' + esc(x.date.replace(/-/g, '/')) + (x.approved ? '（承認 ' + esc(x.approved.slice(5).replace('-', '/')) + '）' : '') : esc(x.kind || '') + '　予定日 ' + esc(x.date.replace(/-/g, '/'))) + '</p>' +
+      (x.business ? '<p class="biz"><b>事業内容</b>' + esc(x.business) + '</p>' : '') +
       '<p>' + esc(x.reason) + '</p><div class="chips">' + chips(x.points, 'good') + chips(x.risks, 'bad') + '</div>' + sources(x.sources) + '</article>';
     if (ipo.length) h += '<h3 class="pick-sub">IPO（新規上場）</h3>' + ipo.map((x, i) => card(x, i, 'IPO')).join('');
     if (po.length) h += '<h3 class="pick-sub">PO（公募増資・売出し）</h3>' + po.map((x, i) => card(x, i, 'PO')).join('');
-    h += '<p class="hint">IPOは日本取引所グループ（JPX）の公式の新規上場予定から、POは信頼できる媒体・適時開示の見出しから作っています。注目度の参考で、推奨ではありません。</p>';
+    h += '<p class="hint">IPOは日本取引所グループ（JPX）の公式の新規上場予定と、各社の「新規上場会社概要」（事業内容）から、POは信頼できる媒体・適時開示の見出しから作っています。注目度の参考で、推奨ではありません。</p>';
   }
   return h;
 }

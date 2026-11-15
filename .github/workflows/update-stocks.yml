@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install libraries
-        run: pip install openpyxl==3.1.5 xlrd==2.0.1
+        run: pip install openpyxl==3.1.5 xlrd==2.0.1 pypdf==6.17.0
       - id: pages
         uses: actions/configure-pages@v5
       - name: Update stock code list (JPX / Nasdaq Trader)
