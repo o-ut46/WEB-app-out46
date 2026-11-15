@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="o-UT 投資台帳">
+<link rel="apple-touch-icon" href="logo.png">
+<title>o-UT 投資台帳</title>
+<meta name="theme-color" content="#10121a">
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="style.css">
+<script defer src="app.js"></script>
+
+</head>
+<body>
+<header>
+  <img src="logo.png" alt="o-UT">
+  <div class="head-text">
+    <h1><button id="ledgerTitle" class="title-button" aria-label="台帳の名前を変更"></button></h1>
+    <p class="status-line"><span id="status" role="status">端末内に保存</span><span id="ledgerDots" class="dots" hidden></span></p>
+  </div>
+  <button id="menu" class="ghost" aria-haspopup="dialog">メニュー</button>
+</header>
+
+<main>
+  <section class="hero" aria-label="月別のグラフ">
+    <div class="hero-head">
+      <div class="year" role="group" aria-label="対象年">
+        <button id="prevYear" aria-label="前の年">‹</button>
+        <button id="yearLabel" class="year-label" aria-label="今年に戻る"></button>
+        <button id="nextYear" aria-label="次の年">›</button>
+      </div>
+      <div class="legend" id="yearLegend"></div>
+    </div>
+    <div id="yearChart"></div>
+    <button id="reconnect" class="primary" hidden>前回のファイルを開く</button>
+  </section>
+
+  <section class="summary" aria-label="全口座の集計">
+    <article><span>年間投資</span><strong id="yearAmount"></strong></article>
+    <article><span>年間損益</span><strong id="yearProfit"></strong></article>
+    <article><span id="principalLabel">累計元本</span><strong id="principal"></strong></article>
+    <article><span>累計損益</span><strong id="allProfit"></strong><small id="allRate"></small></article>
+  </section>
+
+  <!-- 全体ビュー -->
+  <section id="overview" class="panel" hidden>
+    <div class="heading"><h2>全体のようす</h2></div>
+    <div class="chart-box">
+      <div class="legend"><span class="key value">評価（元本＋損益）</span><span class="key base">投資元本</span></div>
+      <div id="overviewChart"></div>
+    </div>
+    <h3>口座ごとの内訳</h3>
+    <div class="table"><table>
+      <thead><tr><th scope="col">口座</th><th scope="col">年間投資</th><th scope="col">年間損益</th><th scope="col">累計元本</th><th scope="col">累計損益</th></tr></thead>
+      <tbody id="accountRows"></tbody>
+    </table></div>
+    <h3>月ごとの合計（全口座）</h3>
+    <div class="table"><table>
+      <thead><tr><th scope="col">月</th><th scope="col">投資額</th><th scope="col">運用損益</th><th scope="col">入力済み</th></tr></thead>
+      <tbody id="monthRows"></tbody>
+    </table></div>
+  </section>
+
+  <!-- 保有株式ビュー（株式解析アプリと共有） -->
+  <section id="stocks" class="panel" hidden>
+    <div class="heading">
+      <div><h2>保有株式</h2><p class="sub">株式は「株式解析」と共有・証券や投資信託は手入力</p></div>
+      <a class="ghost link-btn" href="../" id="openScope">株式解析 ↗</a>
+    </div>
+    <div id="stockBox" class="ideco-box"></div>
+    <h3>株式（株式解析と共有）</h3>
+    <div class="table"><table class="months">
+      <thead><tr><th scope="col">銘柄</th><th scope="col">株数</th><th scope="col">評価額</th><th scope="col">損益</th></tr></thead>
+      <tbody id="stockRows"></tbody>
+    </table></div>
+    <div class="tools"><a class="btn-link" href="../#tab=search">＋ 株式解析で銘柄を探して登録</a></div>
+    <h3>証券・投資信託など（手入力）</h3>
+    <div class="table"><table class="months">
+      <thead><tr><th scope="col">名前</th><th scope="col">評価額</th><th scope="col">損益</th></tr></thead>
+      <tbody id="itemRows"></tbody>
+    </table></div>
+    <div class="tools"><button id="addItem" type="button">＋ 証券・投資信託などを追加</button></div>
+    <h3>月ごとの推移（その月の最新）</h3>
+    <div class="table"><table class="months">
+      <thead><tr><th scope="col">月</th><th scope="col">評価額</th><th scope="col">取得額</th><th scope="col">損益</th></tr></thead>
+      <tbody id="snapRows"></tbody>
+    </table></div>
+    <div class="chart-box">
+      <div class="legend"><span class="key value">評価額（月末の最新）</span><span class="key base">取得額</span></div>
+      <div id="stockChart"></div>
+    </div>
+  </section>
+
+  <!-- 口座ビュー -->
+  <section id="account" class="panel" hidden>
+    <div class="heading">
+      <div><h2 id="accountName"></h2><p id="accountMeta" class="sub"></p></div>
+      <button id="accountSettings" class="ghost" aria-haspopup="dialog">設定</button>
+    </div>
+    <p id="subtotal" class="sub"></p>
+    <div id="idecoBox" class="ideco-box" hidden></div>
+
+    <form id="entry" novalidate>
+      <div class="f-month">
+        <div class="month-head"><label for="month">対象月</label><label id="changeBox" class="chg" hidden><input type="checkbox" id="change">変更</label></div>
+        <select id="month"></select>
+      </div>
+      <label class="f-amount"><span id="amountLabel">投資額（円）</span>
+        <input id="amount" inputmode="numeric" autocomplete="off" placeholder="例 30,000">
+        <small id="amountHint"></small>
+      </label>
+      <label class="f-profit" id="profitField">月間運用損益（円）
+        <span class="with-sign"><input id="profit" inputmode="decimal" autocomplete="off" placeholder="例 -2,500"><button type="button" class="sign" data-for="profit" aria-label="プラスとマイナスを切り替え">±</button></span>
+      </label>
+      <label class="f-profit" id="cumField" hidden>評価損益・累計（円）
+        <span class="with-sign"><input id="cum" inputmode="decimal" autocomplete="off" placeholder="証券会社の画面の数字"><button type="button" class="sign" data-for="cum" aria-label="プラスとマイナスを切り替え">±</button></span>
+        <small id="cumHint"></small>
+      </label>
+      <label class="f-base" id="baseField" hidden>前月末の評価損益（円）
+        <span class="with-sign"><input id="base" inputmode="decimal" autocomplete="off" placeholder="初回は0"><button type="button" class="sign" data-for="base" aria-label="プラスとマイナスを切り替え">±</button></span>
+      </label>
+      <button class="primary f-save" type="submit">記録を保存</button>
+    </form>
+    <p id="calc" class="calc" hidden></p>
+
+    <div class="tools">
+      <button id="camera" type="button">カメラで読み取り</button>
+      <button id="photo" type="button">写真から読み取り</button>
+      <button id="fillPlan" type="button">毎月の額をまとめて入力</button>
+      <button id="evalBtn" type="button" hidden>損益・累計を入力</button>
+      <button id="removeEntry" type="button" class="danger-text">この月を削除</button>
+      <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
+      <input id="photoFile" type="file" accept="image/*" hidden>
+    </div>
+    <div id="ocr" hidden><p id="ocrStatus" role="status"></p><div id="candidates"></div><button id="clearOcr" type="button">読み取りを閉じる</button></div>
+
+    <div class="table"><table class="months">
+      <thead><tr><th scope="col">月</th><th scope="col" id="amountHead">投資額</th><th scope="col" id="profitHead">月間損益</th><th scope="col" id="cumHead">評価損益</th><th scope="col" id="worthHead" hidden>評価額</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p class="tap-note">行をタップすると、その月を編集できます。</p>
+
+    <div class="chart-box">
+      <div class="legend"><span class="key value" id="legValue">評価（元本＋損益）</span><span class="key base" id="legBase">投資元本</span></div>
+      <div id="accountChart"></div>
+    </div>
+  </section>
+</main>
+
+<div class="bottom">
+  <nav id="tabs" aria-label="口座の切り替え"></nav>
+</div>
+
+<dialog id="modal" aria-labelledby="modalTitle">
+  <h2 id="modalTitle"></h2>
+  <div id="modalBody"></div>
+  <div id="modalActions" class="actions"></div>
+</dialog>
+<div id="toast" role="alert" hidden></div>
+</body>
+</html>

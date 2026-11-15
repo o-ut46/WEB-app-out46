@@ -282,6 +282,26 @@ function holdRows() {
     return { k, h, m, t, value, cost, pl: value - cost, day };
   });
 }
+/* ---------- 投資台帳（./ledger/）と共有 ---------- */
+// 台帳は同じサイトの ./ledger/ にあり、記録を localStorage の "out-invest-ledger-v2" に保存している。
+function ledgerCard() {
+  let book = null; try { book = JSON.parse(localStorage.getItem('out-invest-ledger-v2') || 'null'); } catch (e) {}
+  const lg = book?.ledgers?.[book.selected || 0];
+  const open = '<div class="btns"><a class="btn" href="./ledger/">投資台帳を開く</a></div>';
+  if (!lg) return '<article class="group" style="margin-top:16px"><h2>資産管理（o-UT 投資台帳）</h2><p class="hint">iDeCo・NISA・証券などは投資台帳で管理できます。ここの保有株は台帳の「保有株式」にも自動で表示されます。</p>' + open + '</article>';
+  const tabs = lg.data?.tabs || [], by = n => tabs.find(t => t.name === n) || {};
+  const latest = (t, f) => (t.evals || []).filter(e => e[f] !== undefined).sort((a, b) => (a.at || 0) - (b.at || 0) || a.date.localeCompare(b.date)).at(-1);
+  const ide = by('iDeCo'), nis = by('NISA'), stk = by('保有株式');
+  const it = latest(ide, 'total'), iv = latest(ide, 'value'), nw = latest(nis, 'worth');
+  const items = stk.items || [];
+  const md = d => d ? (+d.slice(5, 7)) + '/' + (+d.slice(8)) : '';
+  const row = (label, v, note) => '<li><span class="nm"><b>' + esc(label) + '</b><small>' + esc(note || '') + '</small></span><span class="px num">' + (Number.isFinite(v) ? yen(v) : '<small class="flat">未入力</small>') + '</span></li>';
+  return '<article class="group" style="margin-top:16px"><h2>資産管理（' + esc(lg.title || '投資台帳') + '）</h2><ul class="list">' +
+    row('iDeCo 資産合計', it && iv ? it.total + iv.value : NaN, it ? md(it.date) + ' 時点' : '') +
+    row('NISA 評価額', nw ? nw.worth : NaN, nw ? md(nw.date) + ' 時点' : '') +
+    items.map(x => row(x.name, x.value, x.kind)).join('') +
+    '</ul><p class="hint">台帳の「保有株式」では、ここの保有株と、証券・投資信託など（手入力）をまとめて管理できます。</p>' + open + '</article>';
+}
 function renderHold() {
   const rows = holdRows(), ok = rows.filter(r => Number.isFinite(r.value));
   const total = ok.reduce((a, r) => a + r.value, 0), cost = ok.reduce((a, r) => a + r.cost, 0), day = ok.reduce((a, r) => a + (Number.isFinite(r.day) ? r.day : 0), 0);
@@ -308,6 +328,7 @@ function renderHold() {
     if (missing.length) h += '<p class="hint">毎朝の自動更新に入っていない銘柄：' + missing.map(r => esc(r.h.name || r.k)).join('、') + '。銘柄を開いて「毎朝の自動更新に追加」を押すと、株価・ニュース・トピックが入ります。</p>';
   } else h += '<p class="empty">まだ登録がありません。下で銘柄を探して、株数と取得単価を入れてください。登録内容はこの端末だけに保存されます。</p>';
   h += '<div class="btns" style="margin-top:20px"><button class="btn primary" data-goto="search">＋ 銘柄を探して保有株に登録</button></div>';
+  h += ledgerCard();
   $('#hold').innerHTML = h;
   if (picked) drawHoldForm();
 }
@@ -648,6 +669,7 @@ function showTab(t) {
 }
 function route() {
   const p = new URLSearchParams(location.hash.slice(1)), k = p.get('s') || '';
+  const tb = p.get('tab'); if (tb && ['today', 'search', 'hold', 'interest', 'settings'].includes(tb)) { showTab(tb); history.replaceState(null, '', location.pathname); return; }
   if (/^(JP|US|INDEX):[\^A-Z0-9.-]{1,12}$/.test(k)) openDetail(k, p.get('n') || ''); else if (!$('#detail').hidden) closeDetail();
 }
 document.addEventListener('click', ev => {
@@ -751,6 +773,9 @@ document.addEventListener('input', ev => {
 document.addEventListener('keydown', ev => { if ((ev.target.id === 'tp' || ev.target.id === 'tpIn') && ev.key === 'Enter') { ev.preventDefault(); $('#addTopic').click(); } });
 $('#q').addEventListener('focus', loadMaster);
 window.addEventListener('hashchange', route);
+// 投資台帳（./ledger/）で保有株を変えたら読み直す
+window.addEventListener('storage', e => { if (e.key === STORE) { try { S = { ...S, ...JSON.parse(e.newValue || '{}') }; } catch (x) {} renderActive(); } if (e.key === 'out-invest-ledger-v2' && active === 'hold') renderHold(); });
+window.addEventListener('pageshow', e => { if (e.persisted) { try { S = { ...S, ...JSON.parse(localStorage.getItem(STORE) || '{}') }; } catch (x) {} renderActive(); } });
 window.addEventListener('resize', () => { if (current && $('#chart')?.firstChild) rowsOf(current.key).then(r => r && bigChart(r, range, current.market)); });
 
 /* ---------- boot ---------- */

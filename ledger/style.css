@@ -1,0 +1,317 @@
+[hidden]{display:none!important}
+:root{
+  color-scheme:dark;
+  --bg:#10121a;--card:#191a26;--field:#232133;--line:#383448;
+  --text:#f4f1fa;--soft:#c5bfd1;--faint:#8f88a1;
+  --accent:#cbb6ff;--on-accent:#201435;
+  --gain:#8ce6bc;--loss:#ffa3ae;--danger:#ff8f9c;
+  --edge:clamp(14px,4vw,40px);
+  font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
+  background:var(--bg);color:var(--text);
+  -webkit-text-size-adjust:100%;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px}
+h1,h2,h3,p{margin:0}
+h3{font-size:.95rem;color:var(--soft);font-weight:600;margin:22px 0 4px}
+button,input,select{font:inherit;color:inherit;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+input,select{font-size:16px} /* iPhoneで入力時に拡大されないように */
+button{cursor:pointer;touch-action:manipulation}
+button:hover,button:focus-visible,input:focus,select:focus{border-color:var(--accent);outline:none}
+button:disabled{opacity:.4;cursor:default}
+.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.ghost{background:transparent}
+.danger{background:transparent;color:var(--danger);border-color:#6b3540}
+.danger-text{color:var(--danger)}
+.gain{color:var(--gain)}.loss{color:var(--loss)}
+.sub{color:var(--soft);font-size:.86rem;margin-top:4px}
+
+/* ヘッダー・下部バー（固定） */
+header,.bottom{position:fixed;left:50%;transform:translateX(-50%);width:min(100%,1030px);z-index:3;background:var(--bg)}
+header{top:0;display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) var(--edge) 8px;border-bottom:1px solid var(--line)}
+header img{width:42px;height:42px;object-fit:contain;flex:none}
+.head-text{flex:1;min-width:0}
+.title-button{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent;border-color:transparent;padding:2px 6px;min-height:0;font-size:clamp(17px,5vw,24px);font-weight:700;text-align:left}
+#status{font-size:.72rem;color:var(--faint);padding-left:6px}
+#dataMenu{flex:none}
+.bottom{bottom:0;display:flex;align-items:center;gap:6px;padding:8px var(--edge) calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+#tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1;min-width:0;gap:6px}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(.8rem,3.5vw,.95rem);padding:6px 4px}
+#tabs [aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+#tabs .overview-tab{border-style:dashed}
+#tabs .overview-tab[aria-pressed=true]{border-style:solid}
+#addTab{flex:none;padding:6px 12px;font-size:1.1rem}
+.bottom .list{flex:none;border-color:var(--accent);padding:6px 12px}
+
+main{max-width:1030px;margin:auto;padding:72px var(--edge) 80px} /* 上下の安全領域は公開先の土台が確保する */
+
+/* 年の切り替え */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 14px}
+.year{display:flex;align-items:center;gap:4px}
+.year button{min-width:44px;font-size:1.2rem;padding:6px 10px}
+.year .year-label:disabled{opacity:1}
+.year .year-label{font-size:1.05rem;font-weight:700;background:transparent;border-color:transparent;min-width:5em;padding:6px 4px}
+
+/* 集計カード */
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.summary article,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(12px,3vw,22px)}
+.summary span{font-size:.8rem;color:var(--soft)}
+.summary strong{display:block;margin-top:6px;font-size:clamp(17px,3.4vw,26px);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.summary small{display:block;font-size:.78rem;margin-top:2px;color:var(--soft)}
+
+/* パネル */
+.heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.heading h2{font-size:clamp(19px,4.6vw,24px)}
+#subtotal{margin-top:10px}
+
+/* 入力フォーム */
+form{display:grid;grid-template-columns:110px repeat(2,minmax(0,1fr)) auto;align-items:start;gap:10px;margin:16px 0 6px}
+form label{font-size:.82rem;color:var(--soft)}
+form input,form select{width:100%;display:block;margin-top:5px;font-variant-numeric:tabular-nums}
+form small{display:block;margin-top:4px;font-size:.74rem;color:var(--faint);min-height:1em}
+.f-save{margin-top:calc(.82rem * 1.4 + 5px)}
+.with-sign{display:flex;gap:5px;margin-top:5px}
+.with-sign input{margin-top:0}
+.sign{flex:none;width:44px;padding:0;font-weight:700}
+input.prefill{border-style:dashed;color:var(--soft)}
+.calc{margin:2px 0 10px;padding:9px 12px;border-radius:10px;background:#211d31;font-size:.88rem;color:var(--soft);font-variant-numeric:tabular-nums}
+.calc b{color:var(--text)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+#ocr{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px}
+#candidates>div{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:7px 0}
+#candidates span{min-width:110px;font-variant-numeric:tabular-nums}
+
+/* 表 */
+.table{overflow-x:auto;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.92rem}
+td,th{text-align:right;border-bottom:1px solid var(--line);padding:9px 7px;white-space:nowrap}
+th{color:var(--soft);font-weight:500;font-size:.8rem}
+td:first-child,th:first-child{text-align:left}
+tfoot td{font-weight:700;border-bottom:0}
+.months tbody tr{cursor:pointer}
+.months tbody tr:hover{background:#1f1d2d}
+tr.selected{background:#2a2340 !important;box-shadow:inset 3px 0 0 var(--accent)}
+td.empty{color:var(--faint)}
+tr.clickable{cursor:pointer}
+.tap-note{font-size:.76rem;color:var(--faint)}
+
+/* グラフ */
+.chart-box{margin-top:18px}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--soft);margin-bottom:4px}
+.key::before{content:"";display:inline-block;width:16px;height:0;border-top:3px solid var(--accent);vertical-align:middle;margin-right:5px}
+.key.base::before{border-top:2px dashed var(--faint)}
+svg.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .zero{stroke:var(--faint);stroke-width:1}
+.chart .axis{fill:var(--faint);font-size:12px;font-family:inherit}
+.chart .value{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
+.chart .base{fill:none;stroke:var(--faint);stroke-width:1.6;stroke-dasharray:5 4}
+.chart .area{fill:var(--accent);opacity:.12}
+.chart .dot{fill:var(--accent)}
+.chart .now{fill:var(--accent);font-size:12px;font-weight:700}
+.empty-chart{color:var(--faint);font-size:.88rem;padding:18px 0}
+
+/* ポップアップ */
+dialog{width:min(92vw,440px);max-height:84vh;overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--card);color:inherit;padding:20px}
+dialog::backdrop{background:#08080bc0}
+dialog h2{font-size:1.15rem;margin-bottom:12px}
+#modalBody{display:grid;gap:12px}
+#modalBody p{color:var(--soft);line-height:1.6;font-size:.92rem}
+#modalBody label{font-size:.84rem;color:var(--soft)}
+#modalBody label input{display:block;width:100%;margin-top:5px}
+.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}
+.actions .danger{margin-right:auto}
+.choices{display:grid;gap:8px}
+.choices button{text-align:left;display:grid;gap:3px;padding:11px 13px}
+.choices button b{font-size:.95rem}
+.choices button span{font-size:.78rem;color:var(--soft);line-height:1.5}
+.choices [aria-checked=true]{border-color:var(--accent);background:#2a2340}
+.choices [aria-checked=true] b::before{content:"● ";color:var(--accent)}
+.menu{display:grid;gap:8px}
+.menu button{text-align:left;display:grid;gap:2px}
+.menu button span{font-size:.76rem;color:var(--soft)}
+.menu button[aria-pressed=true]{border-color:var(--accent);background:#2a2340}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row button{flex:1}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:5;max-width:min(92vw,480px);background:#2d2842;border:1px solid var(--accent);border-radius:12px;padding:10px 16px;font-size:.9rem;box-shadow:0 8px 24px #0008}
+
+@media(max-width:760px){
+  .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  form{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f-save{grid-column:1/-1;margin-top:0}
+  .f-base{grid-column:1/-1}
+}
+@media(max-width:420px){
+  td,th{padding:8px 4px;font-size:.84rem}
+  .tools button{flex:1 1 45%}
+}
+
+/* 年別・月別グラフ（上部） */
+.hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px 8px;margin:6px 0 12px}
+.hero-head{display:grid;gap:8px}
+.hero .legend{margin:0;gap:10px}
+.sw::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--accent)}
+.sw.gain::before{background:var(--gain)}.sw.loss::before{background:var(--loss)}
+.chart .cap{fill:var(--soft);font-size:12px;font-weight:600}
+.chart .bar-amount{fill:#4a4362}
+.chart .bar-gain{fill:var(--gain);opacity:.35}
+.chart .bar-loss{fill:var(--loss);opacity:.4}
+:root{--c0:#5aa9ff;--c1:#ffb84d;--c2:#f27ab0;--c3:#5fe0c8}
+.chart .line{fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.chart .line.c0{stroke:var(--c0)}.chart .line.c1{stroke:var(--c1)}.chart .line.c2{stroke:var(--c2)}.chart .line.c3{stroke:var(--c3)}
+.chart .pt.c0{fill:var(--c0)}.chart .pt.c1{fill:var(--c1)}.chart .pt.c2{fill:var(--c2)}.chart .pt.c3{fill:var(--c3)}
+#yearLegend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sw.bars::before{background:#4a4362}
+.line-key{min-height:30px;padding:3px 9px;font-size:.76rem;border-radius:999px;background:transparent}
+.line-key::before{content:"";display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.line-key.c0::before{background:var(--c0)}.line-key.c1::before{background:var(--c1)}.line-key.c2::before{background:var(--c2)}.line-key.c3::before{background:var(--c3)}
+.line-key[aria-pressed=false]{opacity:.4;text-decoration:line-through}
+.f-month{font-size:.82rem;color:var(--soft)}
+.month-head{display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:1.2em}
+.chg{display:inline-flex;align-items:center;gap:4px;color:var(--text);font-size:.82rem;cursor:pointer}
+.chg input{display:inline-block;width:20px;height:20px;min-height:0;margin:0;padding:0;accent-color:var(--accent)}
+form select:disabled{opacity:.55}
+form.changing select{border-color:var(--accent)}
+.history{display:grid;gap:4px;font-size:.86rem}
+.history span{color:var(--soft);font-variant-numeric:tabular-nums}
+.history button{justify-self:start;min-height:36px;padding:6px 10px}
+.chart .today{fill:var(--accent);opacity:.08}
+.chart .none{fill:var(--faint);font-size:13px}
+#yearChart{margin-top:10px}
+#reconnect{margin-top:8px}
+
+tfoot td{border-top:2px solid var(--line);padding-top:11px;white-space:normal}
+tfoot td:last-child{text-align:right}
+.eval-label{font-weight:500;color:var(--soft);font-size:.8rem}
+.eval-date{display:block;font-weight:400;font-size:.72rem;color:var(--faint);margin-top:2px}
+
+/* ===== コンパクト表示 ===== */
+button,input,select{min-height:40px;padding:8px 10px;border-radius:9px}
+input,select{font-size:16px}
+header{padding-top:6px;padding-bottom:6px;gap:8px}
+header img{width:34px;height:34px}
+.title-button{font-size:clamp(16px,4.6vw,21px);padding:0 4px}
+#status{font-size:.68rem;padding-left:4px}
+#menu{min-height:36px;padding:6px 10px;font-size:.88rem}
+main{padding-top:56px;padding-bottom:68px}
+.bottom{padding-top:6px;padding-bottom:6px}
+#tabs button{min-height:38px;font-size:clamp(.78rem,3.4vw,.9rem)}
+
+.hero{padding:8px 10px 6px;margin:4px 0 8px;border-radius:14px}
+.hero-head{gap:4px}
+.year button{min-width:36px;min-height:34px;font-size:1.05rem;padding:2px 8px}
+.year .year-label{font-size:.98rem;min-width:4.4em}
+.hero-head{grid-template-columns:1fr}
+#yearLegend{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;gap:4px;scrollbar-width:none}
+#yearLegend::-webkit-scrollbar{display:none}
+#yearLegend>*{flex:none}
+.line-key{min-height:24px;padding:1px 6px;font-size:.66rem}
+.line-key::before{width:9px;margin-right:3px}
+.sw.bars{font-size:.68rem}
+#yearChart{margin-top:4px}
+.chart .axis{font-size:10.5px}
+.chart .cap{font-size:11px}
+
+.summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.summary article{padding:8px 9px;border-radius:12px}
+.summary span{font-size:.68rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.summary strong{font-size:clamp(12.5px,3.5vw,20px);margin-top:3px;white-space:nowrap}
+.summary small{font-size:.66rem}
+
+.panel{padding:12px;border-radius:14px}
+.heading h2{font-size:clamp(17px,4.4vw,21px)}
+#accountSettings{min-height:34px;padding:4px 10px;font-size:.82rem}
+.sub{font-size:.76rem;margin-top:2px}
+#subtotal{margin-top:6px}
+form{gap:8px;margin:10px 0 4px}
+form label,.f-month{font-size:.76rem}
+form input,form select{margin-top:3px}
+form small{font-size:.68rem;margin-top:2px;min-height:0}
+.with-sign{margin-top:3px}
+.sign{width:40px}
+.f-save{margin-top:calc(.76rem * 1.4 + 3px)}
+.tools{gap:6px;margin:8px 0}
+.tools button{min-height:36px;padding:5px 8px;font-size:.82rem}
+.table{margin:6px 0}
+table{font-size:.84rem}
+td,th{padding:6px 5px}
+th{font-size:.72rem}
+.tap-note{display:none}
+.chart-box{margin-top:10px}
+.legend{font-size:.7rem}
+tfoot td{padding-top:8px;padding-bottom:6px}
+tfoot .total-row td{border-top:1px dashed var(--line)}
+.total-row td:last-child b{font-size:.95rem}
+dialog{padding:16px}
+.menu button{min-height:0;padding:9px 12px}
+
+@media(max-width:760px){
+  .summary{grid-template-columns:repeat(4,minmax(0,1fr))}
+  form{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){.f-save{margin-top:0}}
+@media(max-width:340px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){
+  .tools button{flex:1 1 45%}
+}
+
+.grand-row td{border-top:1px solid var(--line)}
+.grand-row b.grand{font-size:1.05rem;color:var(--accent)}
+tfoot td{vertical-align:top}
+tfoot td:first-child{font-weight:600;font-size:.8rem;color:var(--soft)}
+tfoot tr:first-child td:first-child{color:var(--text)}
+
+/* iDeCo の資産状況 */
+.ideco-box{margin:10px 0 4px;border:1px solid var(--accent);border-radius:12px;padding:8px 12px;background:#1e1a2c;display:grid;gap:2px}
+.ib-head{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--soft);margin-bottom:2px}
+.ib-edit{min-height:30px;padding:2px 10px;font-size:.76rem}
+.ib-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-top:1px solid var(--line)}
+.ib-label{font-size:.82rem;color:var(--soft)}
+.ib-val{text-align:right;font-variant-numeric:tabular-nums}
+.ib-val b{font-size:1.02rem}
+.ib-val small{display:block;font-size:.66rem;color:var(--faint)}
+.ib-none{color:var(--faint);font-weight:400;font-size:.85rem !important}
+.ib-sum .ib-label{color:var(--text);font-weight:600}
+.ib-sum .ib-val b{font-size:1.15rem;color:var(--accent)}
+
+.summary article{min-width:0;overflow:hidden}
+.summary strong{overflow:hidden;white-space:nowrap;letter-spacing:-.01em}
+.summary{gap:5px}
+.summary article{padding:7px 6px}
+
+.backup-row{display:flex;gap:6px;align-items:stretch}
+.backup-row>button:first-child{flex:1;min-width:0}
+.backup-row .danger{flex:none;padding:6px 10px}
+#modalBody label + .choices{margin-top:-6px}
+
+.status-line{display:flex;align-items:center;gap:8px;padding-left:4px}
+.status-line #status{padding-left:0}
+.dots{display:inline-flex;gap:4px;align-items:center}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--accent);width:14px;border-radius:3px}
+@keyframes slideL{from{opacity:.3;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:.3;transform:translateX(-40px)}to{opacity:1;transform:none}}
+main.slide-l{animation:slideL .25s ease-out}
+main.slide-r{animation:slideR .25s ease-out}
+@media(prefers-reduced-motion:reduce){main.slide-l,main.slide-r{animation:none}}
+
+main{touch-action:pan-y}
+.dots .dot{min-height:0;padding:6px 2px;border:0;background:transparent;display:inline-flex;align-items:center}
+.dots .dot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line)}
+.dots .dot.on::before{background:var(--accent);width:16px;border-radius:4px}
+
+td.tap-amount{cursor:pointer;text-decoration:underline dotted var(--faint);text-underline-offset:3px}
+td.tap-amount:hover{color:var(--accent)}
+
+.save-scope{padding:8px 10px;border-radius:9px;background:#211d31;color:var(--text) !important;font-size:.84rem !important}
+
+/* GitHub Pages 版：上下の安全領域 */
+main{padding-top:calc(56px + env(safe-area-inset-top));padding-bottom:calc(68px + env(safe-area-inset-bottom))}
+#tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.link-btn,.btn-link{display:inline-flex;align-items:center;min-height:34px;padding:4px 12px;border:1px solid var(--line);border-radius:9px;color:var(--text);text-decoration:none;font-size:.82rem;background:transparent}
+.btn-link{border-color:var(--accent);color:var(--accent)}
+.link-btn:hover,.btn-link:hover{border-color:var(--accent)}
+#menu-scope{white-space:nowrap}
+td small.code{display:block;color:var(--faint);font-size:.68rem}

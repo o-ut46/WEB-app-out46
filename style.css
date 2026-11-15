@@ -265,3 +265,5 @@ button.chip{cursor:pointer;color:inherit;font-family:inherit;font-size:13px}
 .pick-px b{font-size:17px}.pick-px small{font-size:11px;margin-left:2px;font-weight:600}.pick-px span{font-size:12px}
 .pick .biz{margin:8px 0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--rule) 45%,transparent);font-size:14px;line-height:1.6}
 .pick .biz b{display:block;font-size:12px;color:var(--sub);margin-bottom:2px}
+
+.ledger-link{text-decoration:none;display:inline-flex;align-items:center;color:inherit}
