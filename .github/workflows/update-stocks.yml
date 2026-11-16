@@ -68,6 +68,7 @@ jobs:
           cp -R guitar public/guitar
           cp -R hx-stomp public/hx-stomp
           cp -R ledger public/ledger
+          cp -R nippo-map public/nippo-map
           for file in icon-192.png icon-512.png CNAME; do
             if [ -f "$file" ]; then cp "$file" public/; fi
           done
