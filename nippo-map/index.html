@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>O-UT 乗務マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--ink:#1b1e24;--sub:#6b7280;--line:#e3e6ea;--acc:#0f6e5c;--acc2:#e7f3f0;--drop:#d9480f;--red:#b42318}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#f4f5f7;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh}
+header{background:var(--ink);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+header .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
+header h1{font-size:16px;margin:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.btn{border:0;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;background:#2b3038;color:#fff;cursor:pointer}
+.btn.l{background:#fff;color:var(--ink)}
+.btn.acc{background:var(--acc);color:#fff}
+.btn.sub{background:var(--acc2);color:var(--acc)}
+.btn.ghost{background:#eef0f3;color:var(--ink)}
+.chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600}
+.chip.on{background:#fff;color:var(--ink);border-color:#fff}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
+#mapBox{position:relative;flex:1;min-height:240px}
+#map{position:absolute;inset:0}
+.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:baseline;pointer-events:none}
+.clock b{font-size:20px;font-variant-numeric:tabular-nums}
+.fit{position:absolute;right:10px;bottom:24px;z-index:500}
+.panel{background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.panel .ctl{display:flex;gap:6px;align-items:center}
+input[type=range]{width:100%;margin:10px 0 0}
+.ends{display:flex;justify-content:space-between;color:var(--sub);font-size:12px}
+.info{margin-top:8px;font-size:14px;line-height:1.5;max-height:26vh;overflow:auto}
+.info .h{display:flex;justify-content:space-between;font-weight:700}
+.info .s{color:var(--sub);font-size:13px}
+.info a{color:var(--acc);font-weight:700}
+.pin{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pin.p{background:var(--acc);border-radius:50%}
+.pin.d{background:var(--drop);border-radius:4px}
+.pin.cur{transform:scale(1.35);z-index:1000}
+.car{width:16px;height:16px;border-radius:50%;background:var(--ink);border:3px solid #ffd43b;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.ring{width:26px;height:26px;border-radius:50%;border:3px dashed var(--drop)}
+.sheet-bg{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
+.sheet-bg[hidden]{display:none}
+.sheet{background:#fff;width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:16px;margin:0 0 10px}
+.sheet .acts{display:flex;flex-direction:column;gap:8px}
+.sheet .acts .btn{padding:12px}
+.empty[hidden]{display:none}
+.empty{position:absolute;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--sub);background:#f4f5f7;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><button class="btn" id="bDate">日付 ▼</button></div>
+  <div class="row">
+    <button class="btn" id="bBand">時間帯：すべて ▼</button>
+    <button class="btn" id="bTile">地図：地理院（淡色） ▼</button>
+  </div>
+  <div class="row">
+    <button class="chip on" data-layer="pick"><span class="dot g"></span>乗車地</button>
+    <button class="chip on" data-layer="drop"><span class="dot o"></span>降車地</button>
+    <button class="chip on" data-layer="line">経路の線</button>
+  </div>
+</header>
+<div id="mapBox">
+  <div id="map"></div>
+  <div class="clock"><b id="clk">--:--</b><span id="st"></span></div>
+  <button class="btn l fit" id="bFit">全体</button>
+  <div class="empty" id="empty" hidden>表示する日報がありません。<br>「O-UT 乗務日報リーダー」の地図タブにある<br>「詳しい地図で開く」から開いてください。</div>
+</div>
+<div class="panel">
+  <div class="ctl">
+    <button class="btn acc" id="bPlay" style="min-width:92px">▶ 再生</button>
+    <button class="btn ghost" id="bSpeed" style="flex:1">速さ：普通 ▼</button>
+    <button class="btn ghost" id="bEnd">最後まで</button>
+  </div>
+  <input type="range" id="sl" min="0" max="100" value="0" step="1">
+  <div class="ends"><span id="t0"></span><span id="t1"></span></div>
+  <div class="info" id="info"></div>
+</div>
+<div class="sheet-bg" id="sbg" hidden><div class="sheet" id="sheet"></div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const yen=n=>(Number(n)||0).toLocaleString("ja-JP");
+const WD=["日","月","火","水","木","金","土"];
+const tmin=t=>{const m=String(t||"").match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null;};
+const rel=(t,base)=>{const m=tmin(t);if(m==null)return null;let r=m-base;if(r<-60)r+=1440;return r;};
+const hm=min=>{min=((Math.round(min)%1440)+1440)%1440;return pad(Math.floor(min/60))+":"+pad(min%60);};
+const md=d=>{const[,m,dd]=d.split("-").map(Number);return `${m}/${dd}`;};
+const wd=d=>{const[y,m,dd]=d.split("-").map(Number);return WD[new Date(y,m-1,dd).getDay()];};
+
+/* ---------- ポップアップ ---------- */
+function sheet(title, actions, html){
+  const s=$("#sheet"); s.innerHTML=`<h2>${esc(title)}</h2>${html||""}<div class="acts"></div>`;
+  const box=s.querySelector(".acts");
+  actions.forEach(a=>{ const b=document.createElement("button"); b.className="btn "+(a.cls||"sub"); b.textContent=a.label;
+    b.onclick=()=>{ closeSheet(); a.fn&&a.fn(); }; box.appendChild(b); });
+  $("#sbg").hidden=false;
+}
+function closeSheet(){ $("#sbg").hidden=true; }
+$("#sbg").onclick=e=>{ if(e.target.id==="sbg") closeSheet(); };
+
+/* ---------- データ受け取り（URLの#以降） ---------- */
+const STORE="out-nippo-map-days";
+function loadDays(){ try{ return JSON.parse(localStorage.getItem(STORE)||"{}")||{}; }catch(e){ return {}; } }
+function saveDays(d){ try{ localStorage.setItem(STORE, JSON.stringify(d)); }catch(e){} }
+function b64ToBytes(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; const bin=atob(s); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+async function decode(h){
+  if(h.startsWith("z.")){
+    const stream=new Blob([b64ToBytes(h.slice(2))]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return JSON.parse(await new Response(stream).text());
+  }
+  if(h.startsWith("j.")) return JSON.parse(new TextDecoder().decode(b64ToBytes(h.slice(2))));
+  throw new Error("形式が違います");
+}
+
+/* ---------- 地図 ---------- */
+const TILES={
+  pale:["地理院（淡色）","https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',18],
+  std:["地理院（標準）","https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',18],
+  osm:["OpenStreetMap","https://tile.openstreetmap.org/{z}/{x}/{y}.png",'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',19]
+};
+const BANDS={all:["すべて",0,24],morning:["朝 5〜10時",5,10],day:["昼 10〜16時",10,16],evening:["夕 16〜20時",16,20],night:["夜 20〜24時",20,24],late:["深夜 0〜5時",0,5]};
+const SPEEDS={slow:["ゆっくり",6],normal:["普通",20],fast:["速い",60]};
+let pref={tile:"pale",speed:"normal"}; try{ Object.assign(pref, JSON.parse(localStorage.getItem("out-nippo-map-pref")||"{}")); }catch(e){}
+const savePref=()=>{ try{ localStorage.setItem("out-nippo-map-pref", JSON.stringify(pref)); }catch(e){} };
+
+const map=L.map("map",{zoomControl:true}).setView([35.68,139.74],12);
+let tile=null;
+function setTile(k){ if(tile) map.removeLayer(tile); const t=TILES[k]||TILES.pale; tile=L.tileLayer(t[1],{attribution:t[2],maxZoom:t[3]}).addTo(map); pref.tile=k; savePref(); $("#bTile").textContent=`地図：${t[0]} ▼`; }
+setTile(pref.tile);
+
+const st={day:null, ev:[], brk:[], base:0, end:60, T:0, band:"all", layers:{pick:true,drop:true,line:true}, playing:false, raf:0, last:0, sel:null};
+const icon=(cls,no)=>L.divIcon({className:"",html:`<div class="pin ${cls}" style="width:${cls.includes("d")?20:22}px;height:${cls.includes("d")?20:22}px">${no??""}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+const carIcon=L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+const ringIcon=L.divIcon({className:"",html:'<div class="ring"></div>',iconSize:[26,26],iconAnchor:[13,13]});
+const car=L.marker([0,0],{icon:carIcon,interactive:false,zIndexOffset:2000});
+const ring=L.marker([0,0],{icon:ringIcon,interactive:false});
+const curLine=L.polyline([],{color:"#0f6e5c",weight:5,opacity:.95});
+
+function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
+function loadDay(d){
+  stop(); clearDay();
+  st.day=d; st.sel=null;
+  const base=tmin(d.dep) ?? tmin(d.r?.[0]?.[1]) ?? 0; st.base=base;
+  st.ev=(d.r||[]).map(a=>{
+    const [no,on,off,pk,from,to,via,km,fare,cf,ct,cv]=a;
+    const onR=rel(on,base); let offR=rel(off,base); if(offR!=null && offR<onR) offR+=1440;
+    const e={no,on,off,pk,from,to,via,km,fare,cf,ct,cv,onR,offR,hour:(tmin(on)??0)/60};
+    if(cf){ e.mp=L.marker(cf,{icon:icon("p",no),zIndexOffset:100}); e.mp.on("click",()=>select(e)); }
+    if(ct){ e.md=L.marker(ct,{icon:icon("d",no)}); e.md.on("click",()=>select(e)); }
+    if(cf&&ct){ e.path=[cf,...(cv?[cv]:[]),ct]; e.ml=L.polyline(e.path,{color:"#5f6b66",weight:2.5,dashArray:"6 6",opacity:.8}); }
+    return e;
+  }).filter(e=>e.onR!=null);
+  st.brk=(d.b||[]).map(([s,e])=>{ const a=rel(s,base), b0=rel(e,base); return a==null||b0==null?null:{s:a,e:b0<a?b0+1440:b0}; }).filter(Boolean);
+  let end=d.ret?rel(d.ret,base):0; st.ev.forEach(e=>end=Math.max(end,e.offR||0)); st.end=Math.max(60,end||0);
+  $("#sl").max=st.end; $("#t0").textContent=hm(base); $("#t1").textContent=hm(base+st.end);
+  $("#title").textContent=`O-UT 乗務マップ`;
+  $("#bDate").textContent=`${md(d.d)}(${wd(d.d)}) ▼`;
+  $("#empty").hidden=true;
+  const miss=st.ev.filter(e=>!e.cf||!e.ct).length;
+  st.miss=miss;
+  fit(); st.T=st.end; render();
+}
+function fit(){
+  const pts=[]; st.ev.forEach(e=>{ if(e.cf) pts.push(e.cf); if(e.ct) pts.push(e.ct); });
+  if(pts.length) map.fitBounds(L.latLngBounds(pts),{padding:[30,30],maxZoom:15});
+}
+const inBand=e=>st.band==="all"||(e.hour>=BANDS[st.band][1]&&e.hour<BANDS[st.band][2]);
+function show(layer,on){ if(!layer) return; const has=map.hasLayer(layer); if(on&&!has) layer.addTo(map); else if(!on&&has) map.removeLayer(layer); }
+function render(){
+  const T=st.T; let cur=null;
+  st.ev.forEach(e=>{
+    const b=inBand(e);
+    if(b && T>=e.onR && T<e.offR) cur=e;
+    show(e.mp, b && st.layers.pick && T>=e.onR);
+    show(e.md, b && st.layers.drop && T>=e.offR);
+    show(e.ml, b && st.layers.line && T>=e.offR);
+  });
+  const hi = cur || st.ev.find(e=>e.no===st.sel);
+  st.ev.forEach(e=>{
+    const on = e===hi;
+    [e.mp,e.md].forEach(m=>{ const el=m&&m.getElement&&m.getElement(); if(el){ const p=el.querySelector(".pin"); if(p) p.classList.toggle("cur",on); } });
+  });
+  if(cur && cur.path){
+    const k=Math.min(1,Math.max(0,(T-cur.onR)/Math.max(1,cur.offR-cur.onR)));
+    const P=cur.path, seg=[]; let tot=0;
+    for(let i=1;i<P.length;i++){ const d=Math.hypot(P[i][0]-P[i-1][0],(P[i][1]-P[i-1][1])*0.81); seg.push(d); tot+=d; }
+    let rem=tot*k, pos=P[0]; const drawn=[P[0]];
+    for(let i=1;i<P.length;i++){ if(rem>=seg[i-1]){ rem-=seg[i-1]; pos=P[i]; drawn.push(pos); } else { const f=seg[i-1]?rem/seg[i-1]:0; pos=[P[i-1][0]+(P[i][0]-P[i-1][0])*f,P[i-1][1]+(P[i][1]-P[i-1][1])*f]; drawn.push(pos); break; } }
+    curLine.setLatLngs(drawn); car.setLatLng(pos); ring.setLatLng(cur.ct);
+    show(curLine, st.layers.line); show(car,true); show(ring, st.layers.drop);
+  } else { show(curLine,false); show(car,false); show(ring,false); }
+  $("#clk").textContent=hm(st.base+T);
+  const brk=st.brk.some(b=>T>=b.s&&T<b.e);
+  $("#st").textContent= cur?`実車中 No.${cur.no??""}`:brk?"休憩中":"空車";
+  const info = cur || st.ev.find(e=>e.no===st.sel) || [...st.ev].reverse().find(e=>inBand(e)&&T>=e.offR);
+  renderInfo(info);
+  if(+$("#sl").value!==Math.round(T)) $("#sl").value=Math.round(T);
+}
+let lastInfo=null;
+function renderInfo(e){
+  if(e===lastInfo && e) return; lastInfo=e;
+  const box=$("#info");
+  const note = st.miss ? `<div class="s" style="color:#b45309">位置が分からない乗車が${st.miss}件あります（地図には出ません）</div>` : "";
+  if(!e){ box.innerHTML=note+`<div class="s">再生ボタンか時間バーで時刻を動かしてください。ピンをタップするとその乗車を表示します。</div>`; return; }
+  const q=a=>encodeURIComponent("東京都"+a);
+  const url=`https://www.google.com/maps/dir/?api=1&origin=${q(e.from)}&destination=${q(e.to)}${e.via?`&waypoints=${q(e.via)}`:""}&travelmode=driving`;
+  box.innerHTML=`<div class="h"><span>No.${e.no??""}　${esc(e.on)} → ${esc(e.off)}</span><span>${e.fare!=null?yen(e.fare)+"円":""}</span></div>
+   <div>${esc(e.from)} → ${esc(e.to)}${e.via?`<span class="s">（経由 ${esc(e.via)}）</span>`:""}</div>
+   <div class="s">${e.km??"—"}km・${e.pk?"迎車":"一般"}　<a href="${url}" target="_blank" rel="noopener">Googleマップで開く</a></div>${note}`;
+}
+function select(e){ stop(); st.sel=e.no; if(st.T<e.offR) st.T=e.offR; lastInfo=undefined; render(); }
+function setT(T){ st.T=Math.max(0,Math.min(st.end,T)); render(); }
+function stop(){ st.playing=false; cancelAnimationFrame(st.raf); $("#bPlay").textContent="▶ 再生"; }
+function play(){
+  if(!st.day) return;
+  if(st.T>=st.end) st.T=0;
+  st.sel=null; st.playing=true; st.last=performance.now(); $("#bPlay").textContent="❚❚ 停止";
+  const step=now=>{ if(!st.playing) return; const dt=(now-st.last)/1000; st.last=now; setT(st.T+dt*SPEEDS[pref.speed][1]); if(st.T>=st.end){ stop(); return; } st.raf=requestAnimationFrame(step); };
+  st.raf=requestAnimationFrame(step);
+}
+$("#bPlay").onclick=()=>st.playing?stop():play();
+$("#bEnd").onclick=()=>{ stop(); setT(st.end); };
+$("#sl").addEventListener("input",e=>{ stop(); st.sel=null; setT(+e.target.value); });
+$("#bFit").onclick=fit;
+document.querySelectorAll("[data-layer]").forEach(b=>b.onclick=()=>{ const k=b.dataset.layer; st.layers[k]=!st.layers[k]; b.classList.toggle("on",st.layers[k]); render(); });
+$("#bBand").onclick=()=>sheet("時間帯を選んでください",Object.entries(BANDS).map(([k,v])=>({label:v[0],cls:k===st.band?"acc":"sub",fn:()=>{ st.band=k; $("#bBand").textContent=`時間帯：${v[0]} ▼`; lastInfo=undefined; render(); }})));
+$("#bTile").onclick=()=>sheet("地図の種類",Object.entries(TILES).map(([k,v])=>({label:v[0],cls:k===pref.tile?"acc":"sub",fn:()=>setTile(k)})));
+$("#bSpeed").onclick=()=>sheet("再生の速さ",Object.entries(SPEEDS).map(([k,v])=>({label:v[0],cls:k===pref.speed?"acc":"sub",fn:()=>{ pref.speed=k; savePref(); $("#bSpeed").textContent=`速さ：${v[0]} ▼`; }})));
+$("#bSpeed").textContent=`速さ：${SPEEDS[pref.speed]?.[0]||"普通"} ▼`;
+$("#bDate").onclick=()=>{
+  const days=loadDays(); const ks=Object.keys(days).sort().reverse();
+  if(!ks.length) return;
+  sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>loadDay(days[k])})),
+    {label:"この端末の記録を消す",cls:"ghost",fn:()=>{ saveDays({}); }}],
+    `<div style="color:var(--sub);font-size:13px;margin-bottom:10px">日報リーダーから開いた日がこの端末に残ります。</div>`);
+};
+
+/* ---------- 起動 ---------- */
+async function start(){
+  const h=location.hash.slice(1);
+  const days=loadDays();
+  if(h){
+    try{
+      const d=await decode(h);
+      if(d && d.d){ days[d.d]=d; saveDays(days); loadDay(d); history.replaceState(null,"",location.pathname); return; }
+    }catch(e){ $("#info").innerHTML=`<div class="s" style="color:var(--red)">データを読み込めませんでした（${esc(e.message||e)}）</div>`; }
+  }
+  const ks=Object.keys(days).sort();
+  if(ks.length) loadDay(days[ks[ks.length-1]]);
+  else $("#empty").hidden=false;
+}
+window.addEventListener("hashchange",start);
+start();
+})();
+</script>
+</body>
+</html>
