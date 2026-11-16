@@ -22,6 +22,7 @@ header h1{font-size:16px;margin:0}
 .btn.ghost{background:#eef0f3;color:var(--ink)}
 .chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600}
 .chip.on{background:#fff;color:var(--ink);border-color:#fff}
+.ln{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}.ln.b{background:#1f6fe0}.ln.r{background:#e03131}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
 #mapBox{position:relative;flex:1;min-height:240px}
 #map{position:absolute;inset:0}
@@ -62,7 +63,8 @@ input[type=range]{width:100%;margin:10px 0 0}
   <div class="row">
     <button class="chip on" data-layer="pick"><span class="dot g"></span>乗車地</button>
     <button class="chip on" data-layer="drop"><span class="dot o"></span>降車地</button>
-    <button class="chip on" data-layer="line">経路の線</button>
+    <button class="chip on" data-layer="line"><span class="ln b"></span>実車の線</button>
+    <button class="chip on" data-layer="empty"><span class="ln r"></span>空車の線</button>
   </div>
 </header>
 <div id="mapBox">
@@ -139,15 +141,17 @@ let tile=null;
 function setTile(k){ if(tile) map.removeLayer(tile); const t=TILES[k]||TILES.pale; tile=L.tileLayer(t[1],{attribution:t[2],maxZoom:t[3]}).addTo(map); pref.tile=k; savePref(); $("#bTile").textContent=`地図：${t[0]} ▼`; }
 setTile(pref.tile);
 
-const st={day:null, ev:[], brk:[], base:0, end:60, T:0, band:"all", layers:{pick:true,drop:true,line:true}, playing:false, raf:0, last:0, sel:null};
+const st={day:null, ev:[], brk:[], base:0, end:60, T:0, band:"all", layers:{pick:true,drop:true,line:true,empty:true}, playing:false, raf:0, last:0, sel:null};
 const icon=(cls,no)=>L.divIcon({className:"",html:`<div class="pin ${cls}" style="width:${cls.includes("d")?20:22}px;height:${cls.includes("d")?20:22}px">${no??""}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
 const carIcon=L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 const ringIcon=L.divIcon({className:"",html:'<div class="ring"></div>',iconSize:[26,26],iconAnchor:[13,13]});
 const car=L.marker([0,0],{icon:carIcon,interactive:false,zIndexOffset:2000});
 const ring=L.marker([0,0],{icon:ringIcon,interactive:false});
-const curLine=L.polyline([],{color:"#0f6e5c",weight:5,opacity:.95});
+const LC={occ:"#1f6fe0",occDone:"#0b3d8c",emp:"#e03131",empDone:"#8f1414"};
+const curLine=L.polyline([],{color:LC.occ,weight:5,opacity:1,lineCap:"round"});
+const curEmpty=L.polyline([],{color:LC.emp,weight:5,opacity:1,lineCap:"round"});
 
-function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
+function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml,e.me].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine,curEmpty].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
 function loadDay(d){
   stop(); clearDay();
   st.day=d; st.sel=null;
@@ -158,9 +162,12 @@ function loadDay(d){
     const e={no,on,off,pk,from,to,via,km,fare,cf,ct,cv,onR,offR,hour:(tmin(on)??0)/60};
     if(cf){ e.mp=L.marker(cf,{icon:icon("p",no),zIndexOffset:100}); e.mp.on("click",()=>select(e)); }
     if(ct){ e.md=L.marker(ct,{icon:icon("d",no)}); e.md.on("click",()=>select(e)); }
-    if(cf&&ct){ e.path=[cf,...(cv?[cv]:[]),ct]; e.ml=L.polyline(e.path,{color:"#5f6b66",weight:2.5,dashArray:"6 6",opacity:.8}); }
+    if(cf&&ct){ e.path=[cf,...(cv?[cv]:[]),ct]; e.ml=L.polyline(e.path,{color:LC.occDone,weight:4,opacity:.5,lineCap:"round"}); }
     return e;
-  }).filter(e=>e.onR!=null);
+  }).filter(e=>e.onR!=null).sort((a,b)=>a.onR-b.onR);
+  // 空車の線：降車地 → 次の乗車地
+  st.ev.forEach((e,i)=>{ const n=st.ev[i+1]; e.next=n||null;
+    if(n && e.ct && n.cf){ e.epath=[e.ct,n.cf]; e.me=L.polyline(e.epath,{color:LC.empDone,weight:4,opacity:.5,lineCap:"round"}); } });
   st.brk=(d.b||[]).map(([s,e])=>{ const a=rel(s,base), b0=rel(e,base); return a==null||b0==null?null:{s:a,e:b0<a?b0+1440:b0}; }).filter(Boolean);
   let end=d.ret?rel(d.ret,base):0; st.ev.forEach(e=>end=Math.max(end,e.offR||0)); st.end=Math.max(60,end||0);
   $("#sl").max=st.end; $("#t0").textContent=hm(base); $("#t1").textContent=hm(base+st.end);
@@ -185,21 +192,31 @@ function render(){
     show(e.mp, b && st.layers.pick && T>=e.onR);
     show(e.md, b && st.layers.drop && T>=e.offR);
     show(e.ml, b && st.layers.line && T>=e.offR);
+    show(e.me, b && st.layers.empty && e.next && T>=e.next.onR);
   });
   const hi = cur || st.ev.find(e=>e.no===st.sel);
   st.ev.forEach(e=>{
     const on = e===hi;
     [e.mp,e.md].forEach(m=>{ const el=m&&m.getElement&&m.getElement(); if(el){ const p=el.querySelector(".pin"); if(p) p.classList.toggle("cur",on); } });
   });
-  if(cur && cur.path){
-    const k=Math.min(1,Math.max(0,(T-cur.onR)/Math.max(1,cur.offR-cur.onR)));
-    const P=cur.path, seg=[]; let tot=0;
+  const part=(P,k)=>{ const seg=[]; let tot=0;
     for(let i=1;i<P.length;i++){ const d=Math.hypot(P[i][0]-P[i-1][0],(P[i][1]-P[i-1][1])*0.81); seg.push(d); tot+=d; }
     let rem=tot*k, pos=P[0]; const drawn=[P[0]];
     for(let i=1;i<P.length;i++){ if(rem>=seg[i-1]){ rem-=seg[i-1]; pos=P[i]; drawn.push(pos); } else { const f=seg[i-1]?rem/seg[i-1]:0; pos=[P[i-1][0]+(P[i][0]-P[i-1][0])*f,P[i-1][1]+(P[i][1]-P[i-1][1])*f]; drawn.push(pos); break; } }
-    curLine.setLatLngs(drawn); car.setLatLng(pos); ring.setLatLng(cur.ct);
-    show(curLine, st.layers.line); show(car,true); show(ring, st.layers.drop);
-  } else { show(curLine,false); show(car,false); show(ring,false); }
+    return {drawn,pos}; };
+  let carPos=null;
+  if(cur && cur.path){
+    const r=part(cur.path, Math.min(1,Math.max(0,(T-cur.onR)/Math.max(1,cur.offR-cur.onR))));
+    curLine.setLatLngs(r.drawn); carPos=r.pos; ring.setLatLng(cur.ct);
+    show(curLine, st.layers.line); show(ring, st.layers.drop);
+  } else { show(curLine,false); show(ring,false); }
+  // 空車で次の乗車地へ向かっているところ
+  const emp = cur ? null : st.ev.find(e=>inBand(e) && e.epath && T>=e.offR && T<e.next.onR);
+  if(emp){
+    const r=part(emp.epath, Math.min(1,Math.max(0,(T-emp.offR)/Math.max(1,emp.next.onR-emp.offR))));
+    curEmpty.setLatLngs(r.drawn); carPos=r.pos; show(curEmpty, st.layers.empty);
+  } else show(curEmpty,false);
+  if(carPos){ car.setLatLng(carPos); show(car,true); } else show(car,false);
   $("#clk").textContent=hm(st.base+T);
   const brk=st.brk.some(b=>T>=b.s&&T<b.e);
   $("#st").textContent= cur?`実車中 No.${cur.no??""}`:brk?"休憩中":"空車";
