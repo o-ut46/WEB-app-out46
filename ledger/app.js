@@ -2041,19 +2041,30 @@ async function scan(event) {
       importFlows(texts);
       return;
     }
-    const result = await worker.recognize(file);
-    if (revision !== scanRevision) return;
-    const dm = result.data.text.normalize('NFKC').match(/(20\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
-    scanDate = dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31 ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : todayStr;
-    // 年の数字は読み違えやすいので、今年の同じ月日が今日以前なら今年とみなす
-    if (scanDate !== todayStr && !scanDate.startsWith(thisYear+'-')) {
-      const fix = thisYear + scanDate.slice(4);
-      scanDate = fix <= todayStr ? fix : todayStr;
+    // 何枚選んでも順に読む。画面の日付が古い順に反映し、いちばん新しいものが最新になるようにする
+    const reads = [];
+    for (let i=0;i<files.length;i++) {
+      if (files.length > 1) status.textContent = `写真を読み取っています…（${i+1} / ${files.length}枚）`;
+      const text = (await worker.recognize(files[i])).data.text;
+      if (revision !== scanRevision) return;
+      const dm = text.normalize('NFKC').match(/(20\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
+      let d = dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31 ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : todayStr;
+      // 年の数字は読み違えやすいので、今年の同じ月日が今日以前なら今年とみなす
+      if (d !== todayStr && !d.startsWith(thisYear+'-')) { const fix = thisYear + d.slice(4); d = fix <= todayStr ? fix : todayStr; }
+      const matches = text.normalize('NFKC').replace(/[−–]/g,'-').match(/[+\-△▲]?\d[\d,]*/g) ?? [];
+      reads.push({date:d,values:[...new Set(matches.map(money).filter(validMoney))].filter(v => Math.abs(v) >= 10).slice(0,40)});
     }
-    const matches = result.data.text.normalize('NFKC').replace(/[−–]/g,'-').match(/[+\-△▲]?\d[\d,]*/g) ?? [];
-    const values = [...new Set(matches.map(money).filter(validMoney))].filter(v => Math.abs(v) >= 10).slice(0,40);
-    status.textContent = values.length ? '原本の金額・符号と照らし合わせて、使う数字を選んでください。' : '数字を検出できませんでした。撮り直すか、金額を手入力してください。';
-    if (values.length) candidates(values);
+    reads.sort((x,y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+    const msgs = [];
+    for (const r of reads) {
+      scanDate = r.date;
+      if (files.length > 1) $('candidates').append(el('p','scan-head',`${r.date.replaceAll('-','/')} の画面`));
+      if (!r.values.length) { msgs.push(`${r.date.replaceAll('-','/')}：数字を検出できませんでした`); continue; }
+      status.textContent = '原本の金額・符号と照らし合わせて、使う数字を選んでください。';
+      candidates(r.values);
+      msgs.push(status.textContent);
+    }
+    status.textContent = files.length > 1 ? `${files.length}枚を読み取りました。` + msgs.join(' ／ ') : (msgs[0] || '数字を検出できませんでした。撮り直すか、金額を手入力してください。');
   } catch {
     if (revision === scanRevision) status.textContent = inArtifact
       ? 'この画面では写真の読み取りを使えませんでした。金額を手入力してください。'
