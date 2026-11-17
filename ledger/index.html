@@ -101,7 +101,7 @@
     </div>
     <div class="tools">
       <button id="flowCamera" type="button">カメラで読み取り</button>
-      <button id="flowPhoto" type="button">写真から読み取り</button>
+      <button id="flowPhoto" type="button">写真・ファイルから（複数可）</button>
       <button id="flowAdd" type="button">＋ 手で追加</button>
     </div>
     <p id="flowStatus" class="calc" role="status" hidden></p>
@@ -152,7 +152,7 @@
       <button id="evalBtn" type="button" hidden>損益・累計を入力</button>
       <button id="removeEntry" type="button" class="danger-text">この月を削除</button>
       <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
-      <input id="photoFile" type="file" accept="image/*" hidden>
+      <input id="photoFile" type="file" accept="image/*" multiple hidden>
     </div>
     <div id="ocr" hidden><p id="ocrStatus" role="status"></p><div id="candidates"></div><button id="clearOcr" type="button">読み取りを閉じる</button></div>
 

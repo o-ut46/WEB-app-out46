@@ -1104,34 +1104,57 @@ $('flowCamera').onclick = () => $('cameraFile').click();
 $('flowPhoto').onclick = () => $('photoFile').click();
 $('flowAdd').onclick = () => editFlow(null);
 // OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
+// head：日付より前にある金額（上で切れた明細）、tail：金額のない最後の日付（下で切れた明細）
+const flowType = t => /nisa|配当|分配|dividend/i.test(t) ? 'div' : 'in';
 function parseFlows(text) {
   const lines = text.normalize('NFKC').split(/\n+/);
-  const out = [];
-  let cur = null;
+  const items = [];
+  let cur = null, head = null, headText = '';
   const dateRe = /(\d{4})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/;
-  const finish = () => { if (cur && cur.amount !== null) out.push(cur); };
+  const amountIn = ln => { const n = ln.replace(/(\d)[.](\d{3})/g,'$1,$2').match(/\d{1,3}(?:,\d{3})+|\d{3,}/g); return n ? Number(n.at(-1).replaceAll(',','')) : null; };
   for (const ln of lines) {
     const dm = ln.match(dateRe);
     if (dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31) {
-      finish();
+      if (cur && cur.amount !== null) items.push(cur);
       let y = +dm[1];
       if (y < 2000 || y > thisYear) y = thisYear;   // 年の読み違い
       cur = {date:`${y}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`,amount:null,text:''};
       continue;
     }
-    if (!cur) continue;
+    const a = amountIn(ln);
+    if (!cur) { headText += ' ' + ln; if (a !== null) head = a; continue; }
     cur.text += ' ' + ln;
-    const nums = ln.replace(/(\d)[.](\d{3})/g,'$1,$2').match(/\d{1,3}(?:,\d{3})+|\d{3,}/g);
-    if (nums) cur.amount = Number(nums.at(-1).replaceAll(',',''));
+    if (a !== null) cur.amount = a;
   }
-  finish();
-  return out.map(f => ({date:f.date,amount:f.amount,
-    // 日本語は読めないので、「NISA」や「配当」の文字があれば配当金とみなす。出金は確認画面で選ぶ
-    type:/nisa|配当|分配|dividend/i.test(f.text) ? 'div' : 'in'}));
+  let tail = null;
+  if (cur && cur.amount !== null) items.push(cur); else if (cur) tail = cur;
+  return {items:items.map(f => ({date:f.date,amount:f.amount,type:flowType(f.text)})),head,headText,tail};
 }
-async function importFlows(text) {
-  const found = parseFlows(text);
+// 同じ日付・金額・区分は1件だけ残す
+const flowKey = f => f.date + '|' + f.amount + '|' + f.type;
+function uniqueFlows(list) {
+  const seen = new Set(), out = [];
+  for (const f of list) { const k = flowKey(f); if (!seen.has(k)) { seen.add(k); out.push(f); } }
+  return out;
+}
+async function importFlows(texts) {
+  let raw = [], joined = 0, cut = 0, tail = null;
+  for (const t of texts) {
+    const r = parseFlows(t);
+    if (tail && r.head !== null) {          // 前の写真の下で切れた日付 ＋ 次の写真の上の金額 → 1件にする
+      raw.push({date:tail.date,amount:r.head,type:flowType(tail.text + r.headText)}); joined++;
+    } else if (r.head !== null) cut++;
+    if (tail && r.head === null) cut++;
+    raw.push(...r.items);
+    tail = r.tail;
+  }
+  if (tail) cut++;
+  const found = uniqueFlows(raw), dupInBatch = raw.length - found.length;
   if (!found.length) { $('flowStatus').textContent = '日付と金額の組を見つけられませんでした。明細の部分を大きめに撮り直すか、手で追加してください。'; return; }
+  const notes = [];
+  if (dupInBatch) notes.push(`写真どうしで重なっていた${dupInBatch}件は1件にまとめました`);
+  if (joined) notes.push(`写真の境目で切れていた${joined}件はつなぎ合わせました`);
+  if (cut) notes.push(`日付か金額が切れていた${cut}件は除きました`);
   const tab = flowTab(), have = tab.flows || [];
   const isDup = f => have.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type);
   const rows = [];
@@ -1157,7 +1180,8 @@ async function importFlows(text) {
       wrap.append(row);
       rows.push({ck,dIn,aIn,sel});
     }
-    return [el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),wrap];
+    return [el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),
+      ...(notes.length ? [el('p','save-scope',notes.join('。') + '。')] : []),wrap];
   }, [{label:'キャンセル',value:null},{label:'取り込む',value:'ok',cls:'primary'}]);
   if (r !== 'ok') { $('flowStatus').textContent = '取り込みをやめました。'; return; }
   const next = structuredClone(data), t = next.tabs[flowTarget];
@@ -1172,6 +1196,10 @@ async function importFlows(text) {
     if (t.flows.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type)) { skipped++; continue; }
     t.flows.push(f); added++;
   }
+  const before = t.flows.length;
+  t.flows = uniqueFlows(t.flows);
+  skipped += before - t.flows.length;
+  added = Math.min(added,t.flows.length);
   if (!added) { $('flowStatus').textContent = skipped ? 'すべて登録済みでした。' : '取り込む行がありませんでした。'; return; }
   if (commit(next)) {
     render();
@@ -1204,6 +1232,7 @@ async function editFlow(id) {
   const f = {id:cur?.id || flowId(),date,amount,type:ch.value,at:Date.now()};
   if (nIn.value.trim()) f.note = nIn.value.trim();
   t.flows = cur ? t.flows.map(x => x.id === id ? f : x) : [...(t.flows || []),f];
+  if (t.flows.filter(x => flowKey(x) === flowKey(f)).length > 1) { alertBox('同じ記録があります','同じ日付・区分・金額の記録がすでにあるため、1件だけ残します。'); t.flows = uniqueFlows(t.flows); }
   if (commit(next)) { if (!date.startsWith(year+'-')) year = Number(date.slice(0,4)); render(); toast('保存しました'); }
 }
 
@@ -1975,7 +2004,8 @@ function candidates(values) {
 let scanning = false;
 let scanDate = todayStr;
 async function scan(event) {
-  let file = event.target.files[0];
+  const files = [...event.target.files];
+  let file = files[0];
   event.target.value = '';
   if (!file || scanning) return;
   closeScan();
@@ -1999,9 +2029,20 @@ async function scan(event) {
       workerBlobURL:false, cacheMethod:'none'
     });
     if (revision !== scanRevision) return;
+    if (flowMode) {
+      // 入出金：複数枚をまとめて読み、写真の境目で切れた明細はつなぎ合わせる
+      const texts = [];
+      for (let i=0;i<files.length;i++) {
+        status.textContent = `写真を読み取っています…（${i+1} / ${files.length}枚）`;
+        texts.push((await worker.recognize(files[i])).data.text);
+        if (revision !== scanRevision) return;
+      }
+      status.textContent = '読み取りました。内容を確認してください。';
+      importFlows(texts);
+      return;
+    }
     const result = await worker.recognize(file);
     if (revision !== scanRevision) return;
-    if (flowMode) { status.textContent = '読み取りました。内容を確認してください。'; importFlows(result.data.text); return; }
     const dm = result.data.text.normalize('NFKC').match(/(20\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
     scanDate = dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31 ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : todayStr;
     // 年の数字は読み違えやすいので、今年の同じ月日が今日以前なら今年とみなす
