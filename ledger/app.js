@@ -1050,6 +1050,7 @@ function render() {
   $('account').hidden = active < 0 || isStocks(active);
   $('stocks').hidden = !isStocks(active);
   $('flows').hidden = active !== FLOWS;
+  if (active !== FLOWS) document.body.classList.remove('flow-ideco','flow-nisa');
   if (active === -1) renderOverview(); else if (active === FLOWS) renderFlows(); else if (isStocks(active)) renderStocks(); else renderAccount();
 }
 
@@ -1060,6 +1061,9 @@ const ymd = d => `${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8)}`;
 function renderFlows() {
   const tab = flowTab();
   document.querySelectorAll('#flowSeg button').forEach(b => { const on = Number(b.dataset.ft) === flowTarget; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); });
+  // iDeCo はブルー系、NISA は白系を背景に混ぜる
+  document.body.classList.toggle('flow-ideco',flowTarget === 0);
+  document.body.classList.toggle('flow-nisa',flowTarget === 1);
   // 日付で探しているときは年に関係なく、その期間を表示
   let from = $('flowFrom').value, to = $('flowTo').value;
   if (from && to && from > to) [from,to] = [to,from];
