@@ -692,7 +692,7 @@ function renderTitle() {
   document.title = title + ' | o-UT 投資台帳';
 }
 function renderTabs() {
-  const fb = button('入出金',() => go(FLOWS));
+  const fb = button('入出金リスト',() => go(FLOWS));
   fb.setAttribute('aria-pressed',String(active === FLOWS));
   $('tabs').replaceChildren(...data.tabs.slice(0,CORE_COUNT).map((tab,index) => {
     const b = button(tab.name,() => go(index));
