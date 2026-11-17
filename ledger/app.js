@@ -1041,6 +1041,7 @@ $('evalBtn').onclick = async () => {
   if (registerEval({value,total})) toast('反映しました');
 };
 function render() {
+  if (typeof renderHeadBtns === 'function') renderHeadBtns();
   renderTitle();
   renderTabs();
   renderSummary();
@@ -1961,6 +1962,34 @@ async function openTheme() {
   if (r === 'ok') { applyTheme(ch.value); toast('表示の色：' + THEME_NAMES[ch.value]); }
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',() => { if (getTheme() === 'auto') applyTheme('auto'); });
+const THEME_ICON = {auto:'◐ 自動',light:'☀ ライト',dark:'☾ ダーク'};
+/* 文字の大きさ */
+const fontKey = 'out-invest-ledger-font';
+const FONT_NAMES = {s:'小',m:'中',l:'大',xl:'特大'};
+const getFont = () => { try { const f = localStorage.getItem(fontKey); return FONT_NAMES[f] && f !== 'm' ? f : 'm'; } catch { return 'm'; } };
+function applyFont(f) {
+  if (f === 'm') delete document.documentElement.dataset.font; else document.documentElement.dataset.font = f;
+  try { if (f === 'm') localStorage.removeItem(fontKey); else localStorage.setItem(fontKey,f); } catch {}
+  render();
+}
+async function openFont() {
+  let ch;
+  const r = await openModal('文字の大きさ', () => {
+    ch = choiceGroup([
+      {value:'s',label:'小',desc:'たくさん表示したいとき'},
+      {value:'m',label:'中',desc:'ふつうの大きさ'},
+      {value:'l',label:'大',desc:'少し大きく読みやすく'},
+      {value:'xl',label:'特大',desc:'いちばん大きく'}],getFont());
+    return [ch.element];
+  }, [{label:'キャンセル',value:null},{label:'決定',value:'ok',cls:'primary'}]);
+  if (r === 'ok') { applyFont(ch.value); toast('文字の大きさ：' + FONT_NAMES[ch.value]); }
+}
+$('themeBtn').onclick = openTheme;
+$('fontBtn').onclick = openFont;
+function renderHeadBtns() {
+  $('themeBtn').textContent = THEME_ICON[getTheme()];
+  $('fontBtn').textContent = 'Aa ' + FONT_NAMES[getFont()];
+}
 
 $('menu').onclick = () => openModal('メニュー', finish => {
   const menu = el('div','menu');
@@ -1979,7 +2008,6 @@ $('menu').onclick = () => openModal('メニュー', finish => {
     item('＋ 口座を追加','下の4口座のほかに口座をつくります',addAccount),
     item('台帳の切り替え',`いまの台帳：${book.ledgers[book.selected].title}`,openLedgers),
     item('データの保存・読み込み','バックアップ、復元、CSV書き出し',openData),
-    item('表示の色',`いま：${THEME_NAMES[getTheme()]}（ライト／ダークを選べます）`,openTheme),
     item('株式解析を開く ↗','o-utのなんちゃって株式解析（保有株を共有）',() => { location.href = '../'; }));
   return [menu];
 }, [{label:'閉じる',value:null}]);

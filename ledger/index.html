@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#1f1d19" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="logo.png">
 <link rel="stylesheet" href="style.css">
-<script>/* 表示テーマ（auto / light / dark）を最初に当てて、ちらつきを防ぐ */try{var t=localStorage.getItem('out-invest-ledger-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>/* 表示テーマ（auto / light / dark）を最初に当てて、ちらつきを防ぐ */try{var t=localStorage.getItem('out-invest-ledger-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;var f=localStorage.getItem('out-invest-ledger-font');if(f==='s'||f==='l'||f==='xl')document.documentElement.dataset.font=f;}catch(e){}</script>
 <script defer src="app.js"></script>
 
 </head>
@@ -22,7 +22,11 @@
     <h1><button id="ledgerTitle" class="title-button" aria-label="台帳の名前を変更"></button></h1>
     <p class="status-line"><span id="status" role="status">端末内に保存</span><span id="ledgerDots" class="dots" hidden></span></p>
   </div>
-  <button id="menu" class="ghost" aria-haspopup="dialog">メニュー</button>
+  <div class="head-btns">
+    <button id="themeBtn" class="ghost chip" aria-haspopup="dialog" aria-label="表示の色"></button>
+    <button id="fontBtn" class="ghost chip" aria-haspopup="dialog" aria-label="文字の大きさ"></button>
+    <button id="menu" class="ghost" aria-haspopup="dialog">メニュー</button>
+  </div>
 </header>
 
 <main>

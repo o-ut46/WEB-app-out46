@@ -40,7 +40,7 @@
     --shadow:rgba(0,0,0,.45);--backdrop:rgba(10,9,7,.7);
   }
 *{box-sizing:border-box}
-body{margin:0;background-color:var(--bg);background-image:linear-gradient(90deg,transparent 0 22px,var(--margin-line) 22px 23px,transparent 23px),repeating-linear-gradient(to bottom,transparent 0 31px,var(--rule) 31px 32px);background-attachment:fixed;color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px}
+body{margin:0;background-color:var(--bg);background-image:linear-gradient(90deg,transparent 0 22px,var(--margin-line) 22px 23px,transparent 23px),repeating-linear-gradient(to bottom,transparent 0 31px,var(--rule) 31px 32px);background-attachment:fixed;color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:1rem}
 h1,h2,h3,p{margin:0}
 h3{font-size:.95rem;color:var(--soft);font-weight:600;margin:22px 0 4px}
 button,input,select{font:inherit;color:inherit;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
@@ -389,3 +389,21 @@ td[colspan]{white-space:normal;text-align:left}
 body.flow-ideco{--bg:var(--ideco-bg);--card:var(--ideco-card);--soft-bg:color-mix(in srgb,var(--ideco-card) 80%,var(--in-bg))}
 body.flow-nisa{--bg:var(--nisa-bg);--card:var(--nisa-card);--soft-bg:color-mix(in srgb,var(--nisa-card) 85%,var(--line))}
 body{transition:background-color .25s}
+
+/* 文字の大きさ（小・中・大・特大） */
+:root[data-font="s"]{font-size:14px}
+:root[data-font="l"]{font-size:18px}
+:root[data-font="xl"]{font-size:20px}
+input,select{font-size:max(16px,1rem)}
+.title-button{font-size:clamp(15px,4.4vw,1.3rem)}
+/* 上のボタン（表示の色・文字の大きさ・メニュー） */
+.head-btns{display:flex;gap:5px;align-items:center;flex:none}
+.chip{min-height:34px;padding:4px 9px;font-size:.78rem;border-radius:999px;white-space:nowrap}
+.head-btns #menu{min-height:34px;padding:4px 10px}
+@media(max-width:380px){.chip{padding:4px 7px}}
+/* 上下の固定バーは文字の大きさの設定に左右されないよう px で固定 */
+header .title-button{font-size:clamp(15px,4.4vw,21px)}
+header #status{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .status-line{min-width:0;overflow:hidden}
+.chip,.head-btns #menu{font-size:12.5px}
+#tabs button{font-size:clamp(11px,3.1vw,14px)}
