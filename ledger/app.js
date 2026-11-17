@@ -154,12 +154,14 @@ let year = thisYear;
 let month = String(now.getMonth()+1).padStart(2,'0');
 let active = 0;            // -1 = 全体ビュー、-2 = 入出金リスト
 let flowTarget = 1;        // 入出金リストの対象（0 = iDeCo、1 = NISA）
+let flowSort = 'desc';     // 入出金リストの並び（desc = 新しい順、asc = 古い順）
 try {
   const ui = JSON.parse(localStorage.getItem(uiKey) || '{}');
   if (Number.isInteger(ui.active) && ui.active >= -2 && ui.active < data.tabs.length) active = ui.active;
   if (ui.flowTarget === 0 || ui.flowTarget === 1) flowTarget = ui.flowTarget;
+  if (ui.flowSort === 'asc' || ui.flowSort === 'desc') flowSort = ui.flowSort;
 } catch {}
-const rememberUi = () => { try { localStorage.setItem(uiKey,JSON.stringify({active,flowTarget})); } catch {} };
+const rememberUi = () => { try { localStorage.setItem(uiKey,JSON.stringify({active,flowTarget,flowSort})); } catch {} };
 let scanRevision = 0;
 
 for (let m=1;m<=12;m++) $('month').add(new Option(m+'月',String(m).padStart(2,'0')));
@@ -1058,7 +1060,16 @@ const ymd = d => `${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8)}`;
 function renderFlows() {
   const tab = flowTab();
   document.querySelectorAll('#flowSeg button').forEach(b => { const on = Number(b.dataset.ft) === flowTarget; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); });
-  const list = (tab.flows || []).filter(f => f.date.startsWith(year+'-')).sort((a,b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.at || 0) - (a.at || 0));
+  // 日付で探しているときは年に関係なく、その期間を表示
+  let from = $('flowFrom').value, to = $('flowTo').value;
+  if (from && to && from > to) [from,to] = [to,from];
+  const searching = !!(from || to);
+  const dir = flowSort === 'asc' ? 1 : -1;
+  const list = (tab.flows || [])
+    .filter(f => searching ? (!from || f.date >= from) && (!to || f.date <= to) : f.date.startsWith(year+'-'))
+    .sort((a,b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0)) * dir);
+  $('flowSort').textContent = `並び：${flowSort === 'asc' ? '古い順' : '新しい順'} ▾`;
+  $('flowClear').hidden = !searching;
   const sum = t => list.filter(f => f.type === t).reduce((a,f) => a + f.amount,0);
   const inn = sum('in'), out = sum('out'), div = sum('div');
   const line = (label, node, note, cls) => {
@@ -1067,7 +1078,8 @@ function renderFlows() {
     d.append(el('span','ib-label',label),v); return d;
   };
   const head = el('div','ib-head');
-  head.append(el('b',null,`${tab.name}・${year}年の入出金`),el('small',null,`${list.length}件`));
+  const range = searching ? `${from ? ymd(from) : '最初'} 〜 ${to ? ymd(to) : '最新'}` : `${year}年`;
+  head.append(el('b',null,`${tab.name}・${range}の入出金`),el('small',null,`${list.length}件`));
   const net = inn - out, nb = el('b',null,format(net,true)); color(nb,net);
   $('flowBox').replaceChildren(head,
     line('入金',el('b',null,yen(inn))),
@@ -1078,7 +1090,7 @@ function renderFlows() {
   rows.replaceChildren();
   if (!list.length) {
     const r = rows.insertRow(), c = r.insertCell(); c.colSpan = 3; c.className = 'empty';
-    c.textContent = `${year}年の記録はありません。入出金明細の写真を読み取るか、手で追加してください。`;
+    c.textContent = searching ? 'この期間の記録はありません。' : `${year}年の記録はありません。入出金明細の写真を読み取るか、手で追加してください。`;
   }
   for (const f of list) {
     const r = rows.insertRow(); r.className = 'clickable';
@@ -1091,6 +1103,19 @@ function renderFlows() {
 }
 // iDeCo / NISA の切り替えタブ
 document.querySelectorAll('#flowSeg button').forEach(b => b.onclick = () => { flowTarget = Number(b.dataset.ft); rememberUi(); render(); });
+$('flowSort').onclick = async () => {
+  let ch;
+  const r = await openModal('並び順', () => {
+    ch = choiceGroup([
+      {value:'desc',label:'新しい順（日付の降順）',desc:'最近の入出金が上に来ます'},
+      {value:'asc',label:'古い順（日付の昇順）',desc:'古い入出金から順に並びます'}],flowSort);
+    return [ch.element];
+  }, [{label:'キャンセル',value:null},{label:'決定',value:'ok',cls:'primary'}]);
+  if (r !== 'ok') return;
+  flowSort = ch.value; rememberUi(); render();
+};
+$('flowFrom').onchange = $('flowTo').onchange = () => render();
+$('flowClear').onclick = () => { $('flowFrom').value = ''; $('flowTo').value = ''; render(); };
 $('flowCamera').onclick = () => $('cameraFile').click();
 $('flowPhoto').onclick = () => $('photoFile').click();
 $('flowAdd').onclick = () => editFlow(null);

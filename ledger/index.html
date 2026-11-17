@@ -108,6 +108,13 @@
       <button id="flowAdd" type="button">＋ 手で追加</button>
     </div>
     <p id="flowStatus" class="calc" role="status" hidden></p>
+    <div class="flow-ctrl">
+      <button id="flowSort" type="button" aria-haspopup="dialog"></button>
+      <div class="flow-search">
+        <div class="fs-head"><label for="flowFrom">日付で探す</label><button id="flowClear" type="button">クリア</button></div>
+        <div class="fs-row"><input id="flowFrom" type="date" aria-label="この日から"><span>〜</span><input id="flowTo" type="date" aria-label="この日まで"></div>
+      </div>
+    </div>
     <div id="flowBox" class="ideco-box"></div>
     <div class="table"><table class="months">
       <thead><tr><th scope="col">日付</th><th scope="col">区分</th><th scope="col">金額</th></tr></thead>
