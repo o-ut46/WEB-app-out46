@@ -1,17 +1,35 @@
 [hidden]{display:none!important}
 :root{
-  color-scheme:dark;
-  --bg:#10121a;--card:#191a26;--field:#232133;--line:#383448;
-  --text:#f4f1fa;--soft:#c5bfd1;--faint:#8f88a1;
-  --accent:#cbb6ff;--on-accent:#201435;
-  --gain:#8ce6bc;--loss:#ffa3ae;--danger:#ff8f9c;
+  /* ノート紙風：少しベージュがかった紙に、うすい罫線。ダークは紙のトーンを落とした色 */
+  color-scheme:light;
+  --bg:#f4eee2;--card:#fbf8f1;--field:#fffdf8;--line:#ddd3c1;
+  --text:#2c2823;--soft:#6a6156;--faint:#9a9083;
+  --accent:#6b56b5;--on-accent:#ffffff;
+  --gain:#1d8455;--loss:#c03c3a;--danger:#c03c3a;--danger-line:#e5b9b6;
+  --tint:#ece4f3;--soft-bg:#f1eadc;--bar:#d6cde0;--rule:rgba(110,135,170,.16);--margin-line:rgba(205,110,110,.18);
+  --in-bg:#dce9f5;--in-fg:#24598a;--out-bg:#f6dddb;--out-fg:#a8302d;--div-bg:#dbeee2;--div-fg:#1d7a4e;
+  --c0:#2f78d0;--c1:#d58a12;--c2:#c2457e;--c3:#1c9a82;
+  --shadow:rgba(60,45,25,.18);--backdrop:rgba(40,32,20,.45);
   --edge:clamp(14px,4vw,40px);
   font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
   background:var(--bg);color:var(--text);
   -webkit-text-size-adjust:100%;
 }
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --bg:#1f1d19;--card:#27241f;--field:#2e2b25;--line:#3e3931;
+    --text:#ebe5d9;--soft:#bab1a3;--faint:#888072;
+    --accent:#c2b1ee;--on-accent:#221a35;
+    --gain:#86d3ad;--loss:#ee9fa2;--danger:#ee8f95;--danger-line:#6b3a3c;
+    --tint:#342e3c;--soft-bg:#2b2822;--bar:#4a4451;--rule:rgba(255,238,205,.05);--margin-line:rgba(240,150,140,.09);
+    --in-bg:#253a4b;--in-fg:#a8d1f2;--out-bg:#4a2b2d;--out-fg:#ee9fa2;--div-bg:#24402f;--div-fg:#86d3ad;
+    --c0:#6aaaf5;--c1:#eeb15a;--c2:#e886b4;--c3:#63d2bc;
+    --shadow:rgba(0,0,0,.45);--backdrop:rgba(10,9,7,.7);
+  }
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px}
+body{margin:0;background-color:var(--bg);background-image:linear-gradient(90deg,transparent 0 22px,var(--margin-line) 22px 23px,transparent 23px),repeating-linear-gradient(to bottom,transparent 0 31px,var(--rule) 31px 32px);background-attachment:fixed;color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px}
 h1,h2,h3,p{margin:0}
 h3{font-size:.95rem;color:var(--soft);font-weight:600;margin:22px 0 4px}
 button,input,select{font:inherit;color:inherit;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
@@ -21,7 +39,7 @@ button:hover,button:focus-visible,input:focus,select:focus{border-color:var(--ac
 button:disabled{opacity:.4;cursor:default}
 .primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
 .ghost{background:transparent}
-.danger{background:transparent;color:var(--danger);border-color:#6b3540}
+.danger{background:transparent;color:var(--danger);border-color:var(--danger-line)}
 .danger-text{color:var(--danger)}
 .gain{color:var(--gain)}.loss{color:var(--loss)}
 .sub{color:var(--soft);font-size:.86rem;margin-top:4px}
@@ -75,7 +93,7 @@ form small{display:block;margin-top:4px;font-size:.74rem;color:var(--faint);min-
 .with-sign input{margin-top:0}
 .sign{flex:none;width:44px;padding:0;font-weight:700}
 input.prefill{border-style:dashed;color:var(--soft)}
-.calc{margin:2px 0 10px;padding:9px 12px;border-radius:10px;background:#211d31;font-size:.88rem;color:var(--soft);font-variant-numeric:tabular-nums}
+.calc{margin:2px 0 10px;padding:9px 12px;border-radius:10px;background:var(--soft-bg);font-size:.88rem;color:var(--soft);font-variant-numeric:tabular-nums}
 .calc b{color:var(--text)}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 #ocr{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px}
@@ -90,8 +108,8 @@ th{color:var(--soft);font-weight:500;font-size:.8rem}
 td:first-child,th:first-child{text-align:left}
 tfoot td{font-weight:700;border-bottom:0}
 .months tbody tr{cursor:pointer}
-.months tbody tr:hover{background:#1f1d2d}
-tr.selected{background:#2a2340 !important;box-shadow:inset 3px 0 0 var(--accent)}
+.months tbody tr:hover{background:var(--soft-bg)}
+tr.selected{background:var(--tint) !important;box-shadow:inset 3px 0 0 var(--accent)}
 td.empty{color:var(--faint)}
 tr.clickable{cursor:pointer}
 .tap-note{font-size:.76rem;color:var(--faint)}
@@ -114,7 +132,7 @@ svg.chart{width:100%;height:auto;display:block}
 
 /* ポップアップ */
 dialog{width:min(92vw,440px);max-height:84vh;overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--card);color:inherit;padding:20px}
-dialog::backdrop{background:#08080bc0}
+dialog::backdrop{background:var(--backdrop)}
 dialog h2{font-size:1.15rem;margin-bottom:12px}
 #modalBody{display:grid;gap:12px}
 #modalBody p{color:var(--soft);line-height:1.6;font-size:.92rem}
@@ -126,16 +144,16 @@ dialog h2{font-size:1.15rem;margin-bottom:12px}
 .choices button{text-align:left;display:grid;gap:3px;padding:11px 13px}
 .choices button b{font-size:.95rem}
 .choices button span{font-size:.78rem;color:var(--soft);line-height:1.5}
-.choices [aria-checked=true]{border-color:var(--accent);background:#2a2340}
+.choices [aria-checked=true]{border-color:var(--accent);background:var(--tint)}
 .choices [aria-checked=true] b::before{content:"● ";color:var(--accent)}
 .menu{display:grid;gap:8px}
 .menu button{text-align:left;display:grid;gap:2px}
 .menu button span{font-size:.76rem;color:var(--soft)}
-.menu button[aria-pressed=true]{border-color:var(--accent);background:#2a2340}
+.menu button[aria-pressed=true]{border-color:var(--accent);background:var(--tint)}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .row button{flex:1}
 
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:5;max-width:min(92vw,480px);background:#2d2842;border:1px solid var(--accent);border-radius:12px;padding:10px 16px;font-size:.9rem;box-shadow:0 8px 24px #0008}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:5;max-width:min(92vw,480px);background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:10px 16px;font-size:.9rem;box-shadow:0 8px 24px var(--shadow)}
 
 @media(max-width:760px){
   .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -155,15 +173,14 @@ dialog h2{font-size:1.15rem;margin-bottom:12px}
 .sw::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--accent)}
 .sw.gain::before{background:var(--gain)}.sw.loss::before{background:var(--loss)}
 .chart .cap{fill:var(--soft);font-size:12px;font-weight:600}
-.chart .bar-amount{fill:#4a4362}
+.chart .bar-amount{fill:var(--bar)}
 .chart .bar-gain{fill:var(--gain);opacity:.35}
 .chart .bar-loss{fill:var(--loss);opacity:.4}
-:root{--c0:#5aa9ff;--c1:#ffb84d;--c2:#f27ab0;--c3:#5fe0c8}
 .chart .line{fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
 .chart .line.c0{stroke:var(--c0)}.chart .line.c1{stroke:var(--c1)}.chart .line.c2{stroke:var(--c2)}.chart .line.c3{stroke:var(--c3)}
 .chart .pt.c0{fill:var(--c0)}.chart .pt.c1{fill:var(--c1)}.chart .pt.c2{fill:var(--c2)}.chart .pt.c3{fill:var(--c3)}
 #yearLegend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.sw.bars::before{background:#4a4362}
+.sw.bars::before{background:var(--bar)}
 .line-key{min-height:30px;padding:3px 9px;font-size:.76rem;border-radius:999px;background:transparent}
 .line-key::before{content:"";display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .line-key.c0::before{background:var(--c0)}.line-key.c1::before{background:var(--c1)}.line-key.c2::before{background:var(--c2)}.line-key.c3::before{background:var(--c3)}
@@ -264,7 +281,7 @@ tfoot td:first-child{font-weight:600;font-size:.8rem;color:var(--soft)}
 tfoot tr:first-child td:first-child{color:var(--text)}
 
 /* iDeCo の資産状況 */
-.ideco-box{margin:10px 0 4px;border:1px solid var(--accent);border-radius:12px;padding:8px 12px;background:#1e1a2c;display:grid;gap:2px}
+.ideco-box{margin:10px 0 4px;border:1px solid var(--accent);border-radius:12px;padding:8px 12px;background:var(--card);display:grid;gap:2px}
 .ib-head{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--soft);margin-bottom:2px}
 .ib-edit{min-height:30px;padding:2px 10px;font-size:.76rem}
 .ib-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-top:1px solid var(--line)}
@@ -305,7 +322,7 @@ main{touch-action:pan-y}
 td.tap-amount{cursor:pointer;text-decoration:underline dotted var(--faint);text-underline-offset:3px}
 td.tap-amount:hover{color:var(--accent)}
 
-.save-scope{padding:8px 10px;border-radius:9px;background:#211d31;color:var(--text) !important;font-size:.84rem !important}
+.save-scope{padding:8px 10px;border-radius:9px;background:var(--soft-bg);color:var(--text) !important;font-size:.84rem !important}
 
 /* GitHub Pages 版：上下の安全領域 */
 main{padding-top:calc(56px + env(safe-area-inset-top));padding-bottom:calc(68px + env(safe-area-inset-bottom))}
@@ -321,9 +338,9 @@ td small.code{display:block;color:var(--faint);font-size:.68rem}
 #flowTarget{min-height:34px;padding:4px 10px;font-size:.82rem;border-color:var(--accent)}
 .flow-note{display:block !important}
 .ftype{display:inline-block;padding:1px 7px;border-radius:6px;font-size:.72rem;font-weight:700}
-.ftype.in{background:#1e3a52;color:#9fd2ff}
-.ftype.out{background:#4a2330;color:var(--loss)}
-.ftype.div{background:#1f4436;color:var(--gain)}
+.ftype.in{background:var(--in-bg);color:var(--in-fg)}
+.ftype.out{background:var(--out-bg);color:var(--out-fg)}
+.ftype.div{background:var(--div-bg);color:var(--div-fg)}
 .import-list{display:grid;gap:6px;max-height:52vh;overflow:auto}
 .import-row{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:9px}
 .import-row.dup{opacity:.55}
@@ -352,3 +369,4 @@ td[colspan]{white-space:normal;text-align:left}
 .fs-row button{flex:none;min-height:36px;padding:4px 10px;font-size:.8rem}
 .fs-head{display:flex;justify-content:space-between;align-items:center}
 .fs-head button{min-height:28px;padding:2px 10px;font-size:.76rem}
+.fs-row input{width:0;flex:1 1 0}
