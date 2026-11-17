@@ -16,7 +16,7 @@
   -webkit-text-size-adjust:100%;
 }
 @media (prefers-color-scheme:dark){
-  :root{
+  :root:not([data-theme="light"]){
     color-scheme:dark;
     --bg:#1f1d19;--card:#27241f;--field:#2e2b25;--line:#3e3931;
     --text:#ebe5d9;--soft:#bab1a3;--faint:#888072;
@@ -28,6 +28,17 @@
     --shadow:rgba(0,0,0,.45);--backdrop:rgba(10,9,7,.7);
   }
 }
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#1f1d19;--card:#27241f;--field:#2e2b25;--line:#3e3931;
+    --text:#ebe5d9;--soft:#bab1a3;--faint:#888072;
+    --accent:#c2b1ee;--on-accent:#221a35;
+    --gain:#86d3ad;--loss:#ee9fa2;--danger:#ee8f95;--danger-line:#6b3a3c;
+    --tint:#342e3c;--soft-bg:#2b2822;--bar:#4a4451;--rule:rgba(255,238,205,.05);--margin-line:rgba(240,150,140,.09);
+    --in-bg:#253a4b;--in-fg:#a8d1f2;--out-bg:#4a2b2d;--out-fg:#ee9fa2;--div-bg:#24402f;--div-fg:#86d3ad;
+    --c0:#6aaaf5;--c1:#eeb15a;--c2:#e886b4;--c3:#63d2bc;
+    --shadow:rgba(0,0,0,.45);--backdrop:rgba(10,9,7,.7);
+  }
 *{box-sizing:border-box}
 body{margin:0;background-color:var(--bg);background-image:linear-gradient(90deg,transparent 0 22px,var(--margin-line) 22px 23px,transparent 23px),repeating-linear-gradient(to bottom,transparent 0 31px,var(--rule) 31px 32px);background-attachment:fixed;color:var(--text);font-family:Inter,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px}
 h1,h2,h3,p{margin:0}
@@ -373,7 +384,8 @@ td[colspan]{white-space:normal;text-align:left}
 
 /* 入出金リスト：iDeCo はブルー系、NISA は白系を混ぜた紙色 */
 :root{--ideco-bg:#e6edf3;--ideco-card:#f1f5f9;--nisa-bg:#faf8f3;--nisa-card:#ffffff}
-@media (prefers-color-scheme:dark){:root{--ideco-bg:#1a2029;--ideco-card:#212a35;--nisa-bg:#2b2925;--nisa-card:#34312c}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ideco-bg:#1a2029;--ideco-card:#212a35;--nisa-bg:#2b2925;--nisa-card:#34312c}}
+:root[data-theme="dark"]{--ideco-bg:#1a2029;--ideco-card:#212a35;--nisa-bg:#2b2925;--nisa-card:#34312c}
 body.flow-ideco{--bg:var(--ideco-bg);--card:var(--ideco-card);--soft-bg:color-mix(in srgb,var(--ideco-card) 80%,var(--in-bg))}
 body.flow-nisa{--bg:var(--nisa-bg);--card:var(--nisa-card);--soft-bg:color-mix(in srgb,var(--nisa-card) 85%,var(--line))}
 body{transition:background-color .25s}

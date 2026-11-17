@@ -1938,6 +1938,30 @@ const openData = () => openModal('データ', finish => {
     ? 'ふだんの記録はクラウドに自動で保存され、同じアカウントで開いた端末どうしで同期します。'
     : '記録はこのブラウザの中に保存されています。ときどき「保存」でバックアップしてください。')];
 }, [{label:'閉じる',value:null}]);
+/* ---------- 表示テーマ（端末に合わせる／ライト／ダーク） ---------- */
+const themeKey = 'out-invest-ledger-theme';
+const getTheme = () => { try { const t = localStorage.getItem(themeKey); return t === 'light' || t === 'dark' ? t : 'auto'; } catch { return 'auto'; } };
+const THEME_NAMES = {auto:'端末に合わせる',light:'ライト',dark:'ダーク'};
+function applyTheme(t) {
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  try { if (t === 'auto') localStorage.removeItem(themeKey); else localStorage.setItem(themeKey,t); } catch {}
+  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = dark ? '#1f1d19' : '#f4eee2'; m.removeAttribute('media'); });
+  render();
+}
+async function openTheme() {
+  let ch;
+  const r = await openModal('表示の色', () => {
+    ch = choiceGroup([
+      {value:'auto',label:'端末に合わせる',desc:'iPhoneの外観（ライト／ダーク）に合わせて切り替えます'},
+      {value:'light',label:'ライト',desc:'少しベージュがかったノート紙'},
+      {value:'dark',label:'ダーク',desc:'トーンを落としたノート紙'}],getTheme());
+    return [ch.element];
+  }, [{label:'キャンセル',value:null},{label:'決定',value:'ok',cls:'primary'}]);
+  if (r === 'ok') { applyTheme(ch.value); toast('表示の色：' + THEME_NAMES[ch.value]); }
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',() => { if (getTheme() === 'auto') applyTheme('auto'); });
+
 $('menu').onclick = () => openModal('メニュー', finish => {
   const menu = el('div','menu');
   const item = (label, desc, action, pressed) => {
@@ -1955,6 +1979,7 @@ $('menu').onclick = () => openModal('メニュー', finish => {
     item('＋ 口座を追加','下の4口座のほかに口座をつくります',addAccount),
     item('台帳の切り替え',`いまの台帳：${book.ledgers[book.selected].title}`,openLedgers),
     item('データの保存・読み込み','バックアップ、復元、CSV書き出し',openData),
+    item('表示の色',`いま：${THEME_NAMES[getTheme()]}（ライト／ダークを選べます）`,openTheme),
     item('株式解析を開く ↗','o-utのなんちゃって株式解析（保有株を共有）',() => { location.href = '../'; }));
   return [menu];
 }, [{label:'閉じる',value:null}]);
