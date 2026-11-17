@@ -93,6 +93,26 @@
     </div>
   </section>
 
+  <!-- 入出金リスト（iDeCo / NISA） -->
+  <section id="flows" class="panel" hidden>
+    <div class="heading">
+      <div><h2>入出金リスト</h2><p class="sub">証券会社の入出金明細の写真から読み取って記録</p></div>
+      <button id="flowTarget" class="ghost" type="button" aria-haspopup="dialog"></button>
+    </div>
+    <div class="tools">
+      <button id="flowCamera" type="button">カメラで読み取り</button>
+      <button id="flowPhoto" type="button">写真から読み取り</button>
+      <button id="flowAdd" type="button">＋ 手で追加</button>
+    </div>
+    <p id="flowStatus" class="calc" role="status" hidden></p>
+    <div id="flowBox" class="ideco-box"></div>
+    <div class="table"><table class="months">
+      <thead><tr><th scope="col">日付</th><th scope="col">区分</th><th scope="col">金額</th></tr></thead>
+      <tbody id="flowRows"></tbody>
+    </table></div>
+    <p class="tap-note flow-note">行をタップすると、区分・金額の修正や削除ができます。</p>
+  </section>
+
   <!-- 口座ビュー -->
   <section id="account" class="panel" hidden>
     <div class="heading">

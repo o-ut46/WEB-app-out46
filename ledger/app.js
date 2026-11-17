@@ -17,7 +17,9 @@ const CORE = [
     'nisa成長','ニーサ成長','nisa成長投資枠','一般','nisa一般','ニーサ一般','一般nisa']},
   {name:'保有株式',alias:['保有株','株式','証券','特定口座']}
 ];
-const LINE_TABS = 2;   // 上のグラフの折れ線は iDeCo と NISA
+const LINE_TABS = 2;
+const FLOW_TYPES = {in:'入金',out:'出金',div:'配当'};
+const FLOWS = -2;   // 下のバーの「入出金」   // 上のグラフの折れ線は iDeCo と NISA
 const ITEM_KINDS = ['投資信託','ETF','債券','株式（手入力）','その他'];
 const CORE_COUNT = CORE.length;
 const OLD_NISA = /"name":"(NISA積立|NISA成長|NISA一般|NISA つみたて|NISA 成長|一般)"/;
@@ -66,6 +68,16 @@ function validate(data) {
       }
     }
     const out = {name:tab.name,months};
+    if (tab.flows !== undefined) {
+      if (!Array.isArray(tab.flows) || tab.flows.length > 5000) throw Error('入出金の記録に誤りがあります。');
+      out.flows = tab.flows.map(x => {
+        if (typeof x?.id !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(x.date) || !validMoney(x.amount) || x.amount < 0 || !FLOW_TYPES[x.type]) throw Error('入出金の記録に誤りがあります。');
+        const f = {id:x.id.slice(0,40),date:x.date,amount:x.amount,type:x.type};
+        if (typeof x.note === 'string' && x.note.trim()) f.note = x.note.slice(0,60);
+        if (Number.isSafeInteger(x.at)) f.at = x.at;
+        return f;
+      });
+    }
     if (tab.items !== undefined) {
       if (!Array.isArray(tab.items) || tab.items.length > 200) throw Error('証券の記録に誤りがあります。');
       out.items = tab.items.map(x => {
@@ -140,12 +152,14 @@ const now = new Date();
 const thisYear = now.getFullYear();
 let year = thisYear;
 let month = String(now.getMonth()+1).padStart(2,'0');
-let active = 0;            // -1 = 全体ビュー
+let active = 0;            // -1 = 全体ビュー、-2 = 入出金リスト
+let flowTarget = 1;        // 入出金リストの対象（0 = iDeCo、1 = NISA）
 try {
   const ui = JSON.parse(localStorage.getItem(uiKey) || '{}');
-  if (Number.isInteger(ui.active) && ui.active >= -1 && ui.active < data.tabs.length) active = ui.active;
+  if (Number.isInteger(ui.active) && ui.active >= -2 && ui.active < data.tabs.length) active = ui.active;
+  if (ui.flowTarget === 0 || ui.flowTarget === 1) flowTarget = ui.flowTarget;
 } catch {}
-const rememberUi = () => { try { localStorage.setItem(uiKey,JSON.stringify({active})); } catch {} };
+const rememberUi = () => { try { localStorage.setItem(uiKey,JSON.stringify({active,flowTarget})); } catch {} };
 let scanRevision = 0;
 
 for (let m=1;m<=12;m++) $('month').add(new Option(m+'月',String(m).padStart(2,'0')));
@@ -678,11 +692,13 @@ function renderTitle() {
   document.title = title + ' | o-UT 投資台帳';
 }
 function renderTabs() {
+  const fb = button('入出金',() => go(FLOWS));
+  fb.setAttribute('aria-pressed',String(active === FLOWS));
   $('tabs').replaceChildren(...data.tabs.slice(0,CORE_COUNT).map((tab,index) => {
     const b = button(tab.name,() => go(index));
     b.setAttribute('aria-pressed',String(index === active));
     return b;
-  }));
+  }),fb);
 }
 function go(index) {
   closeScan();
@@ -1029,9 +1045,166 @@ function render() {
   renderLegend();
   $('yearChart').replaceChildren(drawMonthly(data.tabs,$('yearChart').clientWidth));
   $('overview').hidden = active !== -1;
-  $('account').hidden = active === -1 || isStocks(active);
+  $('account').hidden = active < 0 || isStocks(active);
   $('stocks').hidden = !isStocks(active);
-  if (active === -1) renderOverview(); else if (isStocks(active)) renderStocks(); else renderAccount();
+  $('flows').hidden = active !== FLOWS;
+  if (active === -1) renderOverview(); else if (active === FLOWS) renderFlows(); else if (isStocks(active)) renderStocks(); else renderAccount();
+}
+
+/* ---------- 入出金リスト（iDeCo / NISA） ---------- */
+const flowTab = () => data.tabs[flowTarget];
+const flowId = () => 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const ymd = d => `${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8)}`;
+function renderFlows() {
+  const tab = flowTab();
+  $('flowTarget').textContent = `対象：${tab.name} ▾`;
+  const list = (tab.flows || []).filter(f => f.date.startsWith(year+'-')).sort((a,b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.at || 0) - (a.at || 0));
+  const sum = t => list.filter(f => f.type === t).reduce((a,f) => a + f.amount,0);
+  const inn = sum('in'), out = sum('out'), div = sum('div');
+  const line = (label, node, note, cls) => {
+    const d = el('div','ib-row'+(cls ? ' '+cls : ''));
+    const v = el('div','ib-val'); v.append(node); if (note) v.append(el('small',null,note));
+    d.append(el('span','ib-label',label),v); return d;
+  };
+  const head = el('div','ib-head');
+  head.append(el('b',null,`${tab.name}・${year}年の入出金`),el('small',null,`${list.length}件`));
+  const net = inn - out, nb = el('b',null,format(net,true)); color(nb,net);
+  $('flowBox').replaceChildren(head,
+    line('入金',el('b',null,yen(inn))),
+    line('出金',el('b',null,yen(out))),
+    line('配当・分配金',el('b',null,yen(div))),
+    line('入金 − 出金',nb,'','ib-sum'));
+  const rows = $('flowRows');
+  rows.replaceChildren();
+  if (!list.length) {
+    const r = rows.insertRow(), c = r.insertCell(); c.colSpan = 3; c.className = 'empty';
+    c.textContent = `${year}年の記録はありません。入出金明細の写真を読み取るか、手で追加してください。`;
+  }
+  for (const f of list) {
+    const r = rows.insertRow(); r.className = 'clickable';
+    r.onclick = () => editFlow(f.id);
+    const dc = r.insertCell(); dc.append(el('span',null,ymd(f.date)));
+    if (f.note) dc.append(el('small','code',f.note));
+    const tc = r.insertCell(); tc.append(el('span','ftype '+f.type,FLOW_TYPES[f.type]));
+    cell(r,(f.type === 'out' ? '−' : '') + yen(f.amount),f.type === 'out' ? -1 : 0);
+  }
+}
+$('flowTarget').onclick = async () => {
+  let ch;
+  const r = await openModal('入出金リストの対象', () => {
+    ch = choiceGroup([
+      {value:0,label:'iDeCo',desc:'iDeCoの入出金（掛金の引き落としなど）'},
+      {value:1,label:'NISA',desc:'NISA・証券口座の入出金と配当金'}],flowTarget);
+    return [ch.element];
+  }, [{label:'キャンセル',value:null},{label:'切り替える',value:'ok',cls:'primary'}]);
+  if (r !== 'ok') return;
+  flowTarget = ch.value; rememberUi(); render();
+};
+$('flowCamera').onclick = () => $('cameraFile').click();
+$('flowPhoto').onclick = () => $('photoFile').click();
+$('flowAdd').onclick = () => editFlow(null);
+// OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
+function parseFlows(text) {
+  const lines = text.normalize('NFKC').split(/\n+/);
+  const out = [];
+  let cur = null;
+  const dateRe = /(\d{4})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/;
+  const finish = () => { if (cur && cur.amount !== null) out.push(cur); };
+  for (const ln of lines) {
+    const dm = ln.match(dateRe);
+    if (dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31) {
+      finish();
+      let y = +dm[1];
+      if (y < 2000 || y > thisYear) y = thisYear;   // 年の読み違い
+      cur = {date:`${y}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`,amount:null,text:''};
+      continue;
+    }
+    if (!cur) continue;
+    cur.text += ' ' + ln;
+    const nums = ln.replace(/(\d)[.](\d{3})/g,'$1,$2').match(/\d{1,3}(?:,\d{3})+|\d{3,}/g);
+    if (nums) cur.amount = Number(nums.at(-1).replaceAll(',',''));
+  }
+  finish();
+  return out.map(f => ({date:f.date,amount:f.amount,
+    // 日本語は読めないので、「NISA」や「配当」の文字があれば配当金とみなす。出金は確認画面で選ぶ
+    type:/nisa|配当|分配|dividend/i.test(f.text) ? 'div' : 'in'}));
+}
+async function importFlows(text) {
+  const found = parseFlows(text);
+  if (!found.length) { $('flowStatus').textContent = '日付と金額の組を見つけられませんでした。明細の部分を大きめに撮り直すか、手で追加してください。'; return; }
+  const tab = flowTab(), have = tab.flows || [];
+  const isDup = f => have.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type);
+  const rows = [];
+  const r = await openModal(`${tab.name}の入出金を取り込む`, () => {
+    const wrap = el('div','import-list');
+    for (const f of found) {
+      const dup = isDup(f);
+      const row = el('div','import-row' + (dup ? ' dup' : ''));
+      const ck = document.createElement('input'); ck.type = 'checkbox'; ck.checked = !dup;
+      const main = el('div','ir-main');
+      const l1 = el('div','ir-line');
+      const dIn = document.createElement('input'); dIn.type = 'date'; dIn.value = f.date;
+      const aIn = document.createElement('input'); aIn.inputMode = 'numeric'; aIn.value = f.amount.toLocaleString('ja-JP');
+      const sel = document.createElement('select');
+      for (const [k,v] of Object.entries(FLOW_TYPES)) sel.add(new Option(v,k));
+      sel.value = f.type;
+      const l2 = el('div','ir-line');
+      l2.append(aIn,el('span','yen-unit','円'));
+      l1.append(dIn,sel);
+      main.append(l1,l2);
+      if (dup) main.append(el('small',null,'すでに登録済み（重複）'));
+      row.append(ck,main);
+      wrap.append(row);
+      rows.push({ck,dIn,aIn,sel});
+    }
+    return [el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),wrap];
+  }, [{label:'キャンセル',value:null},{label:'取り込む',value:'ok',cls:'primary'}]);
+  if (r !== 'ok') { $('flowStatus').textContent = '取り込みをやめました。'; return; }
+  const next = structuredClone(data), t = next.tabs[flowTarget];
+  t.flows = t.flows || [];
+  let added = 0, skipped = 0, bad = 0;
+  const at = Date.now();
+  for (const x of rows) {
+    if (!x.ck.checked) continue;
+    const amount = money(x.aIn.value), date = x.dIn.value;
+    if (!validMoney(amount) || amount < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { bad++; continue; }
+    const f = {id:flowId(),date,amount,type:x.sel.value,at};
+    if (t.flows.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type)) { skipped++; continue; }
+    t.flows.push(f); added++;
+  }
+  if (!added) { $('flowStatus').textContent = skipped ? 'すべて登録済みでした。' : '取り込む行がありませんでした。'; return; }
+  if (commit(next)) {
+    render();
+    $('flowStatus').textContent = `${added}件を取り込みました` + (skipped ? `（重複${skipped}件は除外）` : '') + (bad ? `・金額や日付が読めない${bad}件は除外` : '') + '。';
+    toast(`${added}件を取り込みました`);
+  }
+}
+async function editFlow(id) {
+  const tab = flowTab(), cur = id ? (tab.flows || []).find(f => f.id === id) : null;
+  let dIn, aIn, nIn, ch;
+  const r = await openModal(cur ? '入出金を修正' : '入出金を追加', () => {
+    const f = (label, node) => { const l = el('label',null,label); l.append(node); return l; };
+    dIn = document.createElement('input'); dIn.type = 'date'; dIn.value = cur?.date || todayStr;
+    aIn = document.createElement('input'); aIn.inputMode = 'numeric'; aIn.placeholder = '例 50,000'; aIn.value = cur ? cur.amount.toLocaleString('ja-JP') : '';
+    nIn = document.createElement('input'); nIn.maxLength = 60; nIn.placeholder = '例 ゆうちょ銀行から入金・○○の配当'; nIn.value = cur?.note || '';
+    ch = choiceGroup(Object.entries(FLOW_TYPES).map(([k,v]) => ({value:k,label:v,desc:''})),cur?.type || 'in');
+    return [f('日付',dIn),el('label',null,'区分'),ch.element,f('金額（円）',aIn),f('メモ（任意）',nIn)];
+  }, [...(cur ? [{label:'削除',value:'del',cls:'danger'}] : []),{label:'キャンセル',value:null},{label:'保存',value:'save',cls:'primary'}]);
+  const next = structuredClone(data), t = next.tabs[flowTarget];
+  if (r === 'del') {
+    if (!await confirmBox('入出金を削除',`${ymd(cur.date)} の ${FLOW_TYPES[cur.type]} ${yen(cur.amount)} を削除します。`,'削除する',true)) return;
+    t.flows = t.flows.filter(f => f.id !== id);
+    if (commit(next)) { render(); toast('削除しました'); }
+    return;
+  }
+  if (r !== 'save') return;
+  const amount = money(aIn.value), date = dIn.value;
+  if (!validMoney(amount) || amount < 0) { alertBox('金額を確認してください','0以上の整数で入力してください。'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alertBox('日付を確認してください','日付を選んでください。'); return; }
+  const f = {id:cur?.id || flowId(),date,amount,type:ch.value,at:Date.now()};
+  if (nIn.value.trim()) f.note = nIn.value.trim();
+  t.flows = cur ? t.flows.map(x => x.id === id ? f : x) : [...(t.flows || []),f];
+  if (commit(next)) { if (!date.startsWith(year+'-')) year = Number(date.slice(0,4)); render(); toast('保存しました'); }
 }
 
 /* ---------- 保有株式（株式解析アプリと共有） ---------- */
@@ -1807,12 +1980,13 @@ async function scan(event) {
   if (!file || scanning) return;
   closeScan();
   const revision = scanRevision;
-  const status = $('ocrStatus');
-  $('ocr').hidden = false;
+  const flowMode = active === FLOWS;
+  const status = flowMode ? $('flowStatus') : $('ocrStatus');
+  if (flowMode) status.hidden = false; else $('ocr').hidden = false;
   status.textContent = '写真から数字を読み取っています…';
   let worker;
   scanning = true;
-  $('camera').disabled = $('photo').disabled = true;
+  $('camera').disabled = $('photo').disabled = $('flowCamera').disabled = $('flowPhoto').disabled = true;
   try {
     await loadOcr();
     if (revision !== scanRevision) return;
@@ -1827,6 +2001,7 @@ async function scan(event) {
     if (revision !== scanRevision) return;
     const result = await worker.recognize(file);
     if (revision !== scanRevision) return;
+    if (flowMode) { status.textContent = '読み取りました。内容を確認してください。'; importFlows(result.data.text); return; }
     const dm = result.data.text.normalize('NFKC').match(/(20\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
     scanDate = dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31 ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : todayStr;
     // 年の数字は読み違えやすいので、今年の同じ月日が今日以前なら今年とみなす
@@ -1847,7 +2022,7 @@ async function scan(event) {
   } finally {
     file = null;
     try { if (worker) await worker.terminate(); }
-    finally { scanning = false; $('camera').disabled = $('photo').disabled = false; }
+    finally { scanning = false; $('camera').disabled = $('photo').disabled = $('flowCamera').disabled = $('flowPhoto').disabled = false; }
   }
 }
 $('clearOcr').onclick = closeScan;
@@ -1862,7 +2037,7 @@ function slideLedger(dir) {
   if (n < 2) return;
   const to = ((book.selected + dir) % n + n) % n;   // 端まで来たら反対側へループ
   dir = Math.sign(dir);
-  active = Math.min(Math.max(active,0),book.ledgers[to].data.tabs.length-1);
+  if (active >= 0) active = Math.min(active,book.ledgers[to].data.tabs.length-1);
   if (!switchBook({...book,selected:to})) return;
   const m = document.querySelector('main');
   m.classList.remove('slide-l','slide-r'); void m.offsetWidth;

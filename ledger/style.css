@@ -315,3 +315,23 @@ main{padding-top:calc(56px + env(safe-area-inset-top));padding-bottom:calc(68px 
 .link-btn:hover,.btn-link:hover{border-color:var(--accent)}
 #menu-scope{white-space:nowrap}
 td small.code{display:block;color:var(--faint);font-size:.68rem}
+
+/* 入出金リスト */
+#tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+#flowTarget{min-height:34px;padding:4px 10px;font-size:.82rem;border-color:var(--accent)}
+.flow-note{display:block !important}
+.ftype{display:inline-block;padding:1px 7px;border-radius:6px;font-size:.72rem;font-weight:700}
+.ftype.in{background:#1e3a52;color:#9fd2ff}
+.ftype.out{background:#4a2330;color:var(--loss)}
+.ftype.div{background:#1f4436;color:var(--gain)}
+.import-list{display:grid;gap:6px;max-height:52vh;overflow:auto}
+.import-row{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:9px}
+.import-row.dup{opacity:.55}
+.import-row input[type=checkbox]{width:22px;height:22px;min-height:0;padding:0;margin:0;accent-color:var(--accent)}
+.import-row .ir-main{display:grid;gap:4px;min-width:0}
+.import-row .ir-main small{color:var(--faint);font-size:.68rem}
+.import-row .ir-line{display:flex;gap:6px;align-items:center}
+.import-row .ir-line input{min-height:34px;padding:4px 8px;width:100%;margin:0}
+.import-row select{min-height:34px;padding:4px 6px;font-size:16px}
+.import-row select{flex:none;width:5.2em}
+.yen-unit{color:var(--soft);font-size:.8rem}
