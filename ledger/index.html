@@ -96,8 +96,11 @@
   <!-- 入出金リスト（iDeCo / NISA） -->
   <section id="flows" class="panel" hidden>
     <div class="heading">
-      <div><h2>入出金リスト</h2><p class="sub">証券会社の入出金明細の写真から読み取って記録</p></div>
-      <button id="flowTarget" class="ghost" type="button" aria-haspopup="dialog"></button>
+      <div><h2>入出金リスト</h2><p class="sub">入出金明細と、iDeCoの資産状況・NISAの評価額の画面を写真から読み取ります</p></div>
+    </div>
+    <div class="seg" id="flowSeg" role="tablist" aria-label="入出金リストの口座">
+      <button type="button" role="tab" data-ft="0">iDeCo</button>
+      <button type="button" role="tab" data-ft="1">NISA</button>
     </div>
     <div class="tools">
       <button id="flowCamera" type="button">カメラで読み取り</button>
@@ -146,8 +149,9 @@
     <p id="calc" class="calc" hidden></p>
 
     <div class="tools">
-      <button id="camera" type="button">カメラで読み取り</button>
-      <button id="photo" type="button">写真・ファイルから（複数可）</button>
+      <button id="camera" type="button" hidden>カメラで読み取り</button>
+      <button id="photo" type="button" hidden>写真・ファイルから（複数可）</button>
+      <button id="toReader" type="button">写真の読み取りは「入出金リスト」へ</button>
       <button id="fillPlan" type="button">毎月の額をまとめて入力</button>
       <button id="evalBtn" type="button" hidden>損益・累計を入力</button>
       <button id="removeEntry" type="button" class="danger-text">この月を削除</button>

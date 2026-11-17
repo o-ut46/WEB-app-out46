@@ -1057,7 +1057,7 @@ const flowId = () => 'f' + Date.now().toString(36) + Math.random().toString(36).
 const ymd = d => `${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8)}`;
 function renderFlows() {
   const tab = flowTab();
-  $('flowTarget').textContent = `対象：${tab.name} ▾`;
+  document.querySelectorAll('#flowSeg button').forEach(b => { const on = Number(b.dataset.ft) === flowTarget; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); });
   const list = (tab.flows || []).filter(f => f.date.startsWith(year+'-')).sort((a,b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.at || 0) - (a.at || 0));
   const sum = t => list.filter(f => f.type === t).reduce((a,f) => a + f.amount,0);
   const inn = sum('in'), out = sum('out'), div = sum('div');
@@ -1089,17 +1089,8 @@ function renderFlows() {
     cell(r,(f.type === 'out' ? '−' : '') + yen(f.amount),f.type === 'out' ? -1 : 0);
   }
 }
-$('flowTarget').onclick = async () => {
-  let ch;
-  const r = await openModal('入出金リストの対象', () => {
-    ch = choiceGroup([
-      {value:0,label:'iDeCo',desc:'iDeCoの入出金（掛金の引き落としなど）'},
-      {value:1,label:'NISA',desc:'NISA・証券口座の入出金と配当金'}],flowTarget);
-    return [ch.element];
-  }, [{label:'キャンセル',value:null},{label:'切り替える',value:'ok',cls:'primary'}]);
-  if (r !== 'ok') return;
-  flowTarget = ch.value; rememberUi(); render();
-};
+// iDeCo / NISA の切り替えタブ
+document.querySelectorAll('#flowSeg button').forEach(b => b.onclick = () => { flowTarget = Number(b.dataset.ft); rememberUi(); render(); });
 $('flowCamera').onclick = () => $('cameraFile').click();
 $('flowPhoto').onclick = () => $('photoFile').click();
 $('flowAdd').onclick = () => editFlow(null);
@@ -1137,7 +1128,49 @@ function uniqueFlows(list) {
   for (const f of list) { const k = flowKey(f); if (!seen.has(k)) { seen.add(k); out.push(f); } }
   return out;
 }
-async function importFlows(texts) {
+// 入出金リストでの読み取り：明細の画面は入出金に、資産の画面は iDeCo / NISA の値として反映する
+const textValues = text => [...new Set((text.normalize('NFKC').replace(/[−–]/g,'-').match(/[+\-△▲]?\d[\d,]*/g) ?? []).map(money).filter(validMoney))].filter(v => Math.abs(v) >= 10).slice(0,40);
+function screenDate(text) {
+  const dm = text.normalize('NFKC').match(/(20\d{2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
+  let d = dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31 ? `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}` : todayStr;
+  if (d !== todayStr && !d.startsWith(thisYear+'-')) { const fix = thisYear + d.slice(4); d = fix <= todayStr ? fix : todayStr; }
+  return d;
+}
+// iDeCo：資産残高 = 拠出金累計 + 損益 となる組（画面では 資産残高 → 拠出金累計 → 損益 の順）
+function idecoTriple(values) {
+  let best = null;
+  const pos = v => { const i = values.indexOf(v); return i < 0 ? values.indexOf(-v) : i; };
+  for (const a of values) if (a > 0) for (const t of values) {
+    if (t <= 0 || t === a) continue;
+    const p = a - t;
+    if (p === 0 || p === a || pos(p) < 0 || pos(p) === values.indexOf(t)) continue;
+    const score = (values.indexOf(a) < values.indexOf(t) ? 1 : 0) + (values.indexOf(t) < pos(p) ? 2 : 0);
+    if (!best || score > best.score || (score === best.score && a > best.a)) best = {a,t,p,score};
+  }
+  return best;
+}
+async function importScans(texts, status) {
+  const statements = [], assets = [], msgs = [];
+  for (const t of texts) (parseFlows(t).items.length >= 2 ? statements : assets).push({text:t,date:screenDate(t)});
+  assets.sort((x,y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+  for (const a of assets) {
+    const values = textValues(a.text), d = a.date.replaceAll('-','/');
+    const tri = idecoTriple(values);
+    if (tri) {
+      registerEval({value:tri.p,total:tri.t,date:a.date},0);
+      msgs.push(`iDeCo（${d}時点）：拠出金累計 ${yen(tri.t)}・損益 ${format(tri.p,true)} を反映`);
+    } else if (flowTarget === 1) {
+      const pool = values.filter(v => v >= 100 && !(v >= 1990 && v <= 2100));
+      if (pool.length) { const w = Math.max(...pool); registerEval({worth:w,date:a.date},1); msgs.push(`NISA（${d}時点）：評価額 ${yen(w)} を反映`); }
+      else msgs.push(`${d}の画面：金額を見つけられませんでした`);
+    } else {
+      msgs.push(`${d}の画面：iDeCoの拠出金累計と損益を見つけられませんでした（iDeCoの画面の「修正」から入力できます）`);
+    }
+  }
+  status.textContent = msgs.length ? msgs.join(' ／ ') + (statements.length ? ' ／ 入出金明細を確認してください。' : '。') : '読み取りました。内容を確認してください。';
+  if (statements.length) await importFlows(statements.map(x => x.text),msgs);
+}
+async function importFlows(texts, prior = []) {
   let raw = [], joined = 0, cut = 0, tail = null;
   for (const t of texts) {
     const r = parseFlows(t);
@@ -1203,7 +1236,7 @@ async function importFlows(texts) {
   if (!added) { $('flowStatus').textContent = skipped ? 'すべて登録済みでした。' : '取り込む行がありませんでした。'; return; }
   if (commit(next)) {
     render();
-    $('flowStatus').textContent = `${added}件を取り込みました` + (skipped ? `（重複${skipped}件は除外）` : '') + (bad ? `・金額や日付が読めない${bad}件は除外` : '') + '。';
+    $('flowStatus').textContent = [...prior,`入出金 ${added}件を取り込みました` + (skipped ? `（重複${skipped}件は除外）` : '') + (bad ? `・金額や日付が読めない${bad}件は除外` : '')].join(' ／ ') + '。';
     toast(`${added}件を取り込みました`);
   }
 }
@@ -2037,8 +2070,7 @@ async function scan(event) {
         texts.push((await worker.recognize(files[i])).data.text);
         if (revision !== scanRevision) return;
       }
-      status.textContent = '読み取りました。内容を確認してください。';
-      importFlows(texts);
+      importScans(texts,status);
       return;
     }
     // 何枚選んでも順に読む。画面の日付が古い順に反映し、いちばん新しいものが最新になるようにする
@@ -2078,6 +2110,7 @@ async function scan(event) {
   }
 }
 $('clearOcr').onclick = closeScan;
+$('toReader').onclick = () => { if (active === 0 || active === 1) { flowTarget = active; } go(FLOWS); };
 for (const id of ['camera','photo']) {
   $(id).onclick = () => $(id+'File').click();
   $(id+'File').onchange = scan;

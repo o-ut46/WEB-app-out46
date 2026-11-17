@@ -337,3 +337,8 @@ td small.code{display:block;color:var(--faint);font-size:.68rem}
 .yen-unit{color:var(--soft);font-size:.8rem}
 .scan-head{margin:10px 0 2px;font-size:.78rem;color:var(--accent);font-weight:700}
 #tabs button{font-size:clamp(.7rem,3.1vw,.9rem);padding:6px 2px}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:10px 0 4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--field)}
+.seg button{min-height:36px;border:0;background:transparent;border-radius:9px;font-weight:600;color:var(--soft)}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+td[colspan]{white-space:normal;text-align:left}
