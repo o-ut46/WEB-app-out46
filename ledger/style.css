@@ -407,3 +407,15 @@ header #status{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:e
 header .status-line{min-width:0;overflow:hidden}
 .chip,.head-btns #menu{font-size:12.5px}
 #tabs button{font-size:clamp(11px,3.1vw,14px)}
+
+/* 入出金リスト：読み取り（写真・データ）の枠 */
+.dropzone{display:grid;gap:8px;margin:12px 0 4px;padding:14px;border:2px dashed var(--line);border-radius:14px;background:var(--soft-bg);text-align:center}
+.dropzone b{font-size:.95rem}
+.dropzone p{color:var(--soft);font-size:.82rem;line-height:1.6}
+.dropzone strong{color:var(--text)}
+.dropzone .tools{justify-content:center;margin:2px 0}
+.dropzone small{color:var(--faint);font-size:.72rem}
+.dropzone.over{border-color:var(--accent);background:var(--tint)}
+/* 横にはみ出さないように */
+html,body{overflow-x:hidden}
+main,.panel,.table{min-width:0;max-width:100%}

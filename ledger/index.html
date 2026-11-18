@@ -108,12 +108,6 @@
       <button type="button" role="tab" data-ft="0">iDeCo</button>
       <button type="button" role="tab" data-ft="1">NISA</button>
     </div>
-    <div class="tools">
-      <button id="flowCamera" type="button">カメラで読み取り</button>
-      <button id="flowPhoto" type="button">写真・ファイルから（複数可）</button>
-      <button id="flowAdd" type="button">＋ 手で追加</button>
-    </div>
-    <p id="flowStatus" class="calc" role="status" hidden></p>
     <div class="flow-ctrl">
       <button id="flowSort" type="button" aria-haspopup="dialog"></button>
       <div class="flow-search">
@@ -127,6 +121,18 @@
       <tbody id="flowRows"></tbody>
     </table></div>
     <p class="tap-note flow-note">行をタップすると、区分・金額の修正や削除ができます。</p>
+    <div id="flowDrop" class="dropzone">
+      <b>写真・データを読み取る</b>
+      <p>入出金明細や、iDeCoの資産状況・NISAの評価額の<strong>写真</strong>、入出金の<strong>CSVファイル</strong>を読み取ってリストに加えます。</p>
+      <div class="tools">
+        <button id="flowCamera" type="button">カメラで読み取り</button>
+        <button id="flowPhoto" type="button" class="primary">写真・ファイルを選ぶ（複数可）</button>
+        <button id="flowAdd" type="button">＋ 手で追加</button>
+      </div>
+      <small>iPadやパソコンでは、ここに写真やファイルをドラッグ＆ドロップできます。</small>
+      <input id="flowFile" type="file" accept="image/*,.csv,text/csv,.txt,text/plain" multiple hidden>
+    </div>
+    <p id="flowStatus" class="calc" role="status" hidden></p>
   </section>
 
   <!-- 口座ビュー -->

@@ -1122,7 +1122,91 @@ $('flowSort').onclick = async () => {
 $('flowFrom').onchange = $('flowTo').onchange = () => render();
 $('flowClear').onclick = () => { $('flowFrom').value = ''; $('flowTo').value = ''; render(); };
 $('flowCamera').onclick = () => $('cameraFile').click();
-$('flowPhoto').onclick = () => $('photoFile').click();
+$('flowPhoto').onclick = () => $('flowFile').click();
+$('flowFile').onchange = e => { const files = [...e.target.files]; e.target.value = ''; handleFlowFiles(files); };
+// 写真とデータ（CSV）を振り分けて読み取る
+async function handleFlowFiles(files) {
+  if (!files.length) return;
+  const isData = f => /\.(csv|txt)$/i.test(f.name) || /csv|text\/plain/.test(f.type);
+  const data = files.filter(isData), images = files.filter(f => !isData(f) && /^image\//.test(f.type || 'image/'));
+  let entries = [];
+  for (const f of data) {
+    try { entries.push(...parseCsvFlows(await readTextFile(f))); }
+    catch { toast(`${f.name} を読めませんでした`); }
+  }
+  if (data.length && !entries.length && !images.length) {
+    const st = $('flowStatus'); st.hidden = false;
+    st.textContent = 'ファイルから日付と金額の行を見つけられませんでした。証券会社の「入出金明細」のCSVを選んでください。';
+    return;
+  }
+  if (images.length) return scanFiles(images,entries);
+  const st = $('flowStatus'); st.hidden = false; st.textContent = `${data.length}件のファイルを読み取りました。内容を確認してください。`;
+  importFlows([],[],entries);
+}
+// 文字コードは UTF-8 か Shift_JIS（証券会社のCSVに多い）
+async function readTextFile(f) {
+  const buf = await f.arrayBuffer();
+  let t = new TextDecoder('utf-8').decode(buf);
+  if (t.includes('\uFFFD')) { try { t = new TextDecoder('shift_jis').decode(buf); } catch {} }
+  return t;
+}
+function splitCsv(line) {
+  const out = []; let cur = '', q = false;
+  for (let i=0;i<line.length;i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',' || ch === '\t') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(x => x.trim());
+}
+function parseCsvFlows(text) {
+  const rows = text.replace(/^\uFEFF/,'').split(/\r?\n/).map(splitCsv).filter(r => r.some(Boolean));
+  const dateRe = /(\d{4})\s*[\/\-.年]\s*(\d{1,2})\s*[\/\-.月]\s*(\d{1,2})/;
+  const num = v => { const n = Number(String(v ?? '').normalize('NFKC').replace(/[,円\s+]/g,'')); return Number.isFinite(n) ? Math.round(Math.abs(n)) : 0; };
+  let col = null;
+  const out = [];
+  for (const r of rows) {
+    const joined = r.join(' ').normalize('NFKC');
+    const dm = joined.match(dateRe);
+    if (!dm) {
+      // 見出し行：入金額・出金額・金額の列を探す
+      if (/金額|入金|出金/.test(joined)) {
+        col = {};
+        r.forEach((h,i) => {
+          const x = h.normalize('NFKC');
+          if (/入金/.test(x) && !/出金/.test(x) && /額|金額/.test(x) && col.in === undefined) col.in = i;
+          else if (/出金/.test(x) && !/入金/.test(x) && /額|金額/.test(x) && col.out === undefined) col.out = i;
+          else if (/金額/.test(x) && col.amt === undefined) col.amt = i;
+        });
+      }
+      continue;
+    }
+    if (+dm[2] < 1 || +dm[2] > 12 || +dm[3] < 1 || +dm[3] > 31) continue;
+    const date = `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`;
+    let amount = 0, type = 'in';
+    if (col && (col.in !== undefined || col.out !== undefined)) {
+      const a = num(r[col.in]), b = num(r[col.out]);
+      if (a > 0) { amount = a; type = 'in'; } else if (b > 0) { amount = b; type = 'out'; } else continue;
+    } else {
+      if (col?.amt !== undefined) amount = num(r[col.amt]);
+      if (!amount) { const cells = r.filter(c => /^[\d,.\-+円\s"]+$/.test(c) && !dateRe.test(c)); amount = cells.length ? num(cells.at(-1)) : 0; }
+      if (!amount) continue;
+      type = /出金|引落|引出|振込出|払出/.test(joined) ? 'out' : 'in';
+    }
+    if (type === 'in' && /配当|分配|利金|dividend/i.test(joined)) type = 'div';
+    const note = r.filter(c => c && !dateRe.test(c) && !/^[\d,.\-+円\s]+$/.test(c)).join(' ').slice(0,60);
+    out.push({date,amount,type,...(note ? {note} : {})});
+  }
+  return out;
+}
+// ドラッグ＆ドロップ
+const drop = $('flowDrop');
+drop.addEventListener('dragover',e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave',() => drop.classList.remove('over'));
+drop.addEventListener('drop',e => { e.preventDefault(); drop.classList.remove('over'); handleFlowFiles([...(e.dataTransfer?.files || [])]); });
 $('flowAdd').onclick = () => editFlow(null);
 // OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
 // head：日付より前にある金額（上で切れた明細）、tail：金額のない最後の日付（下で切れた明細）
@@ -1179,7 +1263,7 @@ function idecoTriple(values) {
   }
   return best;
 }
-async function importScans(texts, status) {
+async function importScans(texts, status, extra = []) {
   const statements = [], assets = [], msgs = [];
   for (const t of texts) (parseFlows(t).items.length >= 2 ? statements : assets).push({text:t,date:screenDate(t)});
   assets.sort((x,y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
@@ -1198,10 +1282,10 @@ async function importScans(texts, status) {
     }
   }
   status.textContent = msgs.length ? msgs.join(' ／ ') + (statements.length ? ' ／ 入出金明細を確認してください。' : '。') : '読み取りました。内容を確認してください。';
-  if (statements.length) await importFlows(statements.map(x => x.text),msgs);
+  if (statements.length || extra.length) await importFlows(statements.map(x => x.text),msgs,extra);
 }
-async function importFlows(texts, prior = []) {
-  let raw = [], joined = 0, cut = 0, tail = null;
+async function importFlows(texts, prior = [], extra = []) {
+  let raw = [...extra], joined = 0, cut = 0, tail = null;
   for (const t of texts) {
     const r = parseFlows(t);
     if (tail && r.head !== null) {          // 前の写真の下で切れた日付 ＋ 次の写真の上の金額 → 1件にする
@@ -1241,7 +1325,7 @@ async function importFlows(texts, prior = []) {
       if (dup) main.append(el('small',null,'すでに登録済み（重複）'));
       row.append(ck,main);
       wrap.append(row);
-      rows.push({ck,dIn,aIn,sel});
+      rows.push({ck,dIn,aIn,sel,note:f.note});
     }
     return [el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),
       ...(notes.length ? [el('p','save-scope',notes.join('。') + '。')] : []),wrap];
@@ -1256,6 +1340,7 @@ async function importFlows(texts, prior = []) {
     const amount = money(x.aIn.value), date = x.dIn.value;
     if (!validMoney(amount) || amount < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { bad++; continue; }
     const f = {id:flowId(),date,amount,type:x.sel.value,at};
+    if (x.note) f.note = String(x.note).slice(0,60);
     if (t.flows.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type)) { skipped++; continue; }
     t.flows.push(f); added++;
   }
@@ -2120,8 +2205,11 @@ let scanning = false;
 let scanDate = todayStr;
 async function scan(event) {
   const files = [...event.target.files];
-  let file = files[0];
   event.target.value = '';
+  return scanFiles(files);
+}
+async function scanFiles(files, extra = []) {
+  let file = files[0];
   if (!file || scanning) return;
   closeScan();
   const revision = scanRevision;
@@ -2152,7 +2240,7 @@ async function scan(event) {
         texts.push((await worker.recognize(files[i])).data.text);
         if (revision !== scanRevision) return;
       }
-      importScans(texts,status);
+      importScans(texts,status,extra);
       return;
     }
     // 何枚選んでも順に読む。画面の日付が古い順に反映し、いちばん新しいものが最新になるようにする
