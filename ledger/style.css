@@ -442,3 +442,9 @@ main,.panel,.table{min-width:0;max-width:100%}
 .ib-sub{margin-top:10px;padding-top:8px;border-top:2px solid var(--line)}
 .flow-reset{display:flex;justify-content:flex-end;margin:4px 0 8px}
 .flow-reset button{min-height:32px;padding:4px 12px;font-size:.78rem}
+
+/* 前回の保存先からの読み込み案内 */
+.sync-banner{display:grid;gap:8px;margin:6px 0 10px;padding:10px 12px;border:1px solid var(--accent);border-radius:12px;background:var(--tint);font-size:.84rem}
+.sync-banner p{line-height:1.6}
+.sb-btns{display:flex;gap:8px;justify-content:flex-end}
+.sb-btns button{min-height:34px;padding:4px 12px;font-size:.82rem}

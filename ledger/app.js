@@ -1962,62 +1962,99 @@ function fileLink(mode, value) {
     };
   });
 }
-const snapshotBook = () => JSON.stringify(book,null,2);
+/* ---------- フォルダに保存・前回の保存先から読み込み ----------
+   ・パソコンのChrome/Edge：保存するフォルダを選び、次回の起動時にその保存先から自動で読み込む
+   ・iPhone/iPad：共有メニューの「"ファイル"に保存」でフォルダを選ぶ（iCloud Drive を選ぶと Mac とも共有できる）
+     起動時の自動読み込みはブラウザの決まりでできないため、前回の保存先のファイルを選び直してもらう */
+const lastSaveKey = 'out-invest-ledger-lastsave';
+const getLastSave = () => { try { return JSON.parse(localStorage.getItem(lastSaveKey) || 'null'); } catch { return null; } };
+const setLastSave = v => { try { localStorage.setItem(lastSaveKey,JSON.stringify(v)); } catch {} };
+const fmtTime = t => { const d = new Date(t); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const isTouchApple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const fullBackupText = () => JSON.stringify({...book,savedAt:Date.now()},null,2);
+// 1つのファイルを、選んだフォルダへ保存する
+async function saveToFolder(name, content, type, remember) {
+  const blob = new Blob([content],{type});
+  if (supportsLinkedFile) {
+    try {
+      const ext = name.split('.').pop();
+      const handle = await window.showSaveFilePicker({suggestedName:name,types:[{description:ext === 'csv' ? '表（CSV）' : '台帳データ',accept:{[type]:['.'+ext]}}]});
+      const w = await handle.createWritable(); await w.write(blob); await w.close();
+      if (remember) { linkedFile = {handle}; try { await fileLink('readwrite',linkedFile); } catch {} }
+      return 'folder';
+    } catch (e) { if (e.name === 'AbortError') return null; }
+  }
+  if (isTouchApple && navigator.canShare) {
+    const file = new File([blob],name,{type});
+    if (navigator.canShare({files:[file]})) {
+      try { await navigator.share({files:[file],title:name}); return 'share'; }
+      catch (e) { if (e.name === 'AbortError') return null; }
+    }
+  }
+  return await download(name,content,type) ? 'download' : null;
+}
+function showSyncBanner(kind, text) {
+  const bn = $('syncBanner');
+  bn.hidden = false;
+  bn.dataset.kind = kind;
+  $('syncText').textContent = text;
+  $('syncPick').textContent = kind === 'permit' ? '保存先から読み込む' : '保存先のファイルを選ぶ';
+}
+const hideSyncBanner = () => { $('syncBanner').hidden = true; };
+// 保存ファイルの内容を反映（全台帳＝置き換え、1台帳＝同じ名前を置き換えか追加）
+async function applySavedFile(text, label, auto) {
+  const imported = JSON.parse(text);
+  if (imported?.version === 1) {
+    const ledger = makeLedger(imported.title || label.replace(/\.json$/i,'') || defaultTitle,validate(imported));
+    const i = book.ledgers.findIndex(l => l.title === ledger.title);
+    if (i >= 0) {
+      if (!auto && !await confirmBox('台帳を置き換え',`「${ledger.title}」を保存ファイルの内容で置き換えます。`,'置き換える',true)) return false;
+      const ledgers = book.ledgers.map((l,j) => j === i ? ledger : l);
+      return switchBook({...book,selected:i,ledgers});
+    }
+    active = 0;
+    return switchBook({...book,selected:book.ledgers.length,ledgers:[...book.ledgers,ledger]});
+  }
+  const next = validateBook(imported);
+  const fileAt = Number(imported.savedAt) || 0, localAt = getLocalAt();
+  if (!auto && fileAt && localAt > fileAt + 1000 &&
+      !await confirmBox('端末のデータの方が新しいです',`保存ファイル（${fmtTime(fileAt)}）より、この端末のデータ（${fmtTime(localAt)}）の方が新しいです。保存ファイルの内容で置き換えますか？`,'置き換える',true)) return false;
+  if (auto && fileAt && localAt >= fileAt) return 'same';
+  active = Math.min(Math.max(active,0),next.ledgers[next.selected].data.tabs.length-1);
+  return switchBook(next);
+}
+// 起動時：前回の保存先から読み込む
 async function restoreLinkedFile(interactive = false) {
-  if (fileBusy || !supportsLinkedFile) return;
+  if (fileBusy) return;
+  const last = getLastSave();
+  if (!supportsLinkedFile) {
+    if (last?.scope === 'all' && !interactive) showSyncBanner('pick',`前回の保存：「${last.name}」（${fmtTime(last.at)}）。最新を反映するには、保存したフォルダのファイルを選んでください。いまは端末に残っているデータを表示しています。`);
+    return;
+  }
   fileBusy = true;
   try {
     if (!interactive) linkedFile = await fileLink('readonly');
-    if (!linkedFile) return;
-    const snapshot = snapshotBook();
-    if (snapshot !== linkedFile.snapshot) return;
+    if (!linkedFile?.handle) { if (last?.scope === 'all') showSyncBanner('pick',`前回の保存先が分かりません。保存したファイルを選び直してください。いまは端末に残っている以前のデータを表示しています。`); return; }
     const {handle} = linkedFile;
     const permission = interactive ? await handle.requestPermission({mode:'read'}) : await handle.queryPermission({mode:'read'});
-    if (permission !== 'granted') { $('reconnect').hidden = false; return; }
-    const file = await handle.getFile();
+    if (permission !== 'granted') { showSyncBanner('permit',`前回の保存先「${handle.name}」から読み込むには、ボタンを押して許可してください。いまは端末に残っているデータを表示しています。`); return; }
+    let file;
+    try { file = await handle.getFile(); }
+    catch { showSyncBanner('pick',`前回の保存先に「${handle.name}」が見つかりません。読み取るファイルを指定し直してください。いまは端末に残っている以前のデータを表示しています。`); return; }
     if (file.size > 50000000) throw Error('ファイルが大きすぎます。');
-    const next = validateBook(JSON.parse(await file.text()));
-    if (snapshot !== snapshotBook()) return;
-    if (JSON.stringify(next,null,2) !== snapshot && !switchBook(next)) return;
-    $('reconnect').hidden = true;
-    linkedFile = {handle,snapshot:snapshotBook()};
-    await fileLink('readwrite',linkedFile);
-    $('status').textContent = '前回のファイルを読込済み';
+    const r = await applySavedFile(await file.text(),file.name,true);
+    hideSyncBanner();
+    $('status').textContent = r === 'same' ? `保存先と同じ（${handle.name}）` : `保存先から読み込みました（${handle.name}）`;
+    if (r === true) toast('前回の保存先から読み込みました');
   } catch {
-    $('status').textContent = '端末内の保存データを表示中';
+    showSyncBanner('pick','保存先のファイルを読み込めませんでした。読み取るファイルを指定し直してください。いまは端末に残っている以前のデータを表示しています。');
   } finally {
     fileBusy = false;
   }
 }
 $('reconnect').onclick = () => restoreLinkedFile(true);
-async function exportAll() {
-  if (fileBusy || !saveBook(book)) return;
-  const snapshot = snapshotBook();
-  if (!supportsLinkedFile) { if (await downloadBackup(snapshot)) toast('バックアップを保存しました'); return; }
-  fileBusy = true;
-  try {
-    const handle = linkedFile?.handle ?? await window.showSaveFilePicker({
-      suggestedName:'out-invest-ledger.json',
-      types:[{description:'台帳バックアップ',accept:{'application/json':['.json']}}]
-    });
-    const stream = await handle.createWritable();
-    await stream.write(snapshot);
-    await stream.close();
-    linkedFile = {handle,snapshot};
-    await fileLink('readwrite',linkedFile);
-    $('reconnect').hidden = true;
-    $('status').textContent = '全台帳をファイルに保存済み';
-    toast('全台帳をファイルに保存しました');
-  } catch (error) {
-    if (error.name !== 'AbortError') {
-      linkedFile = undefined;
-      downloadBackup(snapshot);
-      toast('保存先を使えなかったため、ダウンロードで保存しました');
-    }
-  } finally {
-    fileBusy = false;
-  }
-}
+$('syncPick').onclick = () => { if ($('syncBanner').dataset.kind === 'permit') restoreLinkedFile(true); else $('backup').click(); };
+$('syncClose').onclick = hideSyncBanner;
 function csvText() {
   const q = v => /[",\n]/.test(String(v)) ? '"' + String(v).replaceAll('"','""') + '"' : String(v);
   const lines = [['台帳','口座','年月','投資額','月間運用損益','評価損益（累計）'].join(',')];
@@ -2041,39 +2078,49 @@ async function writeFile(name, content, type) {
   }
   return download(name,content,type);
 }
+function flowsCsvText() {
+  const q = v => /[",\n]/.test(String(v)) ? '"' + String(v).replaceAll('"','""') + '"' : String(v);
+  const lines = [['台帳','口座','日付','区分','金額','メモ'].join(',')];
+  for (const ledger of book.ledgers) for (const i of [0,1]) for (const f of [...(ledger.data.tabs[i]?.flows || [])].sort((a,b) => a.date < b.date ? -1 : 1))
+    lines.push([ledger.title,ledger.data.tabs[i].name,ymd(f.date),FLOW_TYPES[f.type],f.amount,f.note || ''].map(q).join(','));
+  return '﻿' + lines.join('\r\n');
+}
 async function openSave() {
-  const def = `投資台帳_全${book.ledgers.length}台帳_${todayStr}`;
-  let tIn, dest, fmt;
-  const r = await openModal('保存', () => {
-    const l = el('label',null,'タイトル（任意）');
-    tIn = document.createElement('input');
-    tIn.id = 'saveTitle'; tIn.placeholder = def; tIn.maxLength = 60;
-    l.append(tIn);
-    const opts = [{value:'file',label:'ファイルに保存',desc:inArtifact ? '保存先（iPhoneの「ファイル」アプリ、PCのフォルダなど）は次に出る画面で選びます。' : '次に出る画面で保存するフォルダを選びます。'}];
-    if (cloud.ref) opts.push({value:'cloud',label:'アプリ内のクラウドに保存',desc:'タイトル付きで残します。どの端末からでも「読み込む」で戻せます。'});
-    dest = choiceGroup(opts,'file');
+  const cur = book.ledgers[book.selected];
+  let tIn, scope, fmt;
+  const r = await openModal('フォルダに保存', () => {
+    scope = choiceGroup([
+      {value:'all',label:'すべてまとめて',desc:`全${book.ledgers.length}台帳（${book.ledgers.map(x => x.title).join('・')}）のiDeCo・NISA・保有株式・入出金リストを1つのファイルに。次回の起動時にここから読み込みます。`},
+      {value:'ledger',label:`この台帳だけ（${cur.title}）`,desc:'いま開いている台帳だけを保存します。'},
+      {value:'flows',label:'入出金リストだけ',desc:'iDeCo・NISAの入出金を表（CSV）に。ExcelやNumbersで開けます。'}],'all');
     fmt = choiceGroup([
-      {value:'json',label:'バックアップ（JSON）',desc:'すべての台帳をまるごと保存。「読み込む」で全台帳を復元できます。'},
-      {value:'csv',label:'表（CSV）',desc:'すべての台帳の記録を1つの一覧に（台帳名の列つき）。ExcelやNumbersで開けます。復元には使えません。'}],'json');
-    const scope = el('p','save-scope',`すべての台帳（${book.ledgers.length}件：${book.ledgers.map(x => x.title).join('・')}）をまとめて1つに保存します。`);
-    return [scope,l,el('label',null,'保存先'),dest.element,el('label',null,'形式'),fmt.element];
+      {value:'json',label:'データ（JSON）',desc:'アプリで読み込んで元に戻せる形式'},
+      {value:'csv',label:'表（CSV）',desc:'ExcelやNumbersで開ける一覧（読み込みには使えません）'}],'json');
+    const l = el('label',null,'ファイル名（任意）');
+    tIn = document.createElement('input'); tIn.id = 'saveTitle'; tIn.maxLength = 60; tIn.placeholder = '空欄なら自動で付けます';
+    l.append(tIn);
+    const how = el('p','save-scope', supportsLinkedFile
+      ? '次の画面で保存するフォルダを選びます。'
+      : isTouchApple ? '次に出る共有メニューで「"ファイル"に保存」を選び、フォルダを選んでください。iCloud Drive のフォルダにすると、iPhone・iPad・Mac で同じファイルを使えます。'
+      : 'ダウンロードフォルダに保存されます。');
+    return [el('label',null,'保存する内容'),scope.element,el('label',null,'形式'),fmt.element,l,how];
   }, [{label:'キャンセル',value:null},{label:'保存',value:'save',cls:'primary'}]);
   if (r !== 'save') return;
-  const title = safeName(tIn.value) || safeName(def);
-  if (dest.value === 'cloud') {
-    if (fmt.value === 'csv') { alertBox('クラウドにはバックアップで保存します','アプリ内のクラウドに保存できるのはバックアップ（JSON）だけです。表（CSV）はファイルに保存してください。'); return; }
-    try {
-      await backups().doc().set({title,book:JSON.stringify(book),savedAt:Date.now()});
-      toast(`全${book.ledgers.length}台帳を「${title}」としてクラウドに保存しました`);
-    } catch (e) {
-      alertBox('保存できませんでした',e?.code === 'quota_exceeded' ? 'クラウドの保存数がいっぱいです。「読み込む」から古い保存を削除してください。' : '通信状態を確認して、もう一度お試しください。');
-    }
-    return;
+  const sc = scope.value, csv = sc === 'flows' || fmt.value === 'csv';
+  const base = sc === 'all' ? `投資台帳_全台帳` : sc === 'ledger' ? `投資台帳_${cur.title}` : '投資台帳_入出金リスト';
+  const name = (safeName(tIn.value) || `${base}_${todayStr}`) + (csv ? '.csv' : '.json');
+  let content;
+  if (sc === 'flows') content = flowsCsvText();
+  else if (csv) content = sc === 'all' ? csvText() : (() => { const keep = book; book = {...book,ledgers:[cur]}; const t = csvText(); book = keep; return t; })();
+  else content = sc === 'all' ? fullBackupText() : JSON.stringify({...cur.data,title:cur.title,savedAt:Date.now()},null,2);
+  const how = await saveToFolder(name,content,csv ? 'text/csv' : 'application/json',sc === 'all' && !csv);
+  if (!how) return;
+  if (sc === 'all' && !csv) {
+    try { localStorage.setItem(atKey,String(Date.now())); } catch {}
+    setLastSave({name,at:Date.now(),scope:'all',how});
+    hideSyncBanner();
   }
-  const ok = fmt.value === 'csv'
-    ? await writeFile(title + '.csv',csvText(),'text/csv')
-    : await writeFile(title + '.json',JSON.stringify(book,null,2),'application/json');
-  if (ok) toast(`全${book.ledgers.length}台帳を「${title}」として保存しました`);
+  toast(how === 'download' ? `「${name}」をダウンロードしました` : `「${name}」を保存しました`);
 }
 async function restoreFrom(text, label) {
   try {
@@ -2091,7 +2138,7 @@ async function openLoad() {
   const r = await openModal('読み込む', finish => {
     const menu = el('div','menu');
     const fb = button('',() => finish('file'));
-    fb.append(el('b',null,'ファイルから読み込む'),el('span',null,'保存したJSONを選びます（旧版のJSONは台帳として追加）。'));
+    fb.append(el('b',null,'フォルダのファイルから読み込む'),el('span',null,'保存したJSON（すべて・台帳ごと）を選びます。台帳ごとのファイルは同じ名前の台帳を置き換えます。'));
     menu.append(fb);
     if (backups()) {
       menu.append(el('p',null,list.length ? 'アプリ内のクラウドの保存' : 'アプリ内のクラウドには、まだ保存がありません。'));
@@ -2124,7 +2171,7 @@ const openData = () => openModal('データ', finish => {
     return b;
   };
   menu.append(
-    item('保存（すべての台帳）',`${book.ledgers.length}件の台帳をまとめて保存。タイトル、保存先、形式を選べます。`,openSave),
+    item('フォルダに保存','すべてまとめて／この台帳だけ／入出金リストだけ を選んで、iPhone・iPad・Macのフォルダに保存',openSave),
     item('読み込む','ファイルや、アプリ内のクラウドの保存から復元します。',openLoad));
   return [menu, el('p',null, cloud.ref
     ? 'ふだんの記録はクラウドに自動で保存され、同じアカウントで開いた端末どうしで同期します。'
@@ -2211,18 +2258,8 @@ backupInput.onchange = async event => {
   if (!file) return;
   try {
     if (file.size > 50000000) throw Error('ファイルが大きすぎます。');
-    const imported = JSON.parse(await file.text());
-    if (imported?.version === 1) {
-      const ledger = makeLedger(file.name.replace(/\.json$/i,'') || defaultTitle,validate(imported));
-      active = 0;
-      if (switchBook({...book,selected:book.ledgers.length,ledgers:[...book.ledgers,ledger]})) toast('台帳として追加しました');
-      return;
-    }
-    const next = validateBook(imported);
-    if (await confirmBox('バックアップから復元',`端末内のすべての台帳（${book.ledgers.length}件）を、バックアップの内容（${next.ledgers.length}件）で置き換えます。`,'置き換える',true)) {
-      active = 0;
-      if (switchBook(next)) toast('復元しました');
-    }
+    const r = await applySavedFile(await file.text(),file.name,false);
+    if (r) { hideSyncBanner(); toast('読み込みました'); $('status').textContent = `「${file.name}」を読み込みました`; }
   } catch (error) { alertBox('読み込めませんでした',error.message || 'ファイルの形式を確認してください。'); }
 };
 
