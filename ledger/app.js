@@ -1257,7 +1257,41 @@ drop.addEventListener('drop',e => { e.preventDefault(); drop.classList.remove('o
 $('flowAdd').onclick = () => editFlow(null);
 // OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
 // head：日付より前にある金額（上で切れた明細）、tail：金額のない最後の日付（下で切れた明細）
-const flowType = t => /nisa|配当|分配|dividend/i.test(t) ? 'div' : 'in';
+// 区分：写真の色ラベルから付けた [[OUT]] / [[IN]] を優先。配当は「NISA」「配当」の文字で判断
+const flowType = t => /\[\[OUT\]\]/.test(t) ? 'out' : /nisa|配当|分配|dividend/i.test(t) ? 'div' : 'in';
+// 明細の写真で、日付の下にある「入金」「出金」ラベルの色を見て区分を付ける
+// （証券会社の画面は 入金＝水色、出金＝ピンク のラベル）
+async function annotateFlowText(file, data) {
+  const lines = (data.blocks || []).flatMap(b => b.paragraphs || []).flatMap(p => p.lines || []);
+  if (!lines.length) return data.text;
+  let img;
+  try {
+    const bmp = await createImageBitmap(file);
+    const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
+    const ctx = cv.getContext('2d',{willReadFrequently:true}); ctx.drawImage(bmp,0,0);
+    img = ctx.getImageData(0,0,cv.width,cv.height);
+  } catch { return lines.map(l => l.text.replace(/\n$/,'')).join('\n'); }
+  const W = img.width, H = img.height, px = img.data;
+  const dateRe = /(\d{4})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/;
+  const isDate = l => dateRe.test(l.text.normalize('NFKC'));
+  const out = lines.map(l => l.text.replace(/\n$/,''));
+  lines.forEach((l,i) => {
+    if (!isDate(l)) return;
+    const next = lines.slice(i+1).find(isDate);
+    const y0 = Math.max(0,l.bbox.y1), y1 = Math.min(H,next ? next.bbox.y0 : l.bbox.y1 + (l.bbox.y1 - l.bbox.y0) * 6);
+    const yEnd = Math.min(y1,y0 + Math.max(20,(y1 - y0) * 0.55));
+    const x1 = Math.min(W,Math.round(W * 0.25));
+    let pink = 0, blue = 0;
+    for (let y = Math.round(y0); y < yEnd; y += 2) for (let x = 0; x < x1; x += 2) {
+      const k = (y * W + x) * 4, r = px[k], g = px[k+1], b = px[k+2];
+      if (r > 190 && r - g > 22 && r - b > 18) pink++;
+      else if (b > 190 && b - r > 18 && g >= r) blue++;
+    }
+    if (pink > 30 && pink > blue * 1.5) out[i] += ' [[OUT]]';
+    else if (blue > 30 && blue > pink * 1.5) out[i] += ' [[IN]]';
+  });
+  return out.join('\n');
+}
 function parseFlows(text) {
   const lines = text.normalize('NFKC').split(/\n+/);
   const items = [];
@@ -1267,18 +1301,21 @@ function parseFlows(text) {
   for (const ln of lines) {
     const dm = ln.match(dateRe);
     if (dm && +dm[2] >= 1 && +dm[2] <= 12 && +dm[3] >= 1 && +dm[3] <= 31) {
+      if (cur && cur.amount === null && cur.small !== null) cur.amount = cur.small;
       if (cur && cur.amount !== null) items.push(cur);
       let y = +dm[1];
       if (y < 2000 || y > thisYear) y = thisYear;   // 年の読み違い
-      cur = {date:`${y}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`,amount:null,text:''};
+      cur = {date:`${y}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`,amount:null,small:null,text:ln};
       continue;
     }
     const a = amountIn(ln);
     if (!cur) { headText += ' ' + ln; if (a !== null) head = a; continue; }
     cur.text += ' ' + ln;
-    if (a !== null) cur.amount = a;
+    if (a !== null) { if (cur.amount === null) cur.amount = a; }   // 日付のあとで最初に出てくる金額（後ろの注意書きなどの数字は使わない）
+    else if (cur.amount === null) { const sm = ln.normalize('NFKC').match(/[^\d,]\s(\d{1,2})\s*\S{0,3}\s*$/); if (sm) cur.small = Number(sm[1]); }   // 6円・33円などの小さい金額
   }
   let tail = null;
+  if (cur && cur.amount === null && cur.small !== null) cur.amount = cur.small;
   if (cur && cur.amount !== null) items.push(cur); else if (cur) tail = cur;
   return {items:items.map(f => ({date:f.date,amount:f.amount,type:flowType(f.text)})),head,headText,tail};
 }
@@ -2284,7 +2321,8 @@ async function scanFiles(files, extra = []) {
       const texts = [];
       for (let i=0;i<files.length;i++) {
         status.textContent = `写真を読み取っています…（${i+1} / ${files.length}枚）`;
-        texts.push((await worker.recognize(files[i])).data.text);
+        const res = await worker.recognize(files[i],{},{text:true,blocks:true});
+        texts.push(await annotateFlowText(files[i],res.data));
         if (revision !== scanRevision) return;
       }
       importScans(texts,status,extra);
