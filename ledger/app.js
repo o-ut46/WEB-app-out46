@@ -1069,48 +1069,48 @@ function renderFlows() {
   let from = $('flowFrom').value, to = $('flowTo').value;
   if (from && to && from > to) [from,to] = [to,from];
   const searching = !!(from || to);
+  const allYears = $('fyAll').checked && !searching;
   const dir = flowSort === 'asc' ? 1 : -1;
   const list = (tab.flows || [])
-    .filter(f => searching ? (!from || f.date >= from) && (!to || f.date <= to) : f.date.startsWith(year+'-'))
+    .filter(f => searching ? (!from || f.date >= from) && (!to || f.date <= to) : allYears || f.date.startsWith(year+'-'))
     .sort((a,b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0)) * dir);
   $('flowSort').textContent = `並び：${flowSort === 'asc' ? '古い順' : '新しい順'} ▾`;
   $('flowClear').hidden = !searching;
   const sumOf = (arr, t) => arr.filter(f => f.type === t).reduce((a,f) => a + f.amount,0);
   const sum = t => sumOf(list,t);
   const inn = sum('in'), out = sum('out'), div = sum('div');
-  const allList = tab.flows || [];
-  const aIn = sumOf(allList,'in'), aOut = sumOf(allList,'out'), aDiv = sumOf(allList,'div');
-  $('fyLabel').textContent = searching ? '期間で検索中' : `${year}年`;
-  $('fyPrev').disabled = $('fyNext').disabled = searching;
+  // 年のタブ（記録のある年と今年）
+  const ys = new Set((tab.flows || []).map(f => +f.date.slice(0,4))); ys.add(thisYear); ys.add(year);
+  const yList = [...ys].sort((a,b) => a - b);
+  $('fyTabs').replaceChildren(...yList.map(y => {
+    const b = button(`${y}年`,() => { year = y; $('fyAll').checked = false; render(); });
+    b.setAttribute('role','tab');
+    const on = !allYears && !searching && y === year;
+    b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on);
+    b.disabled = searching;
+    return b;
+  }));
+  $('fyAll').disabled = searching;
+  requestAnimationFrame(() => $('fyTabs').querySelector('.on')?.scrollIntoView({inline:'nearest',block:'nearest'}));
   const line = (label, node, note, cls) => {
     const d = el('div','ib-row'+(cls ? ' '+cls : ''));
     const v = el('div','ib-val'); v.append(node); if (note) v.append(el('small',null,note));
     d.append(el('span','ib-label',label),v); return d;
   };
   const head = el('div','ib-head');
-  const range = searching ? `${from ? ymd(from) : '最初'} 〜 ${to ? ymd(to) : '最新'}` : `${year}年`;
+  const range = searching ? `${from ? ymd(from) : '最初'} 〜 ${to ? ymd(to) : '最新'}` : allYears ? 'すべての年' : `${year}年`;
   head.append(el('b',null,`${tab.name}・${range}の入出金`),el('small',null,`${list.length}件`));
   const net = inn - out, nb = el('b',null,format(net,true)); color(nb,net);
-  // 全期間の合計
-  const allHead = el('div','ib-head ib-sub');
-  const span = allList.length ? `${ymd([...allList].sort((a,b) => a.date < b.date ? -1 : 1)[0].date)} 〜` : '';
-  allHead.append(el('b',null,`${tab.name}・全期間の合計`),el('small',null,`${allList.length}件 ${span}`));
-  const an = aIn - aOut, anb = el('b',null,format(an,true)); color(anb,an);
   $('flowBox').replaceChildren(head,
     line('入金',el('b',null,yen(inn))),
     line('出金',el('b',null,yen(out))),
     line('配当・分配金',el('b',null,yen(div))),
-    line('入金 − 出金',nb,'','ib-sum'),
-    allHead,
-    line('入金（全期間）',el('b',null,yen(aIn))),
-    line('出金（全期間）',el('b',null,yen(aOut))),
-    line('配当・分配金（全期間）',el('b',null,yen(aDiv))),
-    line('入金 − 出金（全期間）',anb,'','ib-sum'));
+    line('入金 − 出金',nb,'','ib-sum'));
   const rows = $('flowRows');
   rows.replaceChildren();
   if (!list.length) {
     const r = rows.insertRow(), c = r.insertCell(); c.colSpan = 3; c.className = 'empty';
-    c.textContent = searching ? 'この期間の記録はありません。' : `${year}年の記録はありません。入出金明細の写真を読み取るか、手で追加してください。`;
+    c.textContent = searching ? 'この期間の記録はありません。' : allYears ? 'まだ記録がありません。下の枠から写真やデータを読み取るか、手で追加してください。' : `${year}年の記録はありません。下の枠から写真やデータを読み取るか、手で追加してください。`;
   }
   for (const f of list) {
     const r = rows.insertRow(); r.className = 'clickable';
@@ -1135,8 +1135,7 @@ $('flowSort').onclick = async () => {
   flowSort = ch.value; rememberUi(); render();
 };
 $('flowFrom').onchange = $('flowTo').onchange = () => render();
-$('fyPrev').onclick = () => { if (year > 1900) { year--; render(); } };
-$('fyNext').onclick = () => { if (year < 9999) { year++; render(); } };
+$('fyAll').onchange = () => render();
 $('flowClear').onclick = () => { $('flowFrom').value = ''; $('flowTo').value = ''; render(); };
 // 読み取る写真・ファイルをためておき、まとめて読み取る
 let flowQueue = [];

@@ -432,7 +432,11 @@ main,.panel,.table{min-width:0;max-width:100%}
 .q-x{position:absolute;top:2px;right:2px;min-height:24px;width:24px;padding:0;border-radius:50%;font-size:.8rem;line-height:1}
 #queueRun{justify-self:center;min-width:60%}
 
-.flow-year{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0 2px}
-.flow-year button{min-width:44px;min-height:36px;font-size:1.1rem;padding:2px 10px}
-.flow-year b{min-width:6em;text-align:center;font-size:1.05rem}
+.flow-year{display:flex;align-items:center;gap:10px;margin:10px 0 2px}
+.fy-tabs{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;padding:2px}
+.fy-tabs::-webkit-scrollbar{display:none}
+.fy-tabs button{flex:none;min-height:34px;padding:4px 14px;border-radius:999px;font-size:.86rem;font-weight:600;color:var(--soft)}
+.fy-tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.fy-all{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.fy-all input{width:20px;height:20px;min-height:0;padding:0;margin:0;accent-color:var(--accent)}
 .ib-sub{margin-top:10px;padding-top:8px;border-top:2px solid var(--line)}
