@@ -1255,6 +1255,21 @@ drop.addEventListener('dragover',e => { e.preventDefault(); drop.classList.add('
 drop.addEventListener('dragleave',() => drop.classList.remove('over'));
 drop.addEventListener('drop',e => { e.preventDefault(); drop.classList.remove('over'); queueAdd([...(e.dataTransfer?.files || [])]); });
 $('flowAdd').onclick = () => editFlow(null);
+$('flowReset').onclick = async () => {
+  let ch;
+  const cnt = i => (data.tabs[i].flows || []).length;
+  const r = await openModal('入出金リストをリセット', () => {
+    ch = choiceGroup([
+      {value:'both',label:'iDeCoとNISAの両方',desc:`iDeCo ${cnt(0)}件・NISA ${cnt(1)}件をすべて消します`},
+      {value:'0',label:'iDeCoだけ',desc:`iDeCoの入出金 ${cnt(0)}件を消します`},
+      {value:'1',label:'NISAだけ',desc:`NISAの入出金 ${cnt(1)}件を消します`}],'both');
+    return [ch.element,el('p',null,'iDeCo・NISAの拠出金や評価額などの記録は消えません。消した入出金は元に戻せないので、心配なときは先に「メニュー → データの保存・読み込み → 保存」でバックアップしてください。')];
+  }, [{label:'キャンセル',value:null},{label:'リセットする',value:'ok',cls:'danger'}]);
+  if (r !== 'ok') return;
+  const next = structuredClone(data);
+  for (const i of ch.value === 'both' ? [0,1] : [Number(ch.value)]) delete next.tabs[i].flows;
+  if (commit(next)) { render(); toast('入出金リストをリセットしました'); }
+};
 // OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
 // head：日付より前にある金額（上で切れた明細）、tail：金額のない最後の日付（下で切れた明細）
 // 区分：写真の色ラベルから付けた [[OUT]] / [[IN]] を優先。配当は「NISA」「配当」の文字で判断
@@ -1389,7 +1404,12 @@ async function importFlows(texts, prior = [], extra = []) {
   const tab = flowTab(), have = tab.flows || [];
   const isDup = f => have.some(h => h.date === f.date && h.amount === f.amount && h.type === f.type);
   const rows = [];
-  const r = await openModal(`${tab.name}の入出金を取り込む`, () => {
+  let dest = null;
+  const r = await openModal('入出金を取り込む', () => {
+    // 取り込み先（iDeCo / NISA）。NISAの明細はNISAに、iDeCoの明細はiDeCoに分けて記録する
+    dest = choiceGroup([
+      {value:0,label:'iDeCoに取り込む',desc:'iDeCoの入出金として記録'},
+      {value:1,label:'NISAに取り込む',desc:'NISA・証券口座の入出金として記録'}],flowTarget);
     const wrap = el('div','import-list');
     for (const f of found) {
       const dup = isDup(f);
@@ -1411,10 +1431,12 @@ async function importFlows(texts, prior = [], extra = []) {
       wrap.append(row);
       rows.push({ck,dIn,aIn,sel,note:f.note});
     }
-    return [el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),
+    return [el('label',null,'取り込み先'),dest.element,
+      el('p',null,`${found.length}件見つかりました。入金・出金・配当の区分と金額を確かめて、取り込む行にチェックを入れてください。`),
       ...(notes.length ? [el('p','save-scope',notes.join('。') + '。')] : []),wrap];
   }, [{label:'キャンセル',value:null},{label:'取り込む',value:'ok',cls:'primary'}]);
   if (r !== 'ok') { $('flowStatus').textContent = '取り込みをやめました。'; return; }
+  if (dest.value !== flowTarget) { flowTarget = dest.value; rememberUi(); }
   const next = structuredClone(data), t = next.tabs[flowTarget];
   t.flows = t.flows || [];
   let added = 0, skipped = 0, bad = 0;
