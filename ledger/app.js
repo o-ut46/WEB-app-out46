@@ -1121,9 +1121,40 @@ $('flowSort').onclick = async () => {
 };
 $('flowFrom').onchange = $('flowTo').onchange = () => render();
 $('flowClear').onclick = () => { $('flowFrom').value = ''; $('flowTo').value = ''; render(); };
-$('flowCamera').onclick = () => $('cameraFile').click();
+// 読み取る写真・ファイルをためておき、まとめて読み取る
+let flowQueue = [];
+const fileKey = f => f.name + '|' + f.size + '|' + f.lastModified;
+function queueAdd(files) {
+  let n = 0;
+  for (const f of files) if (!flowQueue.some(q => fileKey(q) === fileKey(f))) { flowQueue.push(f); n++; }
+  renderQueue();
+  if (n) toast(`${n}件を追加しました（全${flowQueue.length}件）`);
+  else if (files.length) toast('同じファイルはすでに入っています');
+}
+function renderQueue() {
+  const box = $('flowQueue');
+  box.hidden = !flowQueue.length;
+  $('queueCount').textContent = `読み取り待ち ${flowQueue.length}件`;
+  $('queueRun').textContent = `まとめて読み取る（${flowQueue.length}件）`;
+  const list = $('queueList');
+  list.querySelectorAll('img').forEach(i => URL.revokeObjectURL(i.src));
+  list.replaceChildren(...flowQueue.map((f,i) => {
+    const it = el('div','q-item');
+    if (/^image\//.test(f.type)) { const im = document.createElement('img'); im.src = URL.createObjectURL(f); im.alt = ''; it.append(im); }
+    else it.append(el('span','q-icon',/\.csv$/i.test(f.name) ? 'CSV' : 'TXT'));
+    it.append(el('small',null,f.name));
+    const x = button('×',() => { flowQueue.splice(i,1); renderQueue(); },'q-x');
+    x.setAttribute('aria-label',f.name + ' を外す');
+    it.append(x);
+    return it;
+  }));
+}
+$('flowPick').onclick = () => $('flowImages').click();
 $('flowPhoto').onclick = () => $('flowFile').click();
-$('flowFile').onchange = e => { const files = [...e.target.files]; e.target.value = ''; handleFlowFiles(files); };
+$('flowCamera').onclick = () => $('cameraFile').click();
+for (const id of ['flowFile','flowImages']) $(id).onchange = e => { const files = [...e.target.files]; e.target.value = ''; queueAdd(files); };
+$('queueClear').onclick = () => { flowQueue = []; renderQueue(); };
+$('queueRun').onclick = () => { const files = flowQueue; flowQueue = []; renderQueue(); handleFlowFiles(files); };
 // 写真とデータ（CSV）を振り分けて読み取る
 async function handleFlowFiles(files) {
   if (!files.length) return;
@@ -1206,7 +1237,7 @@ function parseCsvFlows(text) {
 const drop = $('flowDrop');
 drop.addEventListener('dragover',e => { e.preventDefault(); drop.classList.add('over'); });
 drop.addEventListener('dragleave',() => drop.classList.remove('over'));
-drop.addEventListener('drop',e => { e.preventDefault(); drop.classList.remove('over'); handleFlowFiles([...(e.dataTransfer?.files || [])]); });
+drop.addEventListener('drop',e => { e.preventDefault(); drop.classList.remove('over'); queueAdd([...(e.dataTransfer?.files || [])]); });
 $('flowAdd').onclick = () => editFlow(null);
 // OCR の文字から「日付 → 金額」の組を順番に取り出す（日付の行ごとに区切る）
 // head：日付より前にある金額（上で切れた明細）、tail：金額のない最後の日付（下で切れた明細）
@@ -2283,7 +2314,11 @@ $('clearOcr').onclick = closeScan;
 $('toReader').onclick = () => { if (active === 0 || active === 1) { flowTarget = active; } go(FLOWS); };
 for (const id of ['camera','photo']) {
   $(id).onclick = () => $(id+'File').click();
-  $(id+'File').onchange = scan;
+  $(id+'File').onchange = e => {
+    // 入出金リストでは撮った写真も読み取り待ちにためる
+    if (active === FLOWS) { const files = [...e.target.files]; e.target.value = ''; queueAdd(files); return; }
+    return scan(e);
+  };
 }
 
 /* ---------- 左右スライドで台帳を切り替え ---------- */

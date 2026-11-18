@@ -125,12 +125,19 @@
       <b>写真・データを読み取る</b>
       <p>入出金明細や、iDeCoの資産状況・NISAの評価額の<strong>写真</strong>、入出金の<strong>CSVファイル</strong>を読み取ってリストに加えます。</p>
       <div class="tools">
-        <button id="flowCamera" type="button">カメラで読み取り</button>
-        <button id="flowPhoto" type="button" class="primary">写真・ファイルを選ぶ（複数可）</button>
+        <button id="flowPick" type="button">写真から選ぶ（複数）</button>
+        <button id="flowPhoto" type="button">ファイルから選ぶ（複数）</button>
+        <button id="flowCamera" type="button">カメラで撮る</button>
         <button id="flowAdd" type="button">＋ 手で追加</button>
       </div>
-      <small>iPadやパソコンでは、ここに写真やファイルをドラッグ＆ドロップできます。</small>
+      <div id="flowQueue" class="queue" hidden>
+        <div class="q-head"><b id="queueCount"></b><button id="queueClear" type="button">選び直す</button></div>
+        <div id="queueList" class="q-list"></div>
+        <button id="queueRun" type="button" class="primary">まとめて読み取る</button>
+      </div>
+      <small>写真・ファイル・カメラを何回かに分けて選んでも、ここにたまっていきます。そろったら「まとめて読み取る」を押してください。iPadやパソコンではドラッグ＆ドロップもできます。</small>
       <input id="flowFile" type="file" accept="image/*,.csv,text/csv,.txt,text/plain" multiple hidden>
+      <input id="flowImages" type="file" accept="image/*" multiple hidden>
     </div>
     <p id="flowStatus" class="calc" role="status" hidden></p>
   </section>
