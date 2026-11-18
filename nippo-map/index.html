@@ -22,12 +22,13 @@ header h1{font-size:16px;margin:0}
 .btn.ghost{background:#eef0f3;color:var(--ink)}
 .chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600}
 .chip.on{background:#fff;color:var(--ink);border-color:#fff}
-.ln{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}.ln.b{background:#1f6fe0}.ln.r{background:#e03131}
+.ln{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}.ln.b{background:#1f6fe0}.ln.r{background:repeating-linear-gradient(90deg,#1f6fe0 0 4px,transparent 4px 7px)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
 #mapBox{position:relative;flex:1;min-height:240px}
 #map{position:absolute;inset:0}
-.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:baseline;pointer-events:none}
-.clock b{font-size:20px;font-variant-numeric:tabular-nums}
+.clock{position:absolute;left:54px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:12px;display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
+#cdate{font-weight:700;font-size:13px}
+.clock b{font-size:24px;font-variant-numeric:tabular-nums}
 .fit{position:absolute;right:10px;bottom:24px;z-index:500}
 .panel{background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 8px rgba(0,0,0,.06)}
 .panel .ctl{display:flex;gap:6px;align-items:center}
@@ -55,7 +56,7 @@ input[type=range]{width:100%;margin:10px 0 0}
 </head>
 <body>
 <header>
-  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><button class="btn" id="bDate">日付 ▼</button></div>
+  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button></div></div>
   <div class="row">
     <button class="btn" id="bBand">時間帯：すべて ▼</button>
     <button class="btn" id="bTile">地図：地理院（淡色） ▼</button>
@@ -69,7 +70,7 @@ input[type=range]{width:100%;margin:10px 0 0}
 </header>
 <div id="mapBox">
   <div id="map"></div>
-  <div class="clock"><b id="clk">--:--</b><span id="st"></span></div>
+  <div class="clock"><div id="cdate">--/--</div><b id="clk">--:--:--</b><div><span id="st"></span>　<span id="el"></span></div></div>
   <button class="btn l fit" id="bFit">全体</button>
   <div class="empty" id="empty" hidden>表示する日報がありません。<br>「O-UT 乗務日報リーダー」の地図タブにある<br>「詳しい地図で開く」から開いてください。</div>
 </div>
@@ -147,9 +148,9 @@ const carIcon=L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[1
 const ringIcon=L.divIcon({className:"",html:'<div class="ring"></div>',iconSize:[26,26],iconAnchor:[13,13]});
 const car=L.marker([0,0],{icon:carIcon,interactive:false,zIndexOffset:2000});
 const ring=L.marker([0,0],{icon:ringIcon,interactive:false});
-const LC={occ:"#1f6fe0",occDone:"#0b3d8c",emp:"#e03131",empDone:"#8f1414"};
+const LC={occ:"#1f6fe0",occDone:"#0b3d8c",emp:"#1f6fe0",empDone:"#0b3d8c"};
 const curLine=L.polyline([],{color:LC.occ,weight:5,opacity:1,lineCap:"round"});
-const curEmpty=L.polyline([],{color:LC.emp,weight:5,opacity:1,lineCap:"round"});
+const curEmpty=L.polyline([],{color:LC.emp,weight:5,opacity:1,lineCap:"round",dashArray:"10 8"});
 
 function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml,e.me].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine,curEmpty].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
 function loadDay(d){
@@ -167,7 +168,7 @@ function loadDay(d){
   }).filter(e=>e.onR!=null).sort((a,b)=>a.onR-b.onR);
   // 空車の線：降車地 → 次の乗車地
   st.ev.forEach((e,i)=>{ const n=st.ev[i+1]; e.next=n||null;
-    if(n && e.ct && n.cf){ e.epath=[e.ct,n.cf]; e.me=L.polyline(e.epath,{color:LC.empDone,weight:4,opacity:.5,lineCap:"round"}); } });
+    if(n && e.ct && n.cf){ e.epath=[e.ct,n.cf]; e.me=L.polyline(e.epath,{color:LC.empDone,weight:4,opacity:.5,lineCap:"round",dashArray:"8 7"}); } });
   st.brk=(d.b||[]).map(([s,e])=>{ const a=rel(s,base), b0=rel(e,base); return a==null||b0==null?null:{s:a,e:b0<a?b0+1440:b0}; }).filter(Boolean);
   let end=d.ret?rel(d.ret,base):0; st.ev.forEach(e=>end=Math.max(end,e.offR||0)); st.end=Math.max(60,end||0);
   $("#sl").max=st.end; $("#t0").textContent=hm(base); $("#t1").textContent=hm(base+st.end);
@@ -217,7 +218,11 @@ function render(){
     curEmpty.setLatLngs(r.drawn); carPos=r.pos; show(curEmpty, st.layers.empty);
   } else show(curEmpty,false);
   if(carPos){ car.setLatLng(carPos); show(car,true); } else show(car,false);
-  $("#clk").textContent=hm(st.base+T);
+  { const abs=st.base+T, off=Math.floor(abs/1440), sec=Math.floor(abs*60)%86400;
+    const [y,mo,dd]=st.day.d.split("-").map(Number); const dt=new Date(y,mo-1,dd+off);
+    $("#cdate").textContent=`${dt.getMonth()+1}/${dt.getDate()}(${WD[dt.getDay()]})`;
+    $("#clk").textContent=`${pad(Math.floor(sec/3600))}:${pad(Math.floor(sec/60)%60)}:${pad(sec%60)}`;
+    const es=Math.floor(T*60); $("#el").textContent=`出庫から ${Math.floor(es/3600)}:${pad(Math.floor(es/60)%60)}`; }
   const brk=st.brk.some(b=>T>=b.s&&T<b.e);
   $("#st").textContent= cur?`実車中 No.${cur.no??""}`:brk?"休憩中":"空車";
   const info = cur || st.ev.find(e=>e.no===st.sel) || [...st.ev].reverse().find(e=>inBand(e)&&T>=e.offR);
@@ -258,11 +263,13 @@ $("#bSpeed").textContent=`速さ：${SPEEDS[pref.speed]?.[0]||"普通"} ▼`;
 $("#bDate").onclick=()=>{
   const days=loadDays(); const ks=Object.keys(days).sort().reverse();
   if(!ks.length) return;
-  sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>loadDay(days[k])})),
+  sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>{ loadDay(days[k]); st.T=0; play(); }})),
     {label:"この端末の記録を消す",cls:"ghost",fn:()=>{ saveDays({}); }}],
     `<div style="color:var(--sub);font-size:13px;margin-bottom:10px">日報リーダーから開いた日がこの端末に残ります。</div>`);
 };
 
+function stepDay(k){ const days=loadDays(); const ks=Object.keys(days).sort(); const i=ks.indexOf(st.day?.d); const n=ks[i+k]; if(!n) return; loadDay(days[n]); st.T=0; play(); }
+$("#bPrev").onclick=()=>stepDay(-1); $("#bNext").onclick=()=>stepDay(1);
 /* ---------- 起動 ---------- */
 async function start(){
   const h=location.hash.slice(1);
@@ -270,7 +277,7 @@ async function start(){
   if(h){
     try{
       const d=await decode(h);
-      if(d && d.d){ days[d.d]=d; saveDays(days); loadDay(d); history.replaceState(null,"",location.pathname); return; }
+      if(d && d.d){ days[d.d]=d; saveDays(days); loadDay(d); history.replaceState(null,"",location.pathname); st.T=0; play(); return; }
     }catch(e){ $("#info").innerHTML=`<div class="s" style="color:var(--red)">データを読み込めませんでした（${esc(e.message||e)}）</div>`; }
   }
   const ks=Object.keys(days).sort();
