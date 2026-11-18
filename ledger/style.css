@@ -448,3 +448,5 @@ main,.panel,.table{min-width:0;max-width:100%}
 .sync-banner p{line-height:1.6}
 .sb-btns{display:flex;gap:8px;justify-content:flex-end}
 .sb-btns button{min-height:34px;padding:4px 12px;font-size:.82rem}
+.big{min-height:48px;font-size:1rem;font-weight:700}
+#modalBody > button{width:100%}

@@ -1984,14 +1984,33 @@ async function saveToFolder(name, content, type, remember) {
       return 'folder';
     } catch (e) { if (e.name === 'AbortError') return null; }
   }
-  if (isTouchApple && navigator.canShare) {
-    const file = new File([blob],name,{type});
-    if (navigator.canShare({files:[file]})) {
-      try { await navigator.share({files:[file],title:name}); return 'share'; }
-      catch (e) { if (e.name === 'AbortError') return null; }
-    }
+  if (navigator.share && navigator.canShare) {
+    // iPhone/iPad：共有メニューの「"ファイル"に保存」でフォルダを選ぶ。
+    // 共有メニューはボタンを押したその場でしか開けないため、専用のボタンを出して押してもらう
+    let file = new File([blob],name,{type});
+    if (!navigator.canShare({files:[file]})) file = new File([blob],name,{type:'text/plain'});
+    if (navigator.canShare({files:[file]})) return await pickFolderByShare(file,name,content,type);
   }
   return await download(name,content,type) ? 'download' : null;
+}
+function pickFolderByShare(file, name, content, type) {
+  return new Promise(res => {
+    let done = false;
+    const resolve = v => { if (!done) { done = true; res(v); } };
+    openModal('保存先を選ぶ', finish => {
+      const go = button('保存先を選ぶ',() => {
+        // ここで直接共有メニューを開く（押した瞬間に呼ぶ必要がある）
+        navigator.share({files:[file]}).then(() => { finish(null); resolve('share'); })
+          .catch(e => { if (e.name !== 'AbortError') { toast('共有メニューを開けませんでした。ダウンロードで保存します'); finish(null); download(name,content,type).then(ok => resolve(ok ? 'download' : null)); } });
+      },'primary big');
+      const dl = button('ダウンロードフォルダに保存',() => { finish(null); download(name,content,type).then(ok => resolve(ok ? 'download' : null)); });
+      return [el('p',null,`「${name}」を保存します。`),
+        el('p','save-scope',isTouchApple
+          ? '「保存先を選ぶ」を押すと共有メニューが開きます。一覧の下の方にある「"ファイル"に保存」を選び、保存するフォルダ（iCloud Drive の中のフォルダなど）を選んで「保存」を押してください。'
+          : '「保存先を選ぶ」で共有メニューが開きます。フォルダを選んで保存したいときは「ダウンロードフォルダに保存」を選び、ブラウザの設定で保存場所を「毎回確認」にしてください。'),
+        go,dl];
+    }, [{label:'キャンセル',value:'cancel'}]).then(v => { if (v === 'cancel') resolve(null); else setTimeout(() => resolve(null),60000); });
+  });
 }
 function showSyncBanner(kind, text) {
   const bn = $('syncBanner');
