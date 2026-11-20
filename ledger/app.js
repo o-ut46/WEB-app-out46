@@ -802,7 +802,8 @@ function renderAccount() {
   $('accountMeta').textContent = (schNow ? '拠出金 毎月 '+yen(schNow)+' ・ ' : tab.plan ? '毎月 '+yen(tab.plan)+' ・ ' : '') +
     (isIdeco(active) ? '損益は写真から' : mode === 'cum' ? '評価損益から計算' : '月間損益を直接入力');
   $('subtotal').textContent = `${year}年：投資 ${yen(ys.amount)} ／ 損益 ${format(ys.profit,true)}　｜　累計元本 ${yen(all.amount)}`;
-  const nisa = isNisa(active), sel = $('month'), hasAll = sel.options[0]?.value === 'all';
+  // NISA・iDeCo は対象月に「毎月」（その年の1月から毎月同じ額）を選べる
+  const nisa = isNisa(active) || isIdeco(active), sel = $('month'), hasAll = sel.options[0]?.value === 'all';
   if (nisa && !hasAll) sel.add(new Option('毎月','all'),0);
   if (!nisa && hasAll) sel.remove(0);
   if (!nisa && month === 'all') month = String(now.getMonth()+1).padStart(2,'0');
@@ -811,21 +812,26 @@ function renderAccount() {
   const record = tab.months[k];
   const ideco = isIdeco(active);
   $('amountLabel').textContent = ideco ? '拠出金（円）' : '投資額（円）';
-  $('changeBox').hidden = !ideco;
+  $('changeBox').hidden = true;   // 「変更」のチェックは使わない（「毎月」で代わりに設定）
   $('amountHead').textContent = ideco ? '拠出金' : '投資額';
-  if (!ideco) $('change').checked = false;
+  $('change').checked = false;
   $('month').disabled = false;   // iDeCoもNISAと同じく、いつでも月を選べる
   $('entry').classList.toggle('changing',ideco && $('change').checked);
 
   // 投資額（未入力なら積立額を仮入力）
   const amount = $('amount');
-  if (ideco) {
+  if (ideco && every) {
+    const sch = scheduled(tab,year+'-12');
+    amount.value = sch ? sch.toLocaleString('ja-JP') : '';
+    amount.classList.remove('prefill');
+    $('amountHint').textContent = `${year}年1月から毎月この金額（個別に変えた月はそのまま）`;
+  } else if (ideco) {
     const sch = scheduled(tab,k);
     amount.value = $('change').checked ? (sch ? sch.toLocaleString('ja-JP') : '') : record ? record.amount.toLocaleString('ja-JP') : sch ? sch.toLocaleString('ja-JP') : '';
     amount.classList.toggle('prefill',!record && !!sch && !$('change').checked);
     $('amountHint').textContent = $('change').checked
       ? `${year}年${Number(month)}月から、この金額に変わります`
-      : sch ? `毎月 ${yen(sch)}（自動で反映）` : '月を選んで拠出金を入力（「変更」にチェックすると、その月から先の毎月の額を変えます）';
+      : sch ? `毎月 ${yen(sch)}（自動で反映・変えるとこの月だけ変更）` : '月を選んで拠出金を入力（対象月で「毎月」を選ぶと、毎月の額をまとめて設定）';
   } else if (every) {
     const sch = scheduled(tab,year+'-12') ?? tab.plan;
     amount.value = sch ? sch.toLocaleString('ja-JP') : '';
@@ -1733,7 +1739,7 @@ $('entry').onsubmit = event => {
   if (ideco) {
     const next = structuredClone(data);
     const t = next.tabs[0];
-    const setting = changing || !tab.schedule?.length;
+    const setting = changing;
     if (setting) {
       t.schedule = [...(t.schedule || []).filter(x => x.from < k),{from:k,amount}];
       for (const key of Object.keys(t.months)) if (key >= k) t.months[key].amount = amount;
