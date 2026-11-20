@@ -868,6 +868,7 @@ function renderAccount() {
   if (ideco) {
     $('profitField').hidden = $('cumField').hidden = $('baseField').hidden = true;
     $('cumHead').hidden = true;
+    $('worthHead').hidden = false; $('worthHead').textContent = '資産合計';   // iDeCo は「評価額」ではなく資産合計
     $('legValue').textContent = '資産合計（取込月）'; $('legBase').textContent = '拠出金累計（逆算）';
     renderIdecoTable(tab);
     $('accountChart').replaceChildren(...drawIdecoChart(tab,$('accountChart').clientWidth));
@@ -877,7 +878,7 @@ function renderAccount() {
   $('idecoBox').hidden = true;
   const nisaWorth = isNisa(active);
   if (nisaWorth) renderNisaBox(tab);
-  $('worthHead').hidden = !nisaWorth;
+  $('worthHead').hidden = !nisaWorth; $('worthHead').textContent = '評価額';
   $('legValue').textContent = '評価（元本＋損益）'; $('legBase').textContent = '投資元本';
   const rows = $('rows');
   rows.replaceChildren();
@@ -995,6 +996,9 @@ function renderIdecoTable(tab) {
     ac.onclick = e => { e.stopPropagation(); editAmount(key); };
     const pl = monthEvalField(tab,key,'value');   // その月に取り込んだ最新の損益（なければ空白）
     if (pl !== null) cell(r,format(pl,true),pl); else cell(r,'');
+    // 資産合計＝その月に取り込んだ拠出金累計＋損益（なければ空白）
+    const tt = monthEvalField(tab,key,'total');
+    cell(r,tt !== null && pl !== null ? yen(tt + pl) : '');
   }
   const t = rows.parentElement;
   t.deleteTFoot();
@@ -1003,7 +1007,7 @@ function renderIdecoTable(tab) {
   const when = d => d.slice(0,4) < String(year) ? `${d.slice(0,4)}年から繰越` : `${md(d)} 時点`;
   const f = foot.insertRow();
   cell(f,year+'年の拠出金');
-  const c0 = f.insertCell(); c0.colSpan = 2; c0.append(el('b',null,yen(total)));
+  const c0 = f.insertCell(); c0.colSpan = 3; c0.append(el('b',null,yen(total)));
   // 読み取った拠出金累計と損益（翌年は前年の値を繰り越して表示）
   const tt = latestTotal(tab,year+'-12-31'), ev = latestEval(tab,year+'-12-31');
   const box = $('idecoBox');
