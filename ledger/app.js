@@ -799,7 +799,7 @@ function renderAccount() {
   $('changeBox').hidden = !ideco;
   $('amountHead').textContent = ideco ? '拠出金' : '投資額';
   if (!ideco) $('change').checked = false;
-  $('month').disabled = ideco && !$('change').checked;
+  $('month').disabled = false;   // iDeCoもNISAと同じく、いつでも月を選べる
   $('entry').classList.toggle('changing',ideco && $('change').checked);
 
   // 投資額（未入力なら積立額を仮入力）
@@ -810,7 +810,7 @@ function renderAccount() {
     amount.classList.toggle('prefill',!record && !!sch && !$('change').checked);
     $('amountHint').textContent = $('change').checked
       ? `${year}年${Number(month)}月から、この金額に変わります`
-      : sch ? `毎月 ${yen(sch)}（自動で反映）` : '「変更」にチェックして開始月を選び、拠出金を入力';
+      : sch ? `毎月 ${yen(sch)}（自動で反映）` : '月を選んで拠出金を入力（「変更」にチェックすると、その月から先の毎月の額を変えます）';
   } else if (every) {
     const sch = scheduled(tab,year+'-12') ?? tab.plan;
     amount.value = sch ? sch.toLocaleString('ja-JP') : '';
@@ -1719,7 +1719,7 @@ $('entry').onsubmit = event => {
     }
     if (commit(next)) {
       closeScan();
-      if (changing) { $('change').checked = false; if (year === thisYear) month = String(now.getMonth()+1).padStart(2,'0'); }
+      if (changing) $('change').checked = false;
       render();
       toast(setting ? `${year}年${Number(k.slice(5))}月から拠出金を ${yen(amount)} にしました` : `${year}年${Number(k.slice(5))}月の拠出金を保存しました`);
     }
@@ -1739,13 +1739,12 @@ $('entry').onsubmit = event => {
   recalc(t);
   if (commit(next)) {
     closeScan();
-    if (changing) { $('change').checked = false; if (year === thisYear) month = String(now.getMonth()+1).padStart(2,'0'); }
+    if (changing) $('change').checked = false;
     render();
     toast(ideco && (changing || !tab.schedule?.length) ? `${year}年${Number(month)}月から拠出金を ${yen(amount)} にしました` : `${year}年${Number(month)}月を保存しました`);
   }
 };
 $('change').onchange = () => {
-  if (!$('change').checked) month = year === thisYear ? String(now.getMonth()+1).padStart(2,'0') : month;
   render();
   if ($('change').checked) $('month').focus();
 };
