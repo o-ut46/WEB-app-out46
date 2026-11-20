@@ -426,17 +426,32 @@ function latestTotal(tab, upto = '9999-12-31') {
 }
 function monthsOf(tab) {
   const ideco = tab === data.tabs[0] || tab.name === 'iDeCo';
-  if (!ideco && !tab.schedule?.length) return tab.months;
+  const nisaFlows = !ideco && tab.name === 'NISA' && tab.flows?.length;
+  if (!ideco && !tab.schedule?.length && !nisaFlows) return tab.months;
   if (effCache.has(tab)) return effCache.get(tab);
   if (!ideco) {
     // NISA など：「毎月」の投資額を今月まで自動で反映（個別に入れた月はそのまま）
     const out = {...tab.months};
-    let [y,m] = tab.schedule[0].from.split('-').map(Number);
-    for (let i=0;i<1200;i++) {
-      const k = mk(y,m);
-      if (k > nowKey) break;
-      if (!out[k]) { const a = scheduled(tab,k); if (a) out[k] = {amount:a,profit:0,auto:true}; }
-      if (++m > 12) { m = 1; y++; }
+    if (tab.schedule?.length) {
+      let [y,m] = tab.schedule[0].from.split('-').map(Number);
+      for (let i=0;i<1200;i++) {
+        const k = mk(y,m);
+        if (k > nowKey) break;
+        if (!out[k]) { const a = scheduled(tab,k); if (a) out[k] = {amount:a,profit:0,auto:true}; }
+        if (++m > 12) { m = 1; y++; }
+      }
+    }
+    if (nisaFlows) {
+      // NISA：入出金リストの記録がある月は、その月の「入金 − 出金」を投資額にする（配当は含めない）
+      const byMonth = {};
+      for (const f of tab.flows) {
+        if (f.type === 'div') continue;
+        const k = f.date.slice(0,7), b = byMonth[k] || (byMonth[k] = {in:0,out:0,n:0});
+        b[f.type] += f.amount; b.n++;
+      }
+      for (const [k,b] of Object.entries(byMonth)) {
+        out[k] = {amount:b.in - b.out,profit:tab.months[k]?.profit ?? 0,fromFlows:b};
+      }
     }
     effCache.set(tab,out);
     return out;
@@ -878,6 +893,14 @@ function renderAccount() {
     if (planned) {
       tapAmount(cell(r,yen(planned))).classList.add('empty');
       cell(r,'予定').className = 'empty';
+      if (showCum) cell(r,'—').className='empty';
+    } else if (saved?.fromFlows) {
+      const c = cell(r,'');
+      c.append(el('span',null,yen(saved.amount)),el('small','code',`入出金 ${saved.fromFlows.n}件`));
+      c.title = `入金 ${yen(saved.fromFlows.in)} − 出金 ${yen(saved.fromFlows.out)}（入出金リストから）`;
+      c.classList.add('tap-amount');
+      c.onclick = e => { e.stopPropagation(); flowTarget = 1; rememberUi(); $('flowFrom').value = key + '-01'; $('flowTo').value = key + '-' + String(new Date(+key.slice(0,4),+key.slice(5),0).getDate()).padStart(2,'0'); go(FLOWS); };
+      if (saved.profit || tab.months[key]) cell(r,format(saved.profit,true),saved.profit); else cell(r,'未入力').className = 'empty';
       if (showCum) cell(r,'—').className='empty';
     } else if (saved) {
       tapAmount(cell(r,yen(saved.amount)));
