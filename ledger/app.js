@@ -1088,8 +1088,53 @@ function render() {
 const flowTab = () => data.tabs[flowTarget];
 const flowId = () => 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 const ymd = d => `${d.slice(0,4)}/${d.slice(5,7)}/${d.slice(8)}`;
+// 入出金リストの上：読み取った資産の最新と、これまでの読み取り（新しい順）
+function renderFlowAsset(tab) {
+  const box = $('flowAsset');
+  const order = (a,b) => (b.at || 0) - (a.at || 0) || (a.date < b.date ? 1 : -1);
+  const line = (label, node, note, cls) => {
+    const d = el('div','ib-row'+(cls ? ' '+cls : ''));
+    const v = el('div','ib-val'); v.append(node); if (note) v.append(el('small',null,note));
+    d.append(el('span','ib-label',label),v); return d;
+  };
+  const md = d => d.replaceAll('-','/');
+  const head = el('div','ib-head');
+  const parts = [head];
+  const table = (cols, rows) => {
+    const wrap = el('div','table asset-hist');
+    const t = document.createElement('table');
+    const hr = t.createTHead().insertRow();
+    cols.forEach(c => { const th = document.createElement('th'); th.textContent = c; hr.append(th); });
+    const tb = t.createTBody();
+    rows.forEach(r => { const tr = tb.insertRow(); r.forEach(([txt,n]) => cell(tr,txt,n)); });
+    wrap.append(t); return wrap;
+  };
+  if (flowTarget === 0) {
+    const tt = latestTotal(tab), ev = latestEval(tab);
+    head.append(el('b',null,'iDeCo：読み取った最新の資産状況'),el('small',null,tt || ev ? md((tt && ev ? (newer(tt,ev) ? tt : ev) : tt || ev).date) + ' 時点' : ''));
+    if (!tt && !ev) { parts.push(el('p','sub','まだ読み取っていません。iDeCoの「資産状況」の画面（拠出金累計・損益が写っているもの）を下の枠から読み取ると、ここに最新が表示されます。')); }
+    else {
+      let pb = el('b',null,ev ? format(ev.value,true) : '—'); if (ev) color(pb,ev.value);
+      parts.push(line('拠出金累計',el('b',null,tt ? yen(tt.total) : '—')),line('損益',pb),
+        line('資産合計',el('b',null,tt && ev ? yen(tt.total + ev.value) : '—'),tt && ev && tt.total ? '損益率 ' + pct(ev.value/tt.total) : '','ib-sum'));
+      const hist = [...(tab.evals || [])].sort(order);
+      if (hist.length > 1) parts.push(el('small','sub','これまでの読み取り'),table(['日付','拠出金累計','損益','合計'],hist.map(e => [[e.date.slice(2).replaceAll('-','/')],[e.total !== undefined ? yen(e.total) : '—'],[e.value !== undefined ? format(e.value,true) : '—',e.value],[e.total !== undefined && e.value !== undefined ? yen(e.total + e.value) : '—']])));
+    }
+  } else {
+    const w = latestField(tab,'worth');
+    head.append(el('b',null,'NISA：読み取った最新の評価額'),el('small',null,w ? md(w.date) + ' 時点' : ''));
+    if (!w) parts.push(el('p','sub','まだ読み取っていません。証券会社の資産（評価額）の画面を下の枠から読み取ると、ここに最新が表示されます。'));
+    else {
+      parts.push(line('評価額',el('b',null,yen(w.worth)),'','ib-sum'));
+      const hist = (tab.evals || []).filter(e => e.worth !== undefined).sort(order);
+      if (hist.length > 1) parts.push(el('small','sub','これまでの読み取り'),table(['日付','評価額'],hist.map(e => [[md(e.date)],[yen(e.worth)]])));
+    }
+  }
+  box.replaceChildren(...parts);
+}
 function renderFlows() {
   const tab = flowTab();
+  renderFlowAsset(tab);
   document.querySelectorAll('#flowSeg button').forEach(b => { const on = Number(b.dataset.ft) === flowTarget; b.setAttribute('aria-selected',String(on)); b.classList.toggle('on',on); });
   // iDeCo はブルー系、NISA は白系を背景に混ぜる
   document.body.classList.toggle('flow-ideco',flowTarget === 0);

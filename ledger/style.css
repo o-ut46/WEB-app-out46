@@ -450,3 +450,7 @@ main,.panel,.table{min-width:0;max-width:100%}
 .sb-btns button{min-height:34px;padding:4px 12px;font-size:.82rem}
 .big{min-height:48px;font-size:1rem;font-weight:700}
 #modalBody > button{width:100%}
+#flowAsset{margin-top:10px}
+.asset-hist{margin:4px 0 0}
+.asset-hist td,.asset-hist th{font-size:.8rem;padding:5px 4px}
+.asset-hist td,.asset-hist th{font-size:.74rem;padding:5px 3px;letter-spacing:-.01em}
