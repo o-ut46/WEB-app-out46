@@ -327,7 +327,7 @@ def eplus_list(path, cat, maxpages, limit_days, pstyle="/p{}"):
             title, venue = L[k], L[k + 1] if k + 1 < len(L) else ""
             if not venue.endswith("(東京都)"): continue  # 東京都内の会場だけ
             tl = L[k + 2] if k + 2 < len(L) else ""
-            a = re.search(r"(開演|お食事|ディナー|開始)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
+            a = re.search(r"(開演|お食事|ディナー|試合開始|開始)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
             o = re.search(r"(開場|受付)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
             d = iso(L[i][:4], md[1], md[2]); last = d
             e = ev(d, title, venue[:-5], "", hhmm(a[2], a[3]) if a else "", "", cat, "イープラス", f"https://eplus.jp/sf/{path}")
@@ -344,6 +344,7 @@ def eplus_list(path, cat, maxpages, limit_days, pstyle="/p{}"):
     return res
 def dinner(): return eplus_list("event/dinner-show/tokyo", "ディナーショー", 8, 400, "?page={}")
 def stage(): return eplus_list("play/kanto/tokyo", "舞台", 45, 60)
+def sports(): return eplus_list("sports/kanto/tokyo", "スポーツ", 15, 120)
 
 def main():
     prev = {}
@@ -356,7 +357,7 @@ def main():
     for name, fn in [("bigsight", bigsight), ("dome", lambda: dome_like("dome/event/schedule.html", "東京ドーム", "文京区後楽", "東京ドーム")),
                      ("hall", lambda: dome_like("hall/event", "後楽園ホール", "文京区後楽", "後楽園ホール")),
                      ("ariake", ariake), ("garden", garden), ("forum", forum),
-                     ("zepp", zepp), ("dinner", dinner), ("stage", stage),
+                     ("zepp", zepp), ("dinner", dinner), ("stage", stage), ("sports", sports),
                      ("walker", lambda: walker(wcache)), ("cruise", lambda: cruise(ccache))]:
         try:
             r = fn(); src[name] = r; log(name, len(r), r[:2])
@@ -366,10 +367,10 @@ def main():
     old = {}
     for e in prev.get("events", []): old.setdefault(e.get("k"), []).append(e)
     events = []
-    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "zepp", "dinner", "stage", "walker", "cruise"]:
+    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "zepp", "dinner", "stage", "sports", "walker", "cruise"]:
         r = src.get(name)
         if not r: r = old.get(name, [])
-        elif name in ("walker", "cruise", "dinner", "stage"):
+        elif name in ("walker", "cruise", "dinner", "stage", "sports"):
             # 取得が不安定な情報源は、今回見つからなかった前回分も残す
             key = lambda e: (e.get("d"), e.get("t"), e.get("s"), e.get("v"))
             have = {key(e) for e in r}

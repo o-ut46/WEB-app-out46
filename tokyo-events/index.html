@@ -102,6 +102,7 @@ function kindOf(e){
   if(e.k==="cruise") return "cruise";
   if(e.k==="dinner"||/ディナーショー|ディナー\s*(&|＆|・)?\s*(コンサート|ショー|ライブ)|Dinner Show|Dinner Concert/i.test(c)) return "dinner";
   if(e.k==="zepp") return "live";
+  if(e.k==="sports") return "sports";
   if(e.k==="stage"||/舞台|演劇|ミュージカル|歌舞伎|宝塚|落語|狂言|文楽|バレエ|オペラ/.test(c)) return "stage";
   if(e.k==="bigsight"||/展示会|見本市|EXPO|エキスポ|フェア/.test(c)) return "expo";
   if(/野球|プロレス|ボクシング|格闘|スポーツ|バスケ|バレー|相撲|試合/.test(c)||e.k==="hall") return "sports";
@@ -161,7 +162,7 @@ function timeHtml(e,d){
     return out.join("");
   }
   if(e.o) out.push(`<span>${esc(e.ol||"開場")} ${e.o}</span>`);
-  out.push(e.s?`<span class="s">${esc(e.sl||(["dome","ariake","hall","zepp","dinner","garden","stage"].includes(e.k)?"開演":"開始"))} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
+  out.push(e.s?`<span class="s">${esc(e.sl||(["dome","ariake","hall","zepp","dinner","garden","stage","sports"].includes(e.k)?"開演":"開始"))} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
   out.push(e.x?`<span class="s">終了予定 ${e.x}</span>`:`<span class="n">終了予定 未発表</span>`);
   if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)}</span>`);
   return out.join("");
@@ -186,7 +187,7 @@ function pageHtml(d){
     (long.length?`<div class="sec">期間中の展示・イベント（${long.length}件）</div>${long.map(e=>card(e,d)).join("")}`:"")+foot();
 }
 function foot(){
-  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・Zepp・東京港客船ターミナル）、イープラス（ディナーショー・舞台）、ウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
+  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・Zepp・東京港客船ターミナル）、イープラス（ディナーショー・舞台・スポーツ）、ウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
 }
 const track=$("#track");
 function render(dir){
