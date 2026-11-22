@@ -54,6 +54,8 @@ h1{font-size:16px;margin:0}
 .sheet{background:#fff;width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 .sheet h2{font-size:16px;margin:0 0 10px}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grid small{font-weight:400;font-size:11px;opacity:.8}
+.ym .btn{padding:9px 6px}
 .acts{display:flex;flex-direction:column;gap:8px}
 .acts .btn,.grid .btn{padding:12px 6px}
 .btn:disabled{opacity:.35}
@@ -70,7 +72,7 @@ h1{font-size:16px;margin:0}
 <body>
 <header>
   <div class="t"><h1>東京イベント＆クルーズ</h1></div>
-  <div class="ym"><button class="btn" id="bYear">2026年 ▼</button><button class="btn" id="bMonth">11月 ▼</button><button class="btn" id="bToday">今日</button></div>
+  <div class="ym"><button class="btn" id="bYear">2026年 ▼</button><button class="btn" id="bMonth">11月 ▼</button><button class="btn" id="bHour">🕒 時間 ▼</button><button class="btn" id="bToday">今日</button></div>
 </header>
 <nav class="tabs" id="tabs"></nav>
 <div class="dbar">
@@ -151,7 +153,23 @@ function renderTabs(){
 }
 
 /* ---------- 一覧 ---------- */
-function forDay(d,k){ return events.filter(e=>e.d<=d && e.e>=d && (k==="all"||kindOf(e)===k)); }
+let hour=null;
+try{ const v=localStorage.getItem("out-tev-hour"); hour=v===null||v===""?null:+v; }catch(e){}
+const hh=t=>t?parseInt(t.slice(0,2),10):null;
+// その日に有効な開始・終了の時刻（クルーズは入港日・出港日だけ）
+function startOn(e,d){ return e.k==="cruise"&&d!==e.d?"":e.s; }
+function endOn(e,d){ return e.k==="cruise"&&d!==e.e?"":e.x; }
+function hitStart(e,d){ return hour!==null && hh(startOn(e,d))===hour; }
+function hitEnd(e,d){ return hour!==null && hh(endOn(e,d))===hour; }
+function forDay(d,k){ return events.filter(e=>e.d<=d && e.e>=d && (k==="all"||kindOf(e)===k) && (hour===null||hitStart(e,d)||hitEnd(e,d))); }
+$("#bHour").onclick=()=>{
+  const cnt=h=>{ const keep=hour; hour=h; const n=forDay(cur,kind).length; hour=keep; return n; };
+  const html=`<div class="grid">${Array.from({length:24},(_,h)=>`<button class="btn ${h===hour?"acc":"sub"}" data-h="${h}">${h}時<br><small>${cnt(h)}件</small></button>`).join("")}</div>
+    <div style="color:var(--sub);font-size:12px;margin-top:10px">選んだ時間（例：18時＝18:00〜18:59）に<b>始まるもの</b>と<b>終わるもの</b>を両方表示します。時刻が未発表のものは出ません。</div>`;
+  sheet("時間で絞り込む",html,[{label:"すべての時間に戻す",cls:hour===null?"acc":"sub",fn:()=>setHour(null)},{label:"やめる",cls:"ghost"}]);
+  $("#sheet").querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ close(); setHour(+b.dataset.h); });
+};
+function setHour(h){ hour=h; try{ localStorage.setItem("out-tev-hour", h===null?"":String(h)); }catch(e){} render(0); }
 function timeHtml(e,d){
   const out=[];
   const multi=e.d!==e.e;
@@ -179,7 +197,14 @@ function card(e,d){
 function pageHtml(d){
   const list=forDay(d,kind);
   if(!events.length) return `<div class="empty">読み込み中…</div>`;
-  if(!list.length) return `<div class="empty">この日の${kind==="all"?"":esc(KINDS[kind])+"の"}情報はありません。</div>${foot()}`;
+  if(!list.length) return `<div class="empty">この日${hour!==null?`の${hour}時台に始まる・終わる`:"の"}${kind==="all"?"":esc(KINDS[kind])+"の"}情報はありません。</div>${foot()}`;
+  if(hour!==null){
+    const byS=(a,b)=>startOn(a,d).localeCompare(startOn(b,d))||a.t.localeCompare(b.t);
+    const byE=(a,b)=>endOn(a,d).localeCompare(endOn(b,d))||a.t.localeCompare(b.t);
+    const st=list.filter(e=>hitStart(e,d)).sort(byS), en=list.filter(e=>hitEnd(e,d)).sort(byE);
+    return (st.length?`<div class="sec">▶ ${hour}時台に始まる（${st.length}件）</div>${st.map(e=>card(e,d)).join("")}`:"")+
+      (en.length?`<div class="sec">■ ${hour}時台に終わる（${en.length}件）</div>${en.map(e=>card(e,d)).join("")}`:"")+foot();
+  }
   const sameDay=list.filter(e=>e.d===e.e||e.k==="cruise"), long=list.filter(e=>!(e.d===e.e||e.k==="cruise"));
   const byT=(a,b)=>(a.s||"99").localeCompare(b.s||"99")||a.t.localeCompare(b.t);
   sameDay.sort(byT); long.sort(byT);
@@ -196,6 +221,8 @@ function render(dir){
     <small>${cur===TODAY?"今日":cur<TODAY?`${Math.round((dOf(TODAY)-t)/864e5)}日前`:`${Math.round((t-dOf(TODAY))/864e5)}日後`}・${forDay(cur,kind).length}件</small>`;
   $("#bYear").textContent=`${t.getFullYear()}年 ▼`; $("#bMonth").textContent=`${t.getMonth()+1}月 ▼`;
   renderTabs();
+  $("#bHour").textContent = hour===null ? "🕒 時間 ▼" : `🕒${hour}時 ▼`;
+  $("#bHour").classList.toggle("acc", hour!==null);
   $("#prev").disabled=cur<=MIN; $("#next").disabled=cur>=MAX;
   // 前・今・次の3ページを並べて、横スライドで切り替える
   const ds=[add(cur,-1),cur,add(cur,1)];
