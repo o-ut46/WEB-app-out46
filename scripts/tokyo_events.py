@@ -371,8 +371,11 @@ def main():
         if not r: r = old.get(name, [])
         elif name in ("walker", "cruise", "dinner", "stage"):
             # 取得が不安定な情報源は、今回見つからなかった前回分も残す
-            have = {e["u"] for e in r}
-            r = r + [e for e in old.get(name, []) if e.get("u") not in have]
+            key = lambda e: (e.get("d"), e.get("t"), e.get("s"), e.get("v"))
+            have = {key(e) for e in r}
+            # 今回の取得範囲より先の日付（前回分）は残す。範囲内は今回の結果を正とする
+            last = max((e["d"] for e in r), default="")
+            r = r + [e for e in old.get(name, []) if key(e) not in have and (name in ("walker", "cruise") or e.get("d", "") > last)]
         for e in r: e["k"] = name; events.append(e)
     # 過去は1週間前まで（終了日で判定）
     events = [e for e in events if e["e"] >= KEEP_FROM.isoformat() and e["t"]]
