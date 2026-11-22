@@ -1,9 +1,5 @@
 import os, urllib.request
-U={
-"tptc_cruise":"https://www.tptc.co.jp/terminal/guide/cruise",
-"tptc_harumi":"https://www.tptc.co.jp/terminal/guide/harumi",
-"tptc_top":"https://www.tptc.co.jp/terminal/",
-}
+U={"tptc_guide":"https://www.tptc.co.jp/terminal/guide"}
 os.makedirs("probe",exist_ok=True)
 for k,u in U.items():
     try:
