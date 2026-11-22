@@ -1,6 +1,6 @@
 // O-UTのギターと音楽理論 公開版 — オフライン対応用 Service Worker
 // ページはネット優先（更新がすぐ届く）。ネットがないときは保存済みの内容を表示。
-const CACHE = 'guitar-note-pub-v4';
+const CACHE = 'guitar-note-pub-v5';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();

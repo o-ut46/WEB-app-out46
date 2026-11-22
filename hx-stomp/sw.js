@@ -1,5 +1,5 @@
 // OUT HX-STOMP まるわかり辞典: オフライン対応。ネット優先で更新を届け、圏外や遅い回線ではキャッシュを使う。
-const CACHE = 'hx-stomp-v1';
+const CACHE = 'hx-stomp-v2';
 const CORE = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
