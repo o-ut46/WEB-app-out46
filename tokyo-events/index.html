@@ -12,7 +12,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
 body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
-header{background:var(--ink);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;flex:none}
+header{background:var(--ink);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 6px;flex:none}
 header .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
 h1{font-size:16px;margin:0}
 .btn{border:0;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:700;background:#2b3038;color:#fff;cursor:pointer}
@@ -57,13 +57,21 @@ h1{font-size:16px;margin:0}
 .acts{display:flex;flex-direction:column;gap:8px}
 .acts .btn,.grid .btn{padding:12px 6px}
 .btn:disabled{opacity:.35}
+.tabs{display:flex;gap:4px;overflow-x:auto;background:var(--ink);padding:0 8px;flex:none;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;border:0;background:transparent;color:#aeb4bd;font-size:14px;font-weight:700;padding:10px 10px 11px;border-bottom:3px solid transparent;white-space:nowrap}
+.tab i{font-style:normal;font-size:11px;margin-left:4px;background:#3a404a;color:#d6dae0;border-radius:999px;padding:1px 6px}
+.tab.on{color:#fff;border-bottom-color:#4fd1b5}
+.tab.on i{background:#4fd1b5;color:var(--ink)}
+.tag.dn{background:#fff1e6;color:#b45309}
 </style>
 </head>
 <body>
 <header>
-  <div class="t"><h1>東京イベント＆クルーズ</h1><button class="btn" id="bKind">すべて ▼</button></div>
+  <div class="t"><h1>東京イベント＆クルーズ</h1></div>
   <div class="ym"><button class="btn" id="bYear">2026年 ▼</button><button class="btn" id="bMonth">11月 ▼</button><button class="btn" id="bToday">今日</button></div>
 </header>
+<nav class="tabs" id="tabs"></nav>
 <div class="dbar">
   <button class="arr" id="prev" aria-label="前の日">◀</button>
   <div class="dtitle" id="dtitle"></div>
@@ -87,10 +95,12 @@ const md=s=>{const[,m,d]=s.split("-").map(Number);return `${m}/${d}`;};
 const TODAY=iso(new Date()), MIN=add(TODAY,-7);
 let events=[], hol={}, updated="", cur=TODAY, MAX=add(TODAY,180), kind="all";
 try{ kind=localStorage.getItem("out-tev-kind")||"all"; }catch(e){}
-const KINDS={all:"すべて",cruise:"クルーズ",live:"コンサート・ライブ",sports:"スポーツ・格闘技",expo:"展示会・見本市",art:"美術展・体験",other:"その他"};
+const KINDS={all:"すべて",live:"ライブ・コンサート",dinner:"ディナーショー",sports:"スポーツ",expo:"展示会",art:"美術・体験",cruise:"クルーズ",other:"その他"};
 function kindOf(e){
   const c=(e.c||"")+" "+e.t;
   if(e.k==="cruise") return "cruise";
+  if(e.k==="dinner"||/ディナーショー|ディナー\s*(&|＆|・)?\s*(コンサート|ショー|ライブ)|Dinner Show|Dinner Concert/i.test(c)) return "dinner";
+  if(e.k==="zepp") return "live";
   if(e.k==="bigsight"||/展示会|見本市|EXPO|エキスポ|フェア/.test(c)) return "expo";
   if(/野球|プロレス|ボクシング|格闘|スポーツ|バスケ|バレー|相撲|試合/.test(c)||e.k==="hall") return "sports";
   if(/コンサート|ライブ|LIVE|ツアー|TOUR|公演|ミュージカル|ショー/.test(c)||e.k==="dome"||e.k==="ariake"||e.k==="garden") return "live";
@@ -130,9 +140,12 @@ $("#bMonth").onclick=()=>{
   sheet("月を選ぶ",html,[{label:"やめる",cls:"ghost"}]);
   $("#sheet").querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{ close(); go(firstOf(y,+b.dataset.m)); });
 };
-$("#bKind").onclick=()=>sheet("表示する種類",
-  `<div style="color:var(--sub);font-size:12px;margin-bottom:10px">件数はこの日の分です。</div>`,
-  Object.entries(KINDS).map(([k,v])=>({label:`${v}（${forDay(cur,k).length}件）`,cls:k===kind?"acc":"sub",fn:()=>{ kind=k; try{localStorage.setItem("out-tev-kind",k);}catch(e){} render(0); }})));
+function renderTabs(){
+  const nav=$("#tabs");
+  nav.innerHTML=Object.entries(KINDS).map(([k,v])=>{ const n=forDay(cur,k).length; return `<button class="tab ${k===kind?"on":""}" data-k="${k}">${v}<i>${n}</i></button>`; }).join("");
+  nav.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ kind=b.dataset.k; try{localStorage.setItem("out-tev-kind",kind);}catch(e){} render(0); });
+  const on=nav.querySelector(".on"); if(on) on.scrollIntoView({inline:"center",block:"nearest"});
+}
 
 /* ---------- 一覧 ---------- */
 function forDay(d,k){ return events.filter(e=>e.d<=d && e.e>=d && (k==="all"||kindOf(e)===k)); }
@@ -145,8 +158,8 @@ function timeHtml(e,d){
     if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)} 停泊</span>`);
     return out.join("");
   }
-  if(e.o) out.push(`<span>開場 ${e.o}</span>`);
-  out.push(e.s?`<span class="s">${["dome","ariake","hall"].includes(e.k)?"開演":"開始"} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
+  if(e.o) out.push(`<span>${esc(e.ol||"開場")} ${e.o}</span>`);
+  out.push(e.s?`<span class="s">${esc(e.sl||(["dome","ariake","hall","zepp","dinner","garden"].includes(e.k)?"開演":"開始"))} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
   out.push(e.x?`<span class="s">終了予定 ${e.x}</span>`:`<span class="n">終了予定 未発表</span>`);
   if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)}</span>`);
   return out.join("");
@@ -154,7 +167,7 @@ function timeHtml(e,d){
 function card(e,d){
   const k=kindOf(e);
   return `<a class="card" href="${esc(e.u)}" target="_blank" rel="noopener">
-    <div class="tt"><span class="tag ${k==="cruise"?"cr":""}">${esc(KINDS[k])}</span>${esc(e.t)}</div>
+    <div class="tt"><span class="tag ${k==="cruise"?"cr":k==="dinner"?"dn":""}">${esc(KINDS[k])}</span>${esc(e.t)}</div>
     <div class="pl">📍 ${esc(e.v||"場所未記載")}${e.a?` <span>（${esc(e.a)}）</span>`:""}</div>
     <div class="tm">${timeHtml(e,d)}</div>
     ${e.h&&!e.x?`<div class="pl"><span>${esc(e.h)}</span></div>`:""}
@@ -171,7 +184,7 @@ function pageHtml(d){
     (long.length?`<div class="sec">期間中の展示・イベント（${long.length}件）</div>${long.map(e=>card(e,d)).join("")}`:"")+foot();
 }
 function foot(){
-  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・東京港客船ターミナル）とウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
+  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・Zepp・東京港客船ターミナル）、イープラス（ディナーショー）、ウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
 }
 const track=$("#track");
 function render(dir){
@@ -179,7 +192,7 @@ function render(dir){
   $("#dtitle").innerHTML=`<b class="${w===0||h?"sun":w===6?"sat":""}">${t.getMonth()+1}月${t.getDate()}日(${WD[w]})</b>${h?`<span class="hol">${esc(h)}</span>`:""}
     <small>${cur===TODAY?"今日":cur<TODAY?`${Math.round((dOf(TODAY)-t)/864e5)}日前`:`${Math.round((t-dOf(TODAY))/864e5)}日後`}・${forDay(cur,kind).length}件</small>`;
   $("#bYear").textContent=`${t.getFullYear()}年 ▼`; $("#bMonth").textContent=`${t.getMonth()+1}月 ▼`;
-  $("#bKind").textContent=`${KINDS[kind]} ▼`;
+  renderTabs();
   $("#prev").disabled=cur<=MIN; $("#next").disabled=cur>=MAX;
   // 前・今・次の3ページを並べて、横スライドで切り替える
   const ds=[add(cur,-1),cur,add(cur,1)];
