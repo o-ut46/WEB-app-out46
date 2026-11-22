@@ -28,7 +28,7 @@ LOCAL_MAP = {}
 def lines(s):
     s = re.sub(r"<(script|style|noscript)\b.*?</\1>", "", s, flags=re.S | re.I)
     s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
-    s = html.unescape(re.sub(r"<[^>]+>", "\n", s))
+    s = html.unescape(re.sub(r"<[^>]+>", "\n", s)).replace("\xa0", " ")
     return [re.sub(r"[ \t　]+", " ", l).strip() for l in s.split("\n") if l.strip()]
 
 def hhmm(h, m="00"): return f"{int(h):02d}:{int(m):02d}"
@@ -311,12 +311,13 @@ def zepp():
         if k not in seen: seen.add(k); res.append(e)
     return res
 
-# ---------- ディナーショー（イープラス 東京都） ----------
-def dinner():
+# ---------- イープラスの一覧（ディナーショー・舞台） ----------
+def eplus_list(path, cat, maxpages, limit_days):
     out = []
-    for p in range(1, 8):
-        L = lines(get("https://eplus.jp/sf/event/dinner-show/tokyo" + (f"?page={p}" if p > 1 else ""), tries=4))
-        n0 = len(out)
+    until = (TODAY + dt.timedelta(days=limit_days)).isoformat()
+    for p in range(1, maxpages + 1):
+        L = lines(get(f"https://eplus.jp/sf/{path}" + (f"/p{p}" if p > 1 else ""), tries=4))
+        n0 = len(out); last = ""
         for i in range(len(L) - 5):
             if not re.fullmatch(r"(20\d\d)/", L[i]): continue
             md = re.fullmatch(r"(\d{1,2})/(\d{1,2})\(.\)", L[i + 1])
@@ -324,18 +325,25 @@ def dinner():
             k = i + 2
             if L[k] in ("先着", "抽選", "受付前", "受付中"): k += 1
             title, venue = L[k], L[k + 1] if k + 1 < len(L) else ""
+            if not venue.endswith("(東京都)"): continue  # 東京都内の会場だけ
             tl = L[k + 2] if k + 2 < len(L) else ""
             a = re.search(r"(開演|お食事|ディナー|開始)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
             o = re.search(r"(開場|受付)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
-            v = re.sub(r"\(東京都\)$", "", venue)
-            e = ev(iso(L[i][:4], md[1], md[2]), title, v, "", hhmm(a[2], a[3]) if a else "", "", "ディナーショー", "イープラス",
-                   "https://eplus.jp/sf/event/dinner-show/tokyo")
+            d = iso(L[i][:4], md[1], md[2]); last = d
+            e = ev(d, title, venue[:-5], "", hhmm(a[2], a[3]) if a else "", "", cat, "イープラス", f"https://eplus.jp/sf/{path}")
             if a and a[1] != "開演": e["sl"] = a[1]
             if o: e["o"] = hhmm(o[2], o[3]); e["ol"] = o[1]
             out.append(e)
         if len(out) == n0 and p > 1: break
+        if last and last > until: break
         if not LOCAL: time.sleep(1.5)
-    return out
+    seen, res = set(), []
+    for e in out:
+        key = (e["d"], e["t"], e["s"], e["v"])
+        if key not in seen: seen.add(key); res.append(e)
+    return res
+def dinner(): return eplus_list("event/dinner-show/tokyo", "ディナーショー", 8, 400)
+def stage(): return eplus_list("play/kanto/tokyo", "舞台", 45, 60)
 
 def main():
     prev = {}
@@ -348,7 +356,7 @@ def main():
     for name, fn in [("bigsight", bigsight), ("dome", lambda: dome_like("dome/event/schedule.html", "東京ドーム", "文京区後楽", "東京ドーム")),
                      ("hall", lambda: dome_like("hall/event", "後楽園ホール", "文京区後楽", "後楽園ホール")),
                      ("ariake", ariake), ("garden", garden), ("forum", forum),
-                     ("zepp", zepp), ("dinner", dinner),
+                     ("zepp", zepp), ("dinner", dinner), ("stage", stage),
                      ("walker", lambda: walker(wcache)), ("cruise", lambda: cruise(ccache))]:
         try:
             r = fn(); src[name] = r; log(name, len(r), r[:2])
@@ -358,10 +366,10 @@ def main():
     old = {}
     for e in prev.get("events", []): old.setdefault(e.get("k"), []).append(e)
     events = []
-    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "zepp", "dinner", "walker", "cruise"]:
+    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "zepp", "dinner", "stage", "walker", "cruise"]:
         r = src.get(name)
         if not r: r = old.get(name, [])
-        elif name in ("walker", "cruise", "dinner"):
+        elif name in ("walker", "cruise", "dinner", "stage"):
             # 取得が不安定な情報源は、今回見つからなかった前回分も残す
             have = {e["u"] for e in r}
             r = r + [e for e in old.get(name, []) if e.get("u") not in have]
