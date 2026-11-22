@@ -1,6 +1,7 @@
 name: Events probe (temporary)
 on:
-  workflow_dispatch:
+  push:
+    branches: [events-probe]
 permissions:
   contents: write
 jobs:
