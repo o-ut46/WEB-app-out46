@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b1e24">
+<title>O-UT 東京イベント＆クルーズ</title>
+<link rel="icon" href="../logo-mark.png" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#1b1e24;--sub:#6b7280;--line:#e3e6ea;--acc:#0f6e5c;--acc2:#e7f3f0;--red:#b42318;--blue:#1d4ed8}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+header{background:var(--ink);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;flex:none}
+header .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-size:16px;margin:0}
+.btn{border:0;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:700;background:#2b3038;color:#fff;cursor:pointer}
+.btn.l{background:#fff;color:var(--ink)}
+.btn.acc{background:var(--acc);color:#fff}
+.btn.sub{background:var(--acc2);color:var(--acc)}
+.btn.ghost{background:#eef0f3;color:var(--ink)}
+.ym{display:flex;gap:6px;margin-top:10px}
+.ym .btn{flex:1}
+.dbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);flex:none}
+.dbar .arr{width:44px;height:44px;border-radius:12px;border:0;background:#eef0f3;font-size:18px;font-weight:700;color:var(--ink)}
+.dbar .arr:disabled{opacity:.3}
+.dtitle{flex:1;text-align:center}
+.dtitle b{font-size:20px;font-variant-numeric:tabular-nums}
+.dtitle .sat{color:var(--blue)}.dtitle .sun{color:var(--red)}
+.dtitle small{display:block;color:var(--sub);font-size:12px;margin-top:1px}
+.hol{display:inline-block;margin-left:6px;font-size:11px;color:var(--red);background:#fdecea;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:3px}
+.dots{display:flex;justify-content:center;gap:4px;margin-top:4px}
+.dots i{width:6px;height:6px;border-radius:50%;background:#d0d4da}.dots i.on{background:var(--ink)}
+#vp{flex:1;position:relative;overflow:hidden;touch-action:pan-y}
+#track{display:flex;height:100%;will-change:transform}
+.page{flex:0 0 100%;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 10px calc(20px + env(safe-area-inset-bottom))}
+.card{background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.05);display:block;color:inherit;text-decoration:none}
+.card .tt{font-weight:700;font-size:15px;line-height:1.4}
+.card .pl{color:var(--ink);font-size:13px;margin-top:4px}
+.card .pl span{color:var(--sub)}
+.tm{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:13px}
+.tm span{background:#f1f3f5;border-radius:6px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.tm span.s{background:var(--acc2);color:var(--acc);font-weight:700}
+.tm span.n{color:var(--sub)}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:1px;background:#eef0f3;color:var(--sub)}
+.tag.cr{background:#e7f0fb;color:var(--blue)}
+.sec{font-size:12px;color:var(--sub);font-weight:700;margin:12px 4px 6px}
+.empty{text-align:center;color:var(--sub);padding:40px 10px;line-height:1.7}
+.foot{color:var(--sub);font-size:11px;line-height:1.6;margin:14px 4px 0}
+.foot a{color:var(--acc)}
+.sheet-bg{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet-bg[hidden]{display:none}
+.sheet{background:#fff;width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:16px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.acts{display:flex;flex-direction:column;gap:8px}
+.acts .btn,.grid .btn{padding:12px 6px}
+.btn:disabled{opacity:.35}
+</style>
+</head>
+<body>
+<header>
+  <div class="t"><h1>東京イベント＆クルーズ</h1><button class="btn" id="bKind">すべて ▼</button></div>
+  <div class="ym"><button class="btn" id="bYear">2026年 ▼</button><button class="btn" id="bMonth">11月 ▼</button><button class="btn" id="bToday">今日</button></div>
+</header>
+<div class="dbar">
+  <button class="arr" id="prev" aria-label="前の日">◀</button>
+  <div class="dtitle" id="dtitle"></div>
+  <button class="arr" id="next" aria-label="次の日">▶</button>
+</div>
+<div id="vp"><div id="track"></div></div>
+<div class="sheet-bg" id="sbg" hidden><div class="sheet" id="sheet"></div></div>
+<script>
+(() => {
+"use strict";
+const DATA_URLS=["https://raw.githubusercontent.com/o-ut46/WEB-app-out46/main/data/tokyo-events.json","../data/tokyo-events.json"];
+const CAL_URLS=["https://raw.githubusercontent.com/o-ut46/WEB-app-out46/main/data/nippo-calendar.json","../data/nippo-calendar.json"];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const WD=["日","月","火","水","木","金","土"];
+const iso=t=>`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+const dOf=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
+const add=(s,n)=>{const t=dOf(s);t.setDate(t.getDate()+n);return iso(t);};
+const md=s=>{const[,m,d]=s.split("-").map(Number);return `${m}/${d}`;};
+const TODAY=iso(new Date()), MIN=add(TODAY,-7);
+let events=[], hol={}, updated="", cur=TODAY, MAX=add(TODAY,180), kind="all";
+try{ kind=localStorage.getItem("out-tev-kind")||"all"; }catch(e){}
+const KINDS={all:"すべて",cruise:"クルーズ",live:"コンサート・ライブ",sports:"スポーツ・格闘技",expo:"展示会・見本市",art:"美術展・体験",other:"その他"};
+function kindOf(e){
+  const c=(e.c||"")+" "+e.t;
+  if(e.k==="cruise") return "cruise";
+  if(e.k==="bigsight"||/展示会|見本市|EXPO|エキスポ|フェア/.test(c)) return "expo";
+  if(/野球|プロレス|ボクシング|格闘|スポーツ|バスケ|バレー|相撲|試合/.test(c)||e.k==="hall") return "sports";
+  if(/コンサート|ライブ|LIVE|ツアー|TOUR|公演|ミュージカル|ショー/.test(c)||e.k==="dome"||e.k==="ariake"||e.k==="garden") return "live";
+  if(/美術|博物|体験|アート|ミュージアム/.test(c)) return "art";
+  return "other";
+}
+
+/* ---------- ポップアップ ---------- */
+function sheet(title, html, acts){
+  const s=$("#sheet"); s.innerHTML=`<h2>${esc(title)}</h2>${html||""}<div class="acts"></div>`;
+  const box=s.querySelector(".acts");
+  (acts||[]).forEach(a=>{ const b=document.createElement("button"); b.className="btn "+(a.cls||"sub"); b.textContent=a.label; b.onclick=()=>{ close(); a.fn&&a.fn(); }; box.appendChild(b); });
+  $("#sbg").hidden=false;
+}
+function close(){ $("#sbg").hidden=true; }
+$("#sbg").onclick=e=>{ if(e.target.id==="sbg") close(); };
+
+/* ---------- 日付の移動 ---------- */
+function clamp(d){ return d<MIN?MIN:d>MAX?MAX:d; }
+function go(d, dir){
+  d=clamp(d); if(d===cur && dir) return;
+  const old=cur; cur=d; render(dir || (d>old?1:d<old?-1:0));
+}
+$("#prev").onclick=()=>go(add(cur,-1),-1);
+$("#next").onclick=()=>go(add(cur,1),1);
+$("#bToday").onclick=()=>go(TODAY);
+$("#bYear").onclick=()=>{
+  const y0=+MIN.slice(0,4), y1=+MAX.slice(0,4), ys=[]; for(let y=y0;y<=y1;y++) ys.push(y);
+  sheet("年を選ぶ","",[...ys.map(y=>({label:`${y}年`,cls:y===+cur.slice(0,4)?"acc":"sub",fn:()=>{ const m=+cur.slice(5,7); go(firstOf(y,m)); }})),{label:"やめる",cls:"ghost"}]);
+};
+function firstOf(y,m){ const f=`${y}-${pad(m)}-01`; if(TODAY.slice(0,7)===f.slice(0,7)) return TODAY; return clamp(f); }
+$("#bMonth").onclick=()=>{
+  const y=+cur.slice(0,4);
+  const html=`<div class="grid">${Array.from({length:12},(_,i)=>{ const m=i+1, last=add(`${y}-${pad(m)}-01`,32).slice(0,7)+"-01"; const ok=`${y}-${pad(m)}-01`<=MAX && add(last,-1)>=MIN;
+    return `<button class="btn ${m===+cur.slice(5,7)?"acc":"sub"}" data-m="${m}" ${ok?"":"disabled"}>${m}月</button>`; }).join("")}</div>
+    <div style="color:var(--sub);font-size:12px;margin-top:10px">${y}年。過去は1週間前（${md(MIN)}）まで表示します。</div>`;
+  sheet("月を選ぶ",html,[{label:"やめる",cls:"ghost"}]);
+  $("#sheet").querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{ close(); go(firstOf(y,+b.dataset.m)); });
+};
+$("#bKind").onclick=()=>sheet("表示する種類",
+  `<div style="color:var(--sub);font-size:12px;margin-bottom:10px">件数はこの日の分です。</div>`,
+  Object.entries(KINDS).map(([k,v])=>({label:`${v}（${forDay(cur,k).length}件）`,cls:k===kind?"acc":"sub",fn:()=>{ kind=k; try{localStorage.setItem("out-tev-kind",k);}catch(e){} render(0); }})));
+
+/* ---------- 一覧 ---------- */
+function forDay(d,k){ return events.filter(e=>e.d<=d && e.e>=d && (k==="all"||kindOf(e)===k)); }
+function timeHtml(e,d){
+  const out=[];
+  const multi=e.d!==e.e;
+  if(e.k==="cruise"){
+    if(d===e.d && e.s) out.push(`<span class="s">入港 ${e.s}</span>`);
+    if(d===e.e && e.x) out.push(`<span class="s">出港 ${e.x}</span>`);
+    if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)} 停泊</span>`);
+    return out.join("");
+  }
+  if(e.o) out.push(`<span>開場 ${e.o}</span>`);
+  out.push(e.s?`<span class="s">${["dome","ariake","hall"].includes(e.k)?"開演":"開始"} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
+  out.push(e.x?`<span class="s">終了予定 ${e.x}</span>`:`<span class="n">終了予定 未発表</span>`);
+  if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)}</span>`);
+  return out.join("");
+}
+function card(e,d){
+  const k=kindOf(e);
+  return `<a class="card" href="${esc(e.u)}" target="_blank" rel="noopener">
+    <div class="tt"><span class="tag ${k==="cruise"?"cr":""}">${esc(KINDS[k])}</span>${esc(e.t)}</div>
+    <div class="pl">📍 ${esc(e.v||"場所未記載")}${e.a?` <span>（${esc(e.a)}）</span>`:""}</div>
+    <div class="tm">${timeHtml(e,d)}</div>
+    ${e.h&&!e.x?`<div class="pl"><span>${esc(e.h)}</span></div>`:""}
+  </a>`;
+}
+function pageHtml(d){
+  const list=forDay(d,kind);
+  if(!events.length) return `<div class="empty">読み込み中…</div>`;
+  if(!list.length) return `<div class="empty">この日の${kind==="all"?"":esc(KINDS[kind])+"の"}情報はありません。</div>${foot()}`;
+  const sameDay=list.filter(e=>e.d===e.e||e.k==="cruise"), long=list.filter(e=>!(e.d===e.e||e.k==="cruise"));
+  const byT=(a,b)=>(a.s||"99").localeCompare(b.s||"99")||a.t.localeCompare(b.t);
+  sameDay.sort(byT); long.sort(byT);
+  return (sameDay.length?`<div class="sec">この日の公演・催し（${sameDay.length}件）</div>${sameDay.map(e=>card(e,d)).join("")}`:"")+
+    (long.length?`<div class="sec">期間中の展示・イベント（${long.length}件）</div>${long.map(e=>card(e,d)).join("")}`:"")+foot();
+}
+function foot(){
+  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・東京港客船ターミナル）とウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
+}
+const track=$("#track");
+function render(dir){
+  const t=dOf(cur), w=t.getDay(), h=hol[cur];
+  $("#dtitle").innerHTML=`<b class="${w===0||h?"sun":w===6?"sat":""}">${t.getMonth()+1}月${t.getDate()}日(${WD[w]})</b>${h?`<span class="hol">${esc(h)}</span>`:""}
+    <small>${cur===TODAY?"今日":cur<TODAY?`${Math.round((dOf(TODAY)-t)/864e5)}日前`:`${Math.round((t-dOf(TODAY))/864e5)}日後`}・${forDay(cur,kind).length}件</small>`;
+  $("#bYear").textContent=`${t.getFullYear()}年 ▼`; $("#bMonth").textContent=`${t.getMonth()+1}月 ▼`;
+  $("#bKind").textContent=`${KINDS[kind]} ▼`;
+  $("#prev").disabled=cur<=MIN; $("#next").disabled=cur>=MAX;
+  // 前・今・次の3ページを並べて、横スライドで切り替える
+  const ds=[add(cur,-1),cur,add(cur,1)];
+  track.innerHTML=ds.map((d,i)=>`<div class="page" data-i="${i}">${d<MIN||d>MAX?"":pageHtml(d)}</div>`).join("");
+  track.style.transition="none";
+  track.style.transform=`translateX(${-100+(dir||0)*100}%)`;
+  if(dir){ requestAnimationFrame(()=>requestAnimationFrame(()=>{ track.style.transition="transform .25s ease"; track.style.transform="translateX(-100%)"; })); }
+  else track.style.transform="translateX(-100%)";
+}
+// スワイプ
+(()=>{ const vp=$("#vp"); let x0=0,y0=0,dx=0,drag=false,lock=null;
+  vp.addEventListener("touchstart",e=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; dx=0; drag=true; lock=null; track.style.transition="none"; },{passive:true});
+  vp.addEventListener("touchmove",e=>{ if(!drag) return; const t=e.touches[0]; dx=t.clientX-x0; const dy=t.clientY-y0;
+    if(lock===null && (Math.abs(dx)>8||Math.abs(dy)>8)) lock=Math.abs(dx)>Math.abs(dy)?"x":"y";
+    if(lock==="x"){ e.preventDefault(); if((dx>0&&cur<=MIN)||(dx<0&&cur>=MAX)) dx/=3; track.style.transform=`translateX(calc(-100% + ${dx}px))`; } },{passive:false});
+  vp.addEventListener("touchend",()=>{ if(!drag) return; drag=false;
+    const W=vp.clientWidth;
+    if(lock==="x" && Math.abs(dx)>W*0.2){
+      const dir=dx<0?1:-1, nd=add(cur,dir);
+      if(nd<MIN||nd>MAX){ track.style.transition="transform .2s"; track.style.transform="translateX(-100%)"; return; }
+      track.style.transition="transform .2s ease"; track.style.transform=`translateX(${-100-dir*100}%)`;
+      setTimeout(()=>{ cur=nd; render(0); },200);
+    } else { track.style.transition="transform .2s"; track.style.transform="translateX(-100%)"; }
+  });
+})();
+document.addEventListener("keydown",e=>{ if(e.key==="ArrowLeft") $("#prev").click(); if(e.key==="ArrowRight") $("#next").click(); });
+
+/* ---------- 読み込み ---------- */
+async function fetchFirst(urls){
+  for(const u of urls){ try{ const r=await fetch(u+"?t="+Date.now().toString().slice(0,-5),{cache:"no-store"}); if(r.ok) return await r.json(); }catch(e){} }
+  return null;
+}
+async function load(){
+  render(0);
+  const [d,c]=await Promise.all([fetchFirst(DATA_URLS), fetchFirst(CAL_URLS)]);
+  if(c && c.holidays) hol=c.holidays;
+  if(!d){ track.innerHTML=`<div class="page"><div class="empty">情報を読み込めませんでした。通信状況を確認して、開き直してください。</div></div>`; return; }
+  events=d.events||[]; updated=d.updated||"";
+  const last=events.reduce((m,e)=>e.d>m?e.d:m,TODAY);
+  MAX=last<add(TODAY,31)?add(TODAY,31):last;
+  render(0);
+}
+load();
+})();
+</script>
+</body>
+</html>

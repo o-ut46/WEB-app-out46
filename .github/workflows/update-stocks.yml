@@ -72,6 +72,7 @@ jobs:
           cp -R oboegaki public/oboegaki
           cp -R ledger public/ledger
           cp -R nippo-map public/nippo-map
+          cp -R tokyo-events public/tokyo-events
           for file in icon-192.png icon-512.png CNAME; do
             if [ -f "$file" ]; then cp "$file" public/; fi
           done
