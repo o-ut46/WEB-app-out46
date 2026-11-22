@@ -312,11 +312,11 @@ def zepp():
     return res
 
 # ---------- イープラスの一覧（ディナーショー・舞台） ----------
-def eplus_list(path, cat, maxpages, limit_days):
+def eplus_list(path, cat, maxpages, limit_days, pstyle="/p{}"):
     out = []
     until = (TODAY + dt.timedelta(days=limit_days)).isoformat()
     for p in range(1, maxpages + 1):
-        L = lines(get(f"https://eplus.jp/sf/{path}" + (f"/p{p}" if p > 1 else ""), tries=4))
+        L = lines(get(f"https://eplus.jp/sf/{path}" + (pstyle.format(p) if p > 1 else ""), tries=4))
         n0 = len(out); last = ""
         for i in range(len(L) - 5):
             if not re.fullmatch(r"(20\d\d)/", L[i]): continue
@@ -342,7 +342,7 @@ def eplus_list(path, cat, maxpages, limit_days):
         key = (e["d"], e["t"], e["s"], e["v"])
         if key not in seen: seen.add(key); res.append(e)
     return res
-def dinner(): return eplus_list("event/dinner-show/tokyo", "ディナーショー", 8, 400)
+def dinner(): return eplus_list("event/dinner-show/tokyo", "ディナーショー", 8, 400, "?page={}")
 def stage(): return eplus_list("play/kanto/tokyo", "舞台", 45, 60)
 
 def main():
