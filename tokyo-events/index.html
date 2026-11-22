@@ -64,6 +64,7 @@ h1{font-size:16px;margin:0}
 .tab.on{color:#fff;border-bottom-color:#4fd1b5}
 .tab.on i{background:#4fd1b5;color:var(--ink)}
 .tag.dn{background:#fff1e6;color:#b45309}
+.tag.st{background:#f3e8ff;color:#7e22ce}
 </style>
 </head>
 <body>
@@ -95,12 +96,13 @@ const md=s=>{const[,m,d]=s.split("-").map(Number);return `${m}/${d}`;};
 const TODAY=iso(new Date()), MIN=add(TODAY,-7);
 let events=[], hol={}, updated="", cur=TODAY, MAX=add(TODAY,180), kind="all";
 try{ kind=localStorage.getItem("out-tev-kind")||"all"; }catch(e){}
-const KINDS={all:"すべて",live:"ライブ・コンサート",dinner:"ディナーショー",sports:"スポーツ",expo:"展示会",art:"美術・体験",cruise:"クルーズ",other:"その他"};
+const KINDS={all:"すべて",live:"ライブ・コンサート",stage:"舞台",dinner:"ディナーショー",sports:"スポーツ",expo:"展示会",art:"美術・体験",cruise:"クルーズ",other:"その他"};
 function kindOf(e){
   const c=(e.c||"")+" "+e.t;
   if(e.k==="cruise") return "cruise";
   if(e.k==="dinner"||/ディナーショー|ディナー\s*(&|＆|・)?\s*(コンサート|ショー|ライブ)|Dinner Show|Dinner Concert/i.test(c)) return "dinner";
   if(e.k==="zepp") return "live";
+  if(e.k==="stage"||/舞台|演劇|ミュージカル|歌舞伎|宝塚|落語|狂言|文楽|バレエ|オペラ/.test(c)) return "stage";
   if(e.k==="bigsight"||/展示会|見本市|EXPO|エキスポ|フェア/.test(c)) return "expo";
   if(/野球|プロレス|ボクシング|格闘|スポーツ|バスケ|バレー|相撲|試合/.test(c)||e.k==="hall") return "sports";
   if(/コンサート|ライブ|LIVE|ツアー|TOUR|公演|ミュージカル|ショー/.test(c)||e.k==="dome"||e.k==="ariake"||e.k==="garden") return "live";
@@ -159,7 +161,7 @@ function timeHtml(e,d){
     return out.join("");
   }
   if(e.o) out.push(`<span>${esc(e.ol||"開場")} ${e.o}</span>`);
-  out.push(e.s?`<span class="s">${esc(e.sl||(["dome","ariake","hall","zepp","dinner","garden"].includes(e.k)?"開演":"開始"))} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
+  out.push(e.s?`<span class="s">${esc(e.sl||(["dome","ariake","hall","zepp","dinner","garden","stage"].includes(e.k)?"開演":"開始"))} ${e.s}</span>`:`<span class="n">開始時間 未発表</span>`);
   out.push(e.x?`<span class="s">終了予定 ${e.x}</span>`:`<span class="n">終了予定 未発表</span>`);
   if(multi) out.push(`<span>${md(e.d)}〜${md(e.e)}</span>`);
   return out.join("");
@@ -167,7 +169,7 @@ function timeHtml(e,d){
 function card(e,d){
   const k=kindOf(e);
   return `<a class="card" href="${esc(e.u)}" target="_blank" rel="noopener">
-    <div class="tt"><span class="tag ${k==="cruise"?"cr":k==="dinner"?"dn":""}">${esc(KINDS[k])}</span>${esc(e.t)}</div>
+    <div class="tt"><span class="tag ${k==="cruise"?"cr":k==="dinner"?"dn":k==="stage"?"st":""}">${esc(KINDS[k])}</span>${esc(e.t)}</div>
     <div class="pl">📍 ${esc(e.v||"場所未記載")}${e.a?` <span>（${esc(e.a)}）</span>`:""}</div>
     <div class="tm">${timeHtml(e,d)}</div>
     ${e.h&&!e.x?`<div class="pl"><span>${esc(e.h)}</span></div>`:""}
@@ -184,7 +186,7 @@ function pageHtml(d){
     (long.length?`<div class="sec">期間中の展示・イベント（${long.length}件）</div>${long.map(e=>card(e,d)).join("")}`:"")+foot();
 }
 function foot(){
-  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・Zepp・東京港客船ターミナル）、イープラス（ディナーショー）、ウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
+  return `<div class="foot">情報は各公式サイト（東京ドーム・後楽園ホール・東京ビッグサイト・有明アリーナ・東京ガーデンシアター・東京国際フォーラム・Zepp・東京港客船ターミナル）、イープラス（ディナーショー・舞台）、ウォーカープラスから毎日自動で集めています${updated?`（${esc(updated.replace("T"," ").slice(0,16))}更新）`:""}。終了時間は公表されているものだけ表示します。予定は変更されることがあるため、お出かけ前に各カードをタップして公式情報を確認してください。</div>`;
 }
 const track=$("#track");
 function render(dir){
