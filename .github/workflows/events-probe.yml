@@ -1,0 +1,15 @@
+name: Events probe (temporary)
+on:
+  push:
+    branches: [events-probe]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/events_probe.py
+      - run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git checkout -b events-probe-out; git add probe && git commit -qm "probe [skip ci]" && git push -f origin events-probe-out
