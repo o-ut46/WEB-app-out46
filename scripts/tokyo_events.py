@@ -280,6 +280,63 @@ def cruise(cache):
                       e=iso(*b.groups()[:3]) if b else None))
     return out
 
+
+# ---------- Zepp（羽田・ダイバーシティ・新宿） ----------
+def zepp():
+    out = []
+    for slug, name, area in [("haneda", "Zepp Haneda", "大田区羽田空港"), ("divercity", "Zepp DiverCity", "江東区青海"), ("shinjuku", "Zepp Shinjuku", "新宿区歌舞伎町")]:
+        for y, m in months_ahead(4):
+            L = lines(get(f"https://www.zepp.co.jp/hall/{slug}/schedule/?_y={y}&_m={m}"))
+            for i in range(len(L) - 8):
+                if not (re.fullmatch(r"20\d\d", L[i]) and re.fullmatch(r"\d{1,2}\.\d{1,2}", L[i + 1]) and re.fullmatch(r"[A-Z]{3}", L[i + 2])): continue
+                try: j = L.index("[OPEN]", i)
+                except ValueError: continue
+                if j - i > 8: continue
+                body = L[i + 3:j]
+                title = body[-1] if body else ""
+                artist = body[0] if len(body) > 1 else ""
+                name_ = title if not artist or artist in title else f"{title}（{artist}）"
+                mo, da = L[i + 1].split(".")
+                op = L[j + 1] if re.fullmatch(r"\d{1,2}:\d{2}", L[j + 1]) else ""
+                st = ""
+                if j + 3 < len(L) and L[j + 2] == "[START]" and re.fullmatch(r"\d{1,2}:\d{2}", L[j + 3]): st = L[j + 3]
+                e = ev(iso(L[i], mo, da), name_, name, area, hhmm(*st.split(":")) if st else "", "", "ライブ", name,
+                       f"https://www.zepp.co.jp/hall/{slug}/schedule/")
+                if op: e["o"] = hhmm(*op.split(":"))
+                out.append(e)
+            if not LOCAL: time.sleep(1.2)
+    seen, res = set(), []
+    for e in out:
+        k = (e["d"], e["t"], e["v"])
+        if k not in seen: seen.add(k); res.append(e)
+    return res
+
+# ---------- ディナーショー（イープラス 東京都） ----------
+def dinner():
+    out = []
+    for p in range(1, 8):
+        L = lines(get("https://eplus.jp/sf/event/dinner-show/tokyo" + (f"?page={p}" if p > 1 else ""), tries=4))
+        n0 = len(out)
+        for i in range(len(L) - 5):
+            if not re.fullmatch(r"(20\d\d)/", L[i]): continue
+            md = re.fullmatch(r"(\d{1,2})/(\d{1,2})\(.\)", L[i + 1])
+            if not md: continue
+            k = i + 2
+            if L[k] in ("先着", "抽選", "受付前", "受付中"): k += 1
+            title, venue = L[k], L[k + 1] if k + 1 < len(L) else ""
+            tl = L[k + 2] if k + 2 < len(L) else ""
+            a = re.search(r"(開演|お食事|ディナー|開始)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
+            o = re.search(r"(開場|受付)\s*[：:]\s*(\d{1,2}):(\d{2})", tl)
+            v = re.sub(r"\(東京都\)$", "", venue)
+            e = ev(iso(L[i][:4], md[1], md[2]), title, v, "", hhmm(a[2], a[3]) if a else "", "", "ディナーショー", "イープラス",
+                   "https://eplus.jp/sf/event/dinner-show/tokyo")
+            if a and a[1] != "開演": e["sl"] = a[1]
+            if o: e["o"] = hhmm(o[2], o[3]); e["ol"] = o[1]
+            out.append(e)
+        if len(out) == n0 and p > 1: break
+        if not LOCAL: time.sleep(1.5)
+    return out
+
 def main():
     prev = {}
     if os.path.exists(OUT):
@@ -291,6 +348,7 @@ def main():
     for name, fn in [("bigsight", bigsight), ("dome", lambda: dome_like("dome/event/schedule.html", "東京ドーム", "文京区後楽", "東京ドーム")),
                      ("hall", lambda: dome_like("hall/event", "後楽園ホール", "文京区後楽", "後楽園ホール")),
                      ("ariake", ariake), ("garden", garden), ("forum", forum),
+                     ("zepp", zepp), ("dinner", dinner),
                      ("walker", lambda: walker(wcache)), ("cruise", lambda: cruise(ccache))]:
         try:
             r = fn(); src[name] = r; log(name, len(r), r[:2])
@@ -300,10 +358,10 @@ def main():
     old = {}
     for e in prev.get("events", []): old.setdefault(e.get("k"), []).append(e)
     events = []
-    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "walker", "cruise"]:
+    for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "zepp", "dinner", "walker", "cruise"]:
         r = src.get(name)
         if not r: r = old.get(name, [])
-        elif name in ("walker", "cruise"):
+        elif name in ("walker", "cruise", "dinner"):
             # 取得が不安定な情報源は、今回見つからなかった前回分も残す
             have = {e["u"] for e in r}
             r = r + [e for e in old.get(name, []) if e.get("u") not in have]
