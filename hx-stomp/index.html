@@ -1305,12 +1305,12 @@ var ME="hx",B="https://o-ut46.github.io/WEB-app-out46/";
 var L=[["guitar","🎸","Scale & Chord","スケール・コード・指板・メトロノーム",B+"guitar/"],
 ["note","📘","O-UTのギターと音楽理論","公開版：理論・奏法・コード進行のカード",B+"guitar-note/"],
 ["hx","🎛️","OUT HX-STOMP まるわかり辞典","Line 6 HX Stompの使い方",B+"hx-stomp/"],
-["logic","🎹","Logic Pro 手引き","Mac版Logic Proの使い方（claude.ai）","https://claude.ai/artifact/U86Ww5TULPnmZ9XZsvof9v"]];
+["logic","🎹","Logic Pro 手引き","Mac版Logic Proの使い方",B+"logic-pro/"]];
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 var ov;function build(){ov=document.createElement("div");ov.className="oapps-ov";ov.hidden=true;ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","O-UTのアプリを切り替え");
 var h='<div class="oapps-box"><h2>O-UTのアプリ<button type="button" class="oapps-x" aria-label="閉じる">✕</button></h2>';
 L.forEach(function(a){var ext=a[4].indexOf("claude.ai")>=0;h+='<a href="'+a[4]+'"'+(a[0]===ME?' class="cur" aria-current="page"':'')+(ext?' target="_blank" rel="noopener"':'')+'><i>'+a[1]+'</i><span><b>'+esc(a[2])+'</b><small>'+esc(a[3])+'</small></span></a>'});
-h+='<p class="oapps-note">Logic Pro 手引きは claude.ai で開きます（ログインが必要な場合があります）。</p></div>';ov.innerHTML=h;document.body.appendChild(ov);
+h+='</div>';ov.innerHTML=h;document.body.appendChild(ov);
 ov.addEventListener("click",function(e){if(e.target===ov||e.target.closest(".oapps-x"))close()});}
 function open(){if(!ov)build();ov.hidden=false;var x=ov.querySelector(".oapps-x");if(x)x.focus()}
 function close(){if(ov)ov.hidden=true}

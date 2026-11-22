@@ -1,0 +1,706 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Logic Pro 手引き</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Logic Pro 手引き">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: 制作の流れをトラック領域に見立てたホームと、1カラムで読む章ページ。選択はすべてポップアップ。 */
+:root{
+  --bg:#EEF2F0; --surface:#FFFFFF; --sunken:#E2E8E5; --line:#CBD5D1;
+  --ink:#16211E; --muted:#54625E; --accent:#0A7263; --accent-ink:#FFFFFF;
+  --rec:#C93528; --amber:#A86400; --lcd:#17211F; --lcd-ink:#8FE3D0;
+  --r-audio:#2B8C7C; --r-midi:#5B8F2E; --r-pattern:#BC7A12; --r-player:#C2563B; --r-ink:#FFFFFF;
+  --font:"IBM Plex Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+  --mono:"DM Mono",ui-monospace,Menlo,monospace;
+  --hw:128px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141A18; --surface:#1D2523; --sunken:#0F1413; --line:#33403C;
+  --ink:#E8EEEC; --muted:#A1AFAA; --accent:#55CDB8; --accent-ink:#0B1A17;
+  --rec:#F0695B; --amber:#E9AE55; --lcd:#0B100F; --lcd-ink:#8FE3D0;
+  --r-audio:#2F8F80; --r-midi:#5F9134; --r-pattern:#A86F14; --r-player:#B65239; --r-ink:#FFFFFF;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141A18; --surface:#1D2523; --sunken:#0F1413; --line:#33403C;
+  --ink:#E8EEEC; --muted:#A1AFAA; --accent:#55CDB8; --accent-ink:#0B1A17;
+  --rec:#F0695B; --amber:#E9AE55; --lcd:#0B100F; --lcd-ink:#8FE3D0;
+  --r-audio:#2F8F80; --r-midi:#5F9134; --r-pattern:#A86F14; --r-player:#B65239; --r-ink:#FFFFFF;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:120px}
+html{font-size:var(--fs,100%)}
+body{background:var(--bg);color:var(--ink);font:400 1rem/1.75 var(--font);-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--lcd)}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3{line-height:1.35;font-weight:700;text-wrap:balance;margin:0}
+p{margin:0}
+ul,ol{margin:0;padding:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:inherit;color:inherit}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto}
+
+/* トランスポート風ヘッダー */
+.top{font-size:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--lcd);color:#E8EEEC}
+.top-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-block:9px}
+.brand{display:flex;align-items:baseline;gap:8px;color:#E8EEEC;text-decoration:none;font-weight:700;font-size:1.02em;white-space:nowrap}
+.brand i{font:500 .68em var(--mono);color:var(--lcd-ink);font-style:normal;letter-spacing:.06em}
+.search{flex:1 1 220px;min-width:0;order:3}
+.search input{width:100%;height:38px;border-radius:6px;border:1px solid #3B4A46;background:#222C2A;color:#E8EEEC;padding:0 12px;font:inherit;font-size:.95em}
+.search input::placeholder{color:#9FB0AB}
+.spacer{flex:1}
+.ver{font:500 .75em var(--mono);color:var(--lcd-ink);border:1px solid #3B4A46;border-radius:4px;padding:1px 6px;white-space:nowrap}
+.pop-btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border-radius:6px;cursor:pointer;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-weight:500;max-width:100%;text-align:left}
+.pop-btn::after{content:"";width:7px;height:7px;flex:none;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px)}
+.top .pop-btn{background:#222C2A;border-color:#3B4A46;color:#E8EEEC}
+@media (min-width:760px){.search{order:0;max-width:420px}}
+@media (max-width:759px){.search{flex-basis:100%}}
+@media (max-width:520px){.brand i{display:none}.top-in{gap:8px 5px}.brand{font-size:.98em}.spacer{flex:1}.search{order:5;flex:1 1 220px}.ver{order:6}.top .pop-btn,.top .icon-btn{padding:0 8px}.ver{font-size:.68em;padding:1px 4px}}
+
+main{padding-block:24px 56px}
+.note{font-size:.84rem;color:var(--muted)}
+
+/* ホーム:トラック領域 */
+.hero{display:grid;gap:8px;margin-bottom:18px;max-width:46em}
+.hero h1{font-size:clamp(1.45rem,4.2vw,2rem)}
+.arr{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;position:relative}
+.ruler{display:flex;margin-left:var(--hw);height:24px;align-items:center;background:var(--sunken);font:500 .7rem var(--mono);color:var(--muted);border-bottom:1px solid var(--line)}
+.ruler span{flex:1;padding-left:4px;border-left:1px solid var(--line);line-height:24px}
+.lane{display:flex;align-items:stretch;min-height:50px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.lane:last-of-type{border-bottom:0}
+.lane:hover .thead{background:var(--sunken)}
+.thead{width:var(--hw);flex:none;padding:6px 8px 6px 10px;border-right:1px solid var(--line);font-weight:700;font-size:.86rem;line-height:1.35;display:flex;align-items:center}
+.track{flex:1;position:relative;min-width:0;background:repeating-linear-gradient(90deg,transparent 0 calc(100%/8 - 1px),var(--sunken) calc(100%/8 - 1px) calc(100%/8))}
+.region{position:absolute;top:6px;bottom:6px;border-radius:4px;background:var(--c);color:var(--r-ink);padding:1px 6px;overflow:hidden;font-size:.72rem;font-weight:500;line-height:1.4;white-space:nowrap}
+.region svg{position:absolute;left:0;right:0;bottom:1px;width:100%;height:55%;opacity:.55}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--rec);left:calc(var(--hw) + (100% - var(--hw))*var(--p,0));transition:left .35s;pointer-events:none;z-index:2}
+.playhead::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top:8px solid var(--rec)}
+@media (prefers-reduced-motion:reduce){.playhead{transition:none}}
+@media (max-width:520px){:root{--hw:96px}.thead{font-size:.78rem}}
+
+.home-grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;margin-top:22px;align-items:start}
+@media (max-width:820px){.home-grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.panel h2{font-size:1.08rem;margin-bottom:4px}
+.check{list-style:none;display:grid;gap:2px;margin-top:10px}
+.check li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.check input{width:20px;height:20px;margin:3px 0 0;accent-color:var(--accent);flex:none}
+.check label{flex:1;min-width:0}
+.check a{font-size:.8rem;white-space:nowrap}
+.check .done{color:var(--muted);text-decoration:line-through}
+.quick{list-style:none;display:grid;gap:8px;margin-top:10px}
+.quick a{display:block;text-decoration:none;color:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:6px}
+.quick a:hover{border-color:var(--accent)}
+.quick b{display:block;color:var(--accent);font-weight:700}
+.quick small{color:var(--muted);font-size:.8rem;line-height:1.5;display:block}
+
+/* 章ページ */
+.ch-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
+.ch-layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:32px;align-items:start}
+@media (max-width:900px){.ch-layout{grid-template-columns:minmax(0,1fr)}.toc{display:none}}
+.toc{position:sticky;top:76px;font-size:.84rem;line-height:1.5;border-left:2px solid var(--line);padding-left:12px;display:grid;gap:7px}
+.toc a{color:var(--muted);text-decoration:none}
+.toc a:hover{color:var(--accent)}
+.page-title{font-size:clamp(1.4rem,4vw,1.8rem);margin:6px 0 4px}
+.topic{padding-block:22px;border-top:1px solid var(--line);display:grid;gap:10px}
+.topic:first-of-type{border-top:0}
+.topic-h{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.topic h2{font-size:1.22rem}
+.star{flex:none;width:36px;height:36px;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;font-size:1.1rem;line-height:1;color:var(--muted)}
+.star[aria-pressed="true"]{color:var(--amber);border-color:var(--amber)}
+.t-btns{display:flex;gap:6px;flex:none}
+.say{flex:none;width:36px;height:36px;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--muted);display:grid;place-items:center;padding:0}
+.say svg{width:18px;height:18px}
+.say[aria-pressed="true"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.topic.reading{background:linear-gradient(90deg,var(--sunken),transparent 85%);box-shadow:inset 3px 0 0 var(--accent);padding-left:12px;margin-left:-12px}
+.ch-tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.icon-btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border-radius:6px;cursor:pointer;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-weight:500}
+.icon-btn svg{width:16px;height:16px}
+.top .icon-btn{background:#222C2A;border-color:#3B4A46;color:#E8EEEC;padding:0 10px}
+.player{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--lcd);color:#E8EEEC;padding-bottom:env(safe-area-inset-bottom,0px)}
+.player-in{display:flex;align-items:center;gap:10px;padding-block:10px}
+.player-txt{flex:1;min-width:0;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-txt i{font:500 .7rem var(--mono);color:var(--lcd-ink);font-style:normal;margin-right:8px}
+.player button{min-height:36px;padding:0 12px;border-radius:6px;border:1px solid #3B4A46;background:#222C2A;color:#E8EEEC;cursor:pointer;font-weight:500;white-space:nowrap}
+body.has-player main{padding-bottom:110px}
+.steps{counter-reset:s;list-style:none;display:grid;gap:8px}
+.steps li{counter-increment:s;position:relative;padding-left:34px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:24px;height:24px;border-radius:50%;background:var(--sunken);font:500 .78rem/24px var(--mono);text-align:center}
+.dots{padding-left:1.2em;display:grid;gap:5px}
+.tip{background:var(--sunken);border-radius:6px;padding:9px 12px;font-size:.92rem}
+.tip b{color:var(--amber)}
+.src{font-size:.78rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.tag{font:500 .68rem var(--mono);border:1px solid var(--line);border-radius:3px;padding:0 5px;white-space:nowrap}
+.tag.old{color:var(--amber);border-color:var(--amber)}
+.tag.ext{color:var(--r-player);border-color:var(--r-player)}
+kbd{font:500 .84em var(--mono);background:var(--surface);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;white-space:nowrap}
+.tip kbd,.key-row kbd{background:var(--surface)}
+.pager{display:flex;justify-content:space-between;gap:10px;margin-top:20px;flex-wrap:wrap}
+.pager a{padding:8px 12px;border:1px solid var(--line);border-radius:6px;text-decoration:none;font-weight:500}
+
+/* キー一覧・用語など */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+.toolbar input{flex:1 1 180px;min-width:0;height:38px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;font:inherit}
+.key-group{margin-top:18px}
+.key-group h2{font-size:.98rem;color:var(--muted);margin-bottom:4px}
+.key-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 2px;border-top:1px solid var(--line);font-size:.94rem}
+.key-row span{min-width:0}
+.key-row .ks{flex:none;text-align:right}
+.chg{font:500 .66rem var(--mono);color:var(--rec);margin-left:6px;white-space:nowrap}
+.dl{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.dl>div{padding:11px 0;border-top:1px solid var(--line)}
+.dl dt{font-weight:700}
+.dl dd{margin:0;font-size:.95rem}
+.card-list{display:grid;gap:12px;margin-top:12px}
+.card-list>article{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:7px}
+.card-list h2{font-size:1.04rem}
+.result{display:block;padding:10px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.result b{color:var(--accent)}
+.result small{display:block;color:var(--muted);font-size:.85rem;line-height:1.55}
+mark{background:var(--amber);color:var(--bg);border-radius:2px;padding:0 1px}
+.empty{padding:24px 0;color:var(--muted)}
+.foot{border-top:1px solid var(--line);padding-block:16px 28px;font-size:.8rem;color:var(--muted)}
+
+/* チャンネルストリップ図とピアノロール図 */
+.strip{list-style:none;display:grid;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.strip li{display:grid;grid-template-columns:minmax(0,132px) minmax(0,1fr);border-top:1px solid var(--line)}
+.strip li:first-child{border-top:0}
+.strip b{background:var(--lcd);color:#E8EEEC;font-size:.8rem;font-weight:500;line-height:1.4;padding:8px 10px;display:flex;align-items:center}
+.strip span{padding:7px 12px;font-size:.92rem;line-height:1.6}
+.fig{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.fig svg{display:block;width:100%;height:auto}
+.fig text{font-family:var(--mono);fill:var(--muted);font-size:11px}
+.fig .num{fill:var(--ink)}.fig .numt{fill:var(--bg);font-size:13px;font-weight:500;text-anchor:middle}
+.fig .jp{font-family:var(--font);font-size:13px;fill:var(--ink)}
+.fig .jps{font-family:var(--font);font-size:11.5px;fill:var(--muted)}
+.fig .on{fill:var(--accent-ink);font-weight:700}
+.fig-cap{font-size:.8rem;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line);margin:0}
+/* ポップアップ */
+.pop-back{position:fixed;inset:0;z-index:40;background:rgba(10,16,14,.45)}
+.pop{position:fixed;z-index:41;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.28);overflow:auto;max-height:70vh;padding:6px;width:300px}
+.pop h3{font-size:.76rem;color:var(--muted);padding:6px 10px 4px;font-weight:500}
+.pop button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:6px;padding:9px 10px;cursor:pointer;line-height:1.4}
+.pop button:hover,.pop button:focus-visible{background:var(--sunken)}
+.pop button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.pop small{display:block;font-size:.76rem;opacity:.75}
+@media (max-width:600px){.pop{left:0!important;right:0;top:auto!important;bottom:0;width:100%;border-radius:14px 14px 0 0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}
+</style>
+
+<header class="top">
+  <div class="wrap gutter top-in">
+    <a class="brand" href="#home">Logic Pro 手引き <i>MAC 13.0</i></a>
+    <div class="search"><input id="q" type="search" placeholder="機能名や困りごとで検索（例:遅延、ステム）" aria-label="手引き全体を検索"></div>
+    <span class="spacer"></span>
+    <button class="pop-btn" id="modeBtn" aria-haspopup="listbox">ホーム</button>
+    <button class="icon-btn" id="viewBtn" aria-haspopup="listbox" aria-label="文字の大きさと読み上げの設定"><span style="font-weight:700">Aa</span></button>
+    <button class="pop-btn oapps-top" type="button" data-oapps aria-haspopup="dialog" aria-label="O-UTのほかのアプリへ切り替える">🔀 アプリ</button>
+    <span class="ver" title="この手引きのバージョン">v1.4</span>
+  </div>
+</header>
+<div class="player" id="player" hidden><div class="wrap gutter player-in"><span class="player-txt" id="playerTxt"></span><button id="pPause">一時停止</button><button id="pStop">停止</button></div></div>
+<main class="wrap gutter" id="view"></main>
+<footer class="wrap gutter foot">Appleの公式資料と音楽メディアの記事を要約して作った非公式の手引きです。Appleとは関係ありません。正確な仕様は各項目の出典で確認してください。内容の確認日:2026年11月6日。</footer>
+
+<script>
+const G='https://support.apple.com/guide/logicpro/';
+const S={
+ rel:['Logic Pro リリースノート(13.0)','https://support.apple.com/en-us/109503','公式 13.0'],
+ keys:['グローバルコマンドのキー一覧',G+'global-commands-lgcp02bf31b6/mac','公式 最新'],
+ main:['メインウインドウとエディタのキー一覧',G+'main-window-tracks-and-various-editors-lgcpe8314fe2/mac','公式 最新'],
+ win:['さまざまなウインドウのキー一覧',G+'various-windows-lgcp665bbccc/mac','公式 最新'],
+ what:['Mac用Logic Proとは','https://support.apple.com/en-us/guide/logicpro/lgcpe9cc45dd/mac','公式 最新'],
+ flow:['ワークフローの概要','https://help.apple.com/logicpro/mac/10.1/en.lproj/lgcpe9cc4370.html','公式 10.1版','old'],
+ specs:['Logic Pro 技術仕様','https://support.apple.com/en-us/111899','公式'],
+ lat:['入力モニタリングのレイテンシー管理','https://support.apple.com/105040','公式'],
+ sf:['Essential latency adjustments','https://sleepfreaks-dtm.com/en/for-beginner-logic/lesson14-3/','解説 Sleep Freaks','ext'],
+ before:['オーディオ録音の前に','https://support.apple.com/en-tm/guide/logicpro/lgcpb19de615/mac','公式 最新'],
+ ready:['トラックを録音可能にする',G+'enable-tracks-for-recording-lgcp0c445ccf/mac','公式 最新'],
+ tracks:['トラックを作成する',G+'create-tracks-lgcpff5da064/mac','公式 最新'],
+ tempo:['Smart Tempo設定を選ぶ',G+'choose-the-flex-follow-setting-lgcpb7abb9cc/mac','公式 最新'],
+ flash:['Flashback Captureの概要',G+'overview-of-flashback-capture-lgcp8f89929b/mac','公式 最新'],
+ comp:['コンプを作成して保存する',G+'create-and-save-comps-lgcpb193382e/mac','公式 最新'],
+ player:['Session Playerの概要',G+'session-players-overview-lgcpbf624405/mac','公式 最新'],
+ step:['ステップシーケンサーの概要','https://support.apple.com/en-mn/guide/logicpro/lgcp39acefc9/mac','公式 最新'],
+ loops:['Live Loopsを使う','https://support.apple.com/en-us/102113','公式'],
+ stem:['Stem Splitterで抽出する',G+'extract-vocal-instrumental-stems-stem-lgcp61bae908/mac','公式 最新'],
+ piano:['ピアノロールでノートを追加する',G+'add-notes-lgcpa904cb3a/mac','公式 最新'],
+ flex:['Flex TimeとPitchの概要',G+'flex-time-and-pitch-overview-lgcp15968647/mac','公式 最新'],
+ send:['センドエフェクトでルーティングする',G+'route-audio-via-send-effects-lgcp8ea0091c/10.7/mac/11.0','公式 10.7版','old'],
+ auto:['オートメーションモードを選ぶ',G+'choose-automation-modes-lgcpb1a6ab26/mac','公式 最新'],
+ master:['Mastering Assistantを使う','https://support.apple.com/en-us/108294','公式'],
+ bounce:['プロジェクトをバウンスする',G+'bounce-a-project-to-an-audio-file-lgcp785a41c3/mac','公式 最新'],
+ missing:['機能が見つからない場合','https://support.apple.com/en-al/120406','公式'],
+ toc:['Mac用Logic Proユーザガイド(日本語)','https://support.apple.com/ja-jp/guide/logicpro/welcome/mac','公式 12.3まで'],
+ mr:['Logic Pro 13の記事','https://www.musicradar.com/music-tech/apple-goes-all-in-on-ai-with-logic-pro-13-introducing-an-intelligent-assistant-that-can-control-your-daw','報道 MusicRadar','ext'],
+ unite:['Creator Studio更新の記事','https://www.unite.ai/?p=494810','報道 Unite.AI','ext'],
+ tid:['Logic Pro 12.3.1','https://tidbits.com/watchlist/logic-pro-12-3-1/','報道 TidBITS','ext'],
+ lst:['Logic Pro 12.3 Update','https://logicstudiotraining.com/?p=12798','解説 Logic Studio Training','ext'],
+ lst2:['Logic Pro 12.3.1 Update','https://logicstudiotraining.com/logic-pro-12-3-1-update/','解説 Logic Studio Training','ext'],
+ mxo:['ミキシングの概要',G+'mixing-overview-lgcpbc219818/mac','公式 最新'],
+ mxs:['チャンネルストリップのコントロール',G+'channel-strip-controls-lgcpbc219210/mac','公式 最新'],
+ mxi:['ミキサーのインターフェイス',G+'mixer-interface-lgcpe9cc43f6/10.7/mac/11.0','公式 10.7版','old'],
+ mxp:['プラグインの追加、削除、移動、コピー',G+'add-remove-move-and-copy-plug-ins-lgcpbc218a22/mac','公式 最新'],
+ vca:['VCAグループを使う',G+'use-vca-groups-lgcp4d50f425/mac','公式 最新'],
+ ragm:['Logic Proのミキサー','https://www.ragnet.co.jp/logic-pro-mixer','解説 RAG Music','ext'],
+ prv:['ピアノロールの概要',G+'overview-lgcpa9111b0d/mac','公式 最新'],
+ prs:['ピアノロールのポインタショートカット',G+'piano-roll-editor-lgcp9a4b36c6/mac','公式 最新'],
+ prm:['ノートを移動する',G+'move-notes-lgcpa905f117/mac','公式 最新'],
+ prl:['ノートの長さを変える','https://support.apple.com/en-mn/guide/logicpro/lgcpa90a4474/mac','公式 最新'],
+ prb:['ベロシティを編集する',G+'edit-note-velocity-lgcpa8fee137/mac','公式 最新'],
+ prq:['タイミングをクオンタイズする',G+'quantize-the-timing-of-notes-lgcpfa6e7f80/mac','公式 最新'],
+ prc:['音程をクオンタイズする',G+'quantize-the-pitch-of-notes-lgcpf4f544d2/mac','公式 最新'],
+ ragp:['Logic Proの編集','https://www.ragnet.co.jp/logic-pro-edit','解説 RAG Music','ext'],
+ sbk:['Studio Bassのキースイッチ割り当て',G+'keyswitch-mapping-lgcpf59fbc55/mac','公式 最新'],
+ sbo:['Studio Bassの概要',G+'studio-bass-overview-lgcp217f9887/mac','公式 最新'],
+ sbd:['Studio BassのDetails画面',G+'details-view-parameters-lgcp0475fc13/mac','公式 最新'],
+ art:['ピアノロールでアーティキュレーションを変える',G+'change-note-articulations-lgcpe29fd26a/mac','公式 最新'],
+ sart:['Samplerのアーティキュレーション処理',G+'sampler-articulation-handling-lgcp4f103162/mac','公式 最新'],
+ pram:['ピアノロールのAutomation/MIDIエリア',G+'automationmidi-area-in-the-piano-roll-editor-lgcpa90a61bf/mac','公式 最新'],
+ autp:['オートメーションポイントの追加と調整',G+'add-and-adjust-automation-points-lgcpb1a3327b/10.7/mac/11.0','公式 10.7版','old'],
+ pbe:['ピッチベンドイベント',G+'pitch-bend-events-lgcp2158a4c2/mac','公式 最新'],
+ alc:['Alchemyのマスターとボイス',G+'alchemy-master-voice-section-lgsi1d9b7d23/mac','公式 最新'],
+ smp:['SamplerのSynth Details',G+'synth-details-lgcpd870c62b/mac','公式 最新'],
+ pma:['Piano Roll Shortcuts','https://promixacademy.com/blog/logic-pro-piano-roll-shortcuts/','解説 ProMix Academy','ext'],
+ wr:['Logic Pro 12の記事','https://weraveyou.com/2026/01/logic-pro-12-launches-ai-synth-player-chord-id-smart-music-tools/','報道 We Rave You','ext']
+};
+/* [[…]] はキー表記 */
+const CH=[
+{id:'start',name:'はじめに',color:'--r-audio',lead:'Logic Proで何ができるか、画面の呼び方、動作環境を押さえます。',topics:[
+ {id:'what',t:'Logic Proでできること',p:'Mac用の音楽制作アプリです。1曲を作る工程をひとつのアプリで扱えます。',d:['声や楽器を録音し、複数テイクから良い部分をつなげる','付属のソフトウェア音源をUSBキーボードなどで演奏して録音する','オーディオとMIDIのリージョンを並べて編集する','エフェクトをかけ、ステレオやサラウンドでミックスする','完成したミックスを各種形式で書き出す'],s:['what']},
+ {id:'flow',t:'曲作りの流れ',p:'公式の説明では次の順に進みます。全部を行う必要はなく、順番を入れ替えてもかまいません。',n:['プロジェクトを作る','録音する(声や楽器はオーディオトラック、鍵盤などはソフトウェア音源トラック)','Apple Loopsなどの素材を足す','トラック領域でリージョンを並べてアレンジする','エディタでリージョンを編集する','ミキサーで音量とパンを整え、エフェクトとオートメーションを加える','テンポやキーなど曲全体の変更をグローバルトラックで行う','書き出して共有する'],s:['flow']},
+ {id:'parts',t:'画面の部品と開くキー',p:'メインウインドウにはトラック領域があり、必要なパネルをキーで開閉します。名前とキーをセットで覚えると迷いません。',d:['ミキサー:[[X]]','ピアノロール:[[P]]','スコアエディタ:[[N]]','オーディオファイルエディタ:[[W]]','Smart Controls:[[Y]]','Browser(音やループを探す):[[B]]','オートメーション表示:[[A]]','Play Surface(画面上で演奏):[[⌘K]]','クイックヘルプ:[[⇧/]]'],tip:'13.0でBrowserは[[B]]、Smart Controlsは[[Y]]になりました。古い解説記事とは逆なので注意してください。',s:['keys','rel']},
+ {id:'env',t:'動作環境と入手方法',p:'最新版は13.0です(Appleのリリースノートは2026年11月5日付)。',d:['買い切り:Mac App Storeで$199.99。既存ユーザーは無料アップデート','サブスクリプション:Apple Creator Studio(月額$12.99)にも含まれる','Assistant(beta)だけはCreator Studio、Apple silicon、macOS 27以降が必要','Appleの発表を伝える記事では、Logic Pro for MacはmacOS 26.1以降とApple siliconが必要','ストレージ:最小インストールで6GB、Sound Library全部で72GB','日本円の価格はMac App Storeの表示で確認してください'],tip:'Appleの技術仕様ページにはmacOS 14.4以降と書かれたままで、報道の要件と食い違っています。購入や更新の前にApp Storeの互換性表示を確認してください。Appleは更新前に現行アプリとプロジェクトのバックアップを勧めています。',s:['rel','specs','unite','mr']}
+]},
+{id:'setup',name:'機材の準備',color:'--r-midi',lead:'録音を始める前に、音の遅れと入力の設定を整えます。',topics:[
+ {id:'buffer',t:'音の遅れを減らす設定',p:'演奏してから音が聞こえるまでの遅れがレイテンシーです。録音時はできるだけ小さくします。',n:['「Logic Pro」メニューの「設定」から「オーディオ」→「デバイス」を開く','I/Oバッファサイズを最小にする','過負荷の警告が出たら一段ずつ大きくする','メニューの下に出る往復の遅延時間を見ながら決める','まだ遅いときは「録音」メニューのLow Latency Modeをオンにする'],tip:'目安はSleep Freaksの解説で64〜256です。小さくしすぎると負荷で止まることがあります。Bluetoothのヘッドフォンは遅延が出るので、録音には使わず試聴だけにします。',s:['lat','sf']},
+ {id:'precheck',t:'録音前のチェック',p:'録音の失敗はほとんど事前に防げます。公式の確認項目をまとめました。',d:['マイクや楽器が入力に接続され、音が来ている','Macのメモリとディスクに余裕がある','メニューバーのマイクアイコンでマイクモードを「標準」にする','録音形式(AIFF、WAV、CAF)とサンプルレート、ビット深度を決める','メトロノームとカウントインを設定する','インターフェイスにダイレクトモニタリングがあれば優先する','録音音にエフェクトをかけて聴くときだけソフトウェアモニタリングを使う','楽器をチューニングする'],s:['before']}
+]},
+{id:'project',name:'プロジェクト',color:'--r-pattern',lead:'曲の入れ物を作り、トラックとテンポを準備します。',topics:[
+ {id:'newp',t:'プロジェクトを作る',p:'テンプレートから始めるのが手早い方法です。',d:['テンプレートから新規作成:[[⌘N]]','空のプロジェクト:[[⇧⌘N]]','保存:[[⌘S]]、別名で保存:[[⇧⌘S]]','プロジェクト設定:[[⌥P]]','読み込み:[[⌘I]]、オーディオファイル読み込み:[[⇧⌘I]]'],tip:'13.0を新規インストールすると、起動時にQuick Startテンプレートのプロジェクトが開きます。取り消し履歴は初期設定で保存されるようになり、開き直しても[[⌘Z]]で戻せます。',s:['keys','main','rel']},
+ {id:'addt',t:'トラックを追加する',p:'「トラックを追加」ボタンか[[⌥⌘N]]でダイアログを開き、種類を選びます。',d:['オーディオ:ギターとベースはGuitarまたはBass、それ以外はMicまたはLineを選び、入力と出力を設定','ソフトウェア音源:MIDI、Pattern、Session Playerから選ぶ','外部MIDI機器:MIDIまたはPatternでExternal MIDIを選ぶ','直接作るキー:オーディオ[[⌥⌘A]]、音源[[⌥⌘S]]、Session Player[[⌥⌘P]]、外部MIDI[[⌥⌘X]]','同じ設定で複製:[[⌘D]]、削除:[[⌘⌫]]'],tip:'キーで作るトラックは、ダイアログの現在の設定を引き継ぎます。',s:['tracks','main']},
+ {id:'smart',t:'テンポを合わせる(Smart Tempo)',p:'オーディオリージョンのインスペクタでSmart Tempoの動作を選ぶと、プロジェクトのテンポに追従させるかどうかを決められます。',d:['Off:ファイルのテンポを無視。テンポ情報が不正確なときに使う','On:ファイルのテンポを基準に、プロジェクトのテンポと変化に追従','On + Align Bars:小節ごとに合わせる','On + Align Bars and Beats:拍ごとに合わせる'],tip:'録音や読み込みの初期動作はSmart Tempoのプロジェクト設定で決められます。',s:['tempo']}
+]},
+{id:'record',name:'録音と演奏',color:'--rec',lead:'オーディオを録る、音源を弾く、逃した演奏を拾う、テイクをつなぐ。',topics:[
+ {id:'rec',t:'オーディオを録音する',p:'1トラックだけなら、トラックを選ぶだけで録音できます。Rボタンを押す必要はありません。',n:['録音するトラックを選ぶ','メトロノームは[[K]]、カウントインは[[⇧K]]で切り替える','[[R]]で録音を始める','スペースバーで止める','失敗したら[[⌘.]]で破棄して元の位置に戻る'],d:['複数トラックに同時録音:各トラックのRボタンをクリックし、入力を別々にする','まとめて録音可能にする:選択して[[⌃R]]','ループ範囲の繰り返し録音:[[C]]でサイクルをオン'],tip:'Rボタンが出ないときは、チャンネルストリップの入力が「No Input」になっていないか確認してください。',s:['ready','keys','main']},
+ {id:'surface',t:'キーボードなしで弾く(Play Surface)',p:'13.0の新機能です。[[⌘K]]で開き、鍵盤、コードストリップ、ドラムパッドをパソコンのキーボード、マウス、タッチで演奏します。',d:['選択トラックのパッチに合わせて表示が変わる(ドラムならパッド)','オクターブ変更:[[Z]]/[[X]]、ベロシティ:[[C]]/[[V]]、サスティン:[[Tab]]','ピッチベンド:[[1]]/[[2]]、モジュレーション:[[3]]〜[[8]]','「…」メニューでPlay Notes、Play Chords、Play Drumsを切り替える','「Show Key Letters」で各音に対応するキーを表示','最大4枚まで同時に開ける'],tip:'開いている間のキーは演奏に使われます。Logicのキーコマンドを使うときは[[Esc]]を押します。',s:['rel']},
+ {id:'flash',t:'録音し忘れた演奏を拾う(Flashback Capture)',p:'録音していなくても、直前の演奏をリージョンにできます。[[⇧R]]で取り込みます。',d:['再生中:オーディオとMIDIを取り込める','停止中:MIDIだけ取り込める','Smart TempoがAdaptモードなら、取り込んだ演奏にテンポが合わせられる'],s:['flash','keys']},
+ {id:'comp',t:'テイクをつなぐ(コンピング)',p:'同じ箇所を何度か録ると、テイクフォルダにまとまります。各テイクの良い部分を選んで1本にします。',n:['テイクフォルダ左上のボタンでQuick Swipe Compingをオンにする','使いたい区間を各テイク上でドラッグする(同じ区間は自動で切り替わる)','最上段のコンプで結果を確認する','Take FolderメニューのDuplicate Compで保存する'],s:['comp']}
+]},
+{id:'sound',name:'音と素材',color:'--r-player',lead:'ループを探す、AIの演奏者に弾かせる、曲を分解する。',topics:[
+ {id:'browser',t:'音を探す(Browser)',p:'13.0で統合された検索窓です。[[B]]で開閉し、[[⌘F]]で検索欄に移動します。Sound Library、自分のサンプル、パッチ、プラグインプリセットをまとめて探せます。',d:['欲しい音を言葉で書いて探す','Find Similarで似た音を探す(サンプルを検索欄へドラッグしても可)','自分のフォルダをLocationsに追加すると自動で解析され、同じように検索できる','[[Return]]で新規トラックに追加、[[⌘↩]]で選択中トラックにパッチを読み込む','Smart Searchで検索条件を保存できる'],tip:'言葉での検索とFind Similarは、Apple siliconのMacが必要です。Spliceの音はSpliceアプリを入れて音をダウンロードしているときだけ表示されます。',s:['rel','mr']},
+ {id:'player',t:'AIの演奏者に弾かせる(Session Player)',p:'コードやスタイルに合わせて演奏を生成するトラックです。Drummer、Bass Player、Keyboard Player、Synth Playerがあります。',n:['[[⌥⌘P]]で新規Session Playerトラックを作る','プレイヤーとスタイルを選ぶ','リージョンを選び、Session Playerエディタでプリセットやパターンを調整する','コードトラックにコードを入れて、複数のプレイヤーを同じ進行で弾かせる'],d:['長さはアレンジメントマーカー、サイクル、マーキー選択で決まり、どれもなければ8小節','既存リージョンの後ろの「+」ボタンで続きを追加できる','トラック上で[[⌃クリック]]して「Session Playerリージョンを作成」でも追加できる'],s:['player']},
+ {id:'assistant',t:'Assistant(beta)に頼む',p:'13.0で追加された、自然な言葉で操作を頼める機能です。コントロールバーのボタンか[[⌥⌘/]]で開きます。[[⌘↩]]で送信できます。',d:['英語のみ。指示例:Add a compressor to the vocal track','指示例:Create a track for recording acoustic guitar','指示例:Add a Chorus marker at bar 17','使い方の質問もできる。音声入力にも対応','Appleの説明では、プロジェクトと指示はモデルの学習に使われない'],tip:'Creator Studioの契約、Apple silicon、macOS 27以降、iCloud設定済みのApple Accountが必要で、使用量の上限がかかる場合があります。',s:['rel']},
+ {id:'stepseq',t:'パターンを打ち込む(ステップシーケンサー)',p:'行ごとに音を割り当て、ステップをオンにしてパターンを作ります。[[⌘3]]で開きます。',n:['行を追加する(ラーンモードで演奏から追加することも可)','ステップをクリックしてリズムを作る','編集モードをベロシティやピッチなどに切り替えて調整する','パターンブラウザで保存や読み込みをする'],tip:'作ったパターンは、トラック領域のパターンリージョンかLive Loopsのパターンセルとして使います。',s:['step','keys']},
+ {id:'livel',t:'即興で組み立てる(Live Loops)',p:'セルと呼ぶ素材を格子状に並べ、組み合わせを試しながら曲を作ります。',n:['[[⌘N]]でLive Loopsのテンプレートを選ぶ(練習用のStarter Gridsもある)','ファイルやループをセルにドラッグする','セルの再生ボタン、またはシーン下のトリガーで鳴らす','気に入った演奏をトラック領域に録音する'],d:['セルへ録音:[[⌥R]]','すべて停止:[[⌘↩]]、またはスペースバー','セルエディタを開く:ダブルクリックか[[E]]'],s:['loops','keys']},
+ {id:'stem',t:'曲をパートに分ける(Stem Splitter)',p:'ミックス済みのオーディオからボーカルや楽器を取り出します。Apple silicon(M1以降)が必要です。',n:['オーディオリージョンを[[⌃クリック]]して「Processing」→「Stem Splitter」を選ぶ','プリセットを選ぶか、取り出すステムにチェックを入れる','「Apply」をクリックする','元のリージョンの下にできたサミングスタックで個別に聴く'],d:['ボーカル、ドラム、ベース、ギター、ピアノ、その他を抽出できる','13.0からキック、スネア、ハイハット、タム、シンバル、その他にも分けられる(Individual Kit Pieces)','選ばなかったステムはSubmixにチェックを入れるとまとめて書き出される'],tip:'元のリージョンはミュートされるだけで残ります。',s:['stem','rel']}
+]},
+{id:'edit',name:'編集',color:'--r-midi',lead:'リージョンを切って並べ、録音のタイミングや音程を整えます。',topics:[
+ {id:'region',t:'リージョンの基本操作',p:'トラック領域でよく使う操作です。',d:['再生ヘッドで分割:[[⌘T]]','結合:[[⌘J]]','繰り返し:[[⌘R]]','ループのオン/オフ:[[L]]','ミュート:[[⌃M]]','クオンタイズ:[[Q]]、解除:[[⌥⌘Q]]','グリッドへのスナップ:[[⌘G]]','再生ヘッドの位置へ移動:[[;]]','サイクルを選択範囲に合わせる:[[U]]','全体表示と選択の拡大を切り替える:[[Z]]'],s:['main','keys','win']},
+ {id:'flexx',t:'オーディオのタイミングと音程を直す(Flex)',p:'Flex Timeは録音のタイミングを、Flex Pitchは音程を編集します。',n:['[[F]]でFlex表示をオンにする','対象トラックのヘッダのTrack Flexボタンを押す','インスペクタのFlex Modeでアルゴリズムを選ぶ','Flex Timeはマーカーで伸縮し、Flex PitchはAudio Track Editorで音ごとに直す'],d:['[[⇧]]を押しながらアルゴリズムを選ぶと全オーディオトラックに適用','Flex Pitchはオーディオから MIDI を作るのにも使える'],tip:'公式ガイドの本文には今も[[⌘F]]と書かれていますが、13.0のリリースノートで[[F]]に移り、[[⌘F]]はBrowser検索になりました。',s:['flex','rel']}
+]},
+{id:'piano',name:'ピアノロール',color:'--r-player',lead:'MIDIのノートを書いて、動かして、強弱とタイミングを整えます。[[P]]で開きます。',topics:[
+ {id:'pr-view',t:'開き方と画面の見方',p:'ソフトウェア音源トラックのMIDIリージョンをダブルクリックするか、リージョンを選んで[[P]]を押します。別ウインドウで開くキーは[[⌘4]]です。ノートは色付きの棒で、横が位置と長さ、縦が音程を表します。',fig:'proll',n:['インスペクタ:クオンタイズ、音程、ベロシティを調整','鍵盤:音程の目安。ドラムは「View」→「Drum Names」でドラム名に切り替えられる','メニューとルーラー:ツールやスナップを選び、小節位置を確認','ノート:リージョンの中身。図は強さで色分けした状態','オートメーション/MIDIエリア:ベロシティ線などを編集'],tip:'ヘッダのツールメニューの右に、ポインタの位置のノート名と時間位置が表示されます。音程に迷ったときはここを見ます。',s:['prv','keys']},
+ {id:'proll',t:'ノートを書く',p:'まず入れ物になるMIDIリージョンが必要です。トラック領域で鉛筆ツールを使ってクリックすると作れます。',n:['リージョンをダブルクリックしてピアノロールを開く','ツールメニューで鉛筆ツールを選ぶ','置きたい位置をクリックする','そのままドラッグして長さを決める'],d:['背景を[[⌃クリック]]して「Create Note」でも追加できる','スナップを無視して正確な位置に置く:[[⌃⇧]]を押しながら鉛筆でクリック','ブラシツール:ドラッグでTime Quantizeの間隔に連続して追加。[[⇧]]で同じ音程に限定','ステップ入力:MIDI Inボタンをオンにして鍵盤で入力','Scale QuantizeとSnap to Scaleをオンにすると、スケールの音だけを置ける'],tip:'新しいノートは直前に作成か編集したノートの長さ、ベロシティ、チャンネルを引き継ぎます。新規プロジェクトの初期値は長さ240ティック、ベロシティ80です。',s:['piano','ragp']},
+ {id:'pr-move',t:'選ぶ、動かす、複製する',p:'ノートはドラッグで動かします。移動量はスナップの設定に従います。',d:['複数選択:空白からドラッグ、または[[⇧]]を押しながらクリック','すべて選択:[[⌘A]]','同じ音程をまとめて選択:[[⇧]]を押しながら鍵盤をクリック','細かく移動:[[⌃]]を押しながらドラッグ','ティック単位で移動:[[⌃⇧]]を押しながらドラッグ','複製:[[⌥]]を押しながらドラッグ','半音ずつ移調:[[⌥↑]]/[[⌥↓]]、オクターブ:[[⌥⇧↑]]/[[⌥⇧↓]]','削除:[[⌫]]'],tip:'縦横に同時にずれて困るときは、「設定」→「一般」→「編集」の「Limit Dragging to One Direction In Piano Roll and Score」をオンにします。移調と複製のキーはRAG MusicとProMix Academyの解説によるもので、公式のキー一覧では確認していません。',s:['prm','prs','ragp','pma']},
+ {id:'pr-len',t:'長さを変える',p:'ノートの左端か右端を横にドラッグします。短くてつかみにくいノートは、フィンガーツールならどこをつかんでも長さを変えられます。',d:['複数選択して端をドラッグ:長さの差を保ったまま変わる','[[⇧]]を押しながらドラッグ:選択ノートの終わりの位置をそろえる','[[⌥⇧]]を押しながらドラッグ:選択ノートの長さをそろえる','「Edit」→「Trim」:重なりの解消やレガートを実行','「Functions」→「Convert Sustain Pedal to Note Length」:ペダル情報をノートの長さに変換'],s:['prl','prs']},
+ {id:'pr-vel',t:'強弱をつける(ベロシティ)',p:'ベロシティはノートを弾く強さで、0〜127の値です。全部同じ値だと機械的に聞こえやすいので、拍の強弱に合わせて変えます。',n:['ノートを選ぶ','[[⌃⌘]]を押しながらノートを上下にドラッグする(一時的にVelocityツールに切り替わる)','ヘルプタグの値を見ながら離す'],d:['ヘッダのベロシティスライダーでも変更できる。[[⇧]]で細かく調整','複数選択したままドラッグ:値の差を保って増減','Velocityツールで[[⌥⇧]]を押しながらドラッグ:同じ値にそろえる','「View」→「Set Note Color」→「By Velocity」:強さで色分け(高いほど暖色、低いほど寒色)','MIDI Inをオンにすると、鍵盤を弾いた強さを選択中のノートに適用できる'],s:['prb','prs','ragp']},
+ {id:'pr-quant',t:'タイミングと音程をそろえる(クオンタイズ)',p:'タイミングのずれを音符の格子に合わせます。元の演奏データは残り、Time Quantizeを「オフ」にすれば戻せます。',n:['リージョンまたはノートを選ぶ','インスペクタのTime Quantizeで基準の音符を選ぶ(すぐ適用するキーは[[Q]])','Strengthで合わせる強さを調整する','Swingでハネの度合いを調整する'],d:['クオンタイズツール:ノートをクリックかドラッグして部分的に補正','解除:[[⌥⌘Q]]','音程をそろえる:ノートを選び、Scale Quantizeでスケールとキーを選ぶ'],tip:'Strengthを下げると、人の演奏の揺れを少し残したまま整えられます。',s:['prq','prc','keys','main']}
+]},
+{id:'expr',name:'演奏表現',color:'--rec',lead:'ハンマリング、プリング、スライド、チョーキングなど、弦楽器らしい表現をピアノロールで付けます。',topics:[
+ {id:'ex-map',t:'3つのやり方と使い分け',p:'表現を付ける方法は、音源の種類によって3つに分かれます。',d:['奏法を切り替える:Studio Bassのように奏法の録音を持つ音源で使う。ハンマリング、プリング、スライド、デッドノート、ハーモニクスを本物の音で鳴らせる','ピッチベンドを描く:チョーキングやビブラートのような、音程がなめらかに動く表現。ほとんどの音源で使える','ノートを重ねてレガートにする:Alchemy、Sampler、Retro Synthなどのシンセで、弾き直さずに次の音へつなぐ'],tip:'録音済みのオーディオ(ギターの生演奏など)の音程を直すときは、ピアノロールではなくFlex Pitchを使います。',s:['sbo','pram','alc','flex']},
+ {id:'ex-artic',t:'ノートごとに奏法を指定する',p:'打ち込みで奏法を付けるなら、この方法が確実です。ノート1つずつに奏法の番号(アーティキュレーションID)を持たせます。',n:['Studio Bassのパッチを読み込む(対応するアーティキュレーションセットも自動で入る)','ピアノロールで、奏法を付けたいノートを選ぶ','アーティキュレーションのポップアップメニューから奏法を選ぶ','または、ノートを[[⌃クリック]]して「アーティキュレーション」から選ぶ'],d:['ポインタをノートに合わせると、ヘルプタグで付いている奏法を確認できる','Studio Bassの奏法セットは、Finger、Pick、Slap、American Uprightの奏法ごとに分かれている'],tip:'ポップアップメニューが見えないときは、ピアノロールの画面を縦に広げます。トラックにアーティキュレーションセットがないとメニューは使えません。',s:['art','sbo']},
+ {id:'ex-keysw',t:'キースイッチで奏法を切り替える',p:'楽器の音域より下にある鍵盤を押すと、そこから奏法が切り替わります。鍵盤で弾きながら切り替えるときに便利です。Studio Bassの割り当ては次のとおりです。',fig:'ks',rows:[['C-1','自動(All)'],['C#-1','指やピックの交互弾きを自動'],['D-1','人差し指だけ / ダウンだけ / スラップだけ'],['E♭-1','レガート(ハンマリング/プリング)'],['E-1','中指だけ / アップだけ / プルだけ'],['F-1','デッドノート'],['F#-1','デッドノート(Pickはハーモニクス)'],['G-1','ハーモニクス'],['G#-1','ピックアップを叩く音(1回)'],['A-1','スライド(Slide by Velocity)'],['B♭-1','ピックアップを叩く音(全部)'],['B-1','2半音下からのスライドイン(Slide In +2)']],tip:'ハンマリングとプリングは、別々のキーではなく「レガート」1つにまとめられています。公式の表には「HammerOn/PullOff」の表記しかないので、上がる音はハンマリング、下がる音はプリングとして鳴ると考えられますが、明記はされていません。Slide by Velocityの詳しい動きも公式には書かれていないので、耳で確かめてください。American Uprightでは一部の割り当てが異なります。',s:['sbk','sbo']},
+ {id:'ex-bend',t:'ピッチベンドを描く(チョーキング、ビブラート)',p:'音程の動きをピアノロール下のレーンに線で描きます。',fig:'bend',n:['ピアノロールの「Show/Hide Automation」ボタンを押して、下にAutomation/MIDIエリアを出す','「Region」を選び、パラメータのメニューで「Pitch Bend」を選ぶ','鉛筆ツールでクリックやドラッグをして、カーブを描く','描いたポイントは、上下で値、左右で位置を調整する'],d:['値は0〜127で、64が音程の変化なし。上が音程が上がる側','どこまで上がるかは音源側の設定で決まる。Studio BassはDetails画面のPitchbend UpとDownで半音単位で設定する','全音のチョーキングにするなら、Upを2にして127まで描く','ビブラートは、64より少し上の山を細かく繰り返して描く'],tip:'描き終えたら、次の音の前で必ず64に戻します。戻し忘れると、後ろのノートの音程がずれたままになります。',s:['pram','autp','pbe','sbd']},
+ {id:'ex-legato',t:'ノートを重ねてレガートやグライドにする',p:'シンセの音源では、ノートの重ね方でハンマリングやスライドのような効果を作れます。',fig:'legato',n:['音源のモードをLegatoにする(AlchemyはTrigger Mode、SamplerはMode)','Glide(ポルタメント)の時間を設定する','ピアノロールで、前の音の終わりと次の音の頭を少しだけ重ねる'],d:['重なった部分だけ、弾き直さずに次の音程へつながる','Glideを長めにするとスライド、ごく短くするとハンマリングやプリングに近い感じになる','重ならないノートは、普通に弾き直した音になる','Samplerは、Monoモードにすると重ねなくても毎回グライドする','Studio BassにもPortamento(音と音の間をスライドする時間)のノブがある'],tip:'ノートの長さをそろえて少しずつ重ねたいときは、ピアノロールの「Edit」→「Trim」にあるレガートの機能が使えます。',s:['alc','smp','sbd','prl']},
+ {id:'ex-guitar',t:'ギターの音源で表現を付けるには',p:'Logic Proの付属音源には、ギターの奏法をキースイッチで切り替えられる専用音源は見当たりませんでした。今回、公式に奏法の割り当てを確認できたのはStudio Bassだけです。',d:['付属のギター系の音色:ピッチベンドとレガートの方法で表現を付ける','他社のギター音源:キースイッチの位置は製品ごとに違うので、その音源の説明書で確認する','Samplerで自作する場合:グループにアーティキュレーションIDを割り当てると、スライドなどの録音を番号で切り替えられる'],s:['sart','sbo']}
+]},
+{id:'mix',name:'ミキサー',color:'--r-audio',lead:'[[X]]でミキサーを開き、バランス、空間、動きを作ります。',topics:[
+ {id:'mx-view',t:'ミキサーの開き方と表示の切り替え',p:'トラック領域の下に開くなら[[X]]、別ウインドウなら[[⌘2]]です。別ウインドウのミキサーは複数開けて、それぞれ別の表示にできます。',d:['Single:選択中のトラックを中心に見る','Tracks:トラック領域にあるトラックを見る','All:プロジェクト内のすべてのチャンネルストリップを見る','表示モードの切り替え:[[⇧X]]','フィルターボタン:オーディオや音源など、種類を絞って表示','Track Stack:ストリップ下部の開閉矢印で中身を表示'],tip:'AuxとOutputにはトラックがありません。動きを書き込みたいときは、ミキサーの「Options」メニューからトラックを作れます。',s:['mxo','mxi']},
+ {id:'mx-strip',t:'チャンネルストリップの見方(上から順に)',p:'ミキサーの縦一列が1チャンネルです。ソフトウェア音源とオーディオで一部の表示が異なります。',rows:[['設定','プラグインを含むルーティング全体を読み込み、保存'],['ゲインリダクション','最初のCompressorなどがどれだけ音量を下げたかを表示'],['EQ表示','クリックでChannel EQを追加または開閉'],['MIDIエフェクト','音源に届く前のMIDIを加工(音源トラック)'],['入力 / 音源','オーディオは入力チャンネル、音源トラックは音源プラグインを選ぶ'],['オーディオエフェクト','EQやコンプなどのインサート'],['チャンネルモード','モノラルとステレオを切り替え'],['センド','音の一部をAuxへ送る。ノブで量を調整'],['出力','音の出力先。通常はStereo Out'],['グループ','グループに割り当てて一緒に操作'],['オートメーション','Read、Touchなどのモードを選ぶ'],['パン / バランス','左右の位置を決める'],['VCA','VCAグループに割り当てる'],['ピーク表示','再生中の最大レベル。クリックでリセット'],['フェーダー','再生音量。値をダブルクリックして数値で入力'],['レベルメーター','信号の大きさ。赤はクリップ'],['R / I','録音可能と入力モニタのボタン'],['M / S','ミュートとソロ'],['トラック名','ダブルクリックで名前を変更']],tip:'対応するオーディオインターフェイスでは、さらに入力ゲインやファントム電源などが上部に表示されます。録音に使うマイクのファントム電源は、ここでも切り替えられます。',s:['mxs']},
+ {id:'balance',t:'音量とパンを整える',p:'公式の説明では、次の順に進め、途中で行き来しながら仕上げます。',n:['フェーダーで各パートの音量バランスを取る','パンで左右の位置を決める','プラグインを追加して音色を整える','センドやバスで信号の流れを整える','オートメーションで曲中の変化を付ける'],d:['ソロで1本だけ聴く:[[S]]、ミュート:[[M]]','ピーク表示が赤い:0 dBを超えてクリップしている。フェーダーかプラグインの出力を下げる','ピーク表示がオレンジ:0 dBを超えているがクリップはしていない','ピーク表示はクリックで全チャンネルをリセットできる'],s:['mxo','mxs','keys']},
+ {id:'mx-plug',t:'プラグインを入れる、動かす、外す',p:'エフェクトはオーディオエフェクトのスロットをクリックし、メニューから選びます。',d:['置き換え:スロットにポインタを合わせ、右の矢印から別のものを選ぶ','すばやく削除:[[⌘]]を押しながらスロットをクリック','順番の変更や別トラックへの移動:ドラッグ','コピー:[[⌥]]を押しながら空きスロットへドラッグ','一時的にオフ(バイパス):[[⌥]]を押しながらスロットをクリック','まとめてバイパス:スロットをクリックしたまま上下にドラッグ','EQを最初のスロットに入れる:EQ表示を[[⌥]]クリック'],tip:'バイパス中のプラグインは処理の負荷がかかりません。音を比べるときは削除せずにバイパスします。',s:['mxp','mxs']},
+ {id:'mx-group',t:'複数のチャンネルをまとめて動かす',p:'ドラムなどをひとまとめに操作する方法です。',d:['グループ:グループスロットで割り当てると、1本のフェーダーを動かしたときに他も連動する。連動させる項目はグループ設定で選ぶ','VCA:ミキサーの「Options」→「Create New VCA for Selected Channel Strips」で作成','VCAへの割り当て:各ストリップのVCAスロットで選ぶ。解除は「No VCA」','バス:出力スロットで「Bus」を選ぶと、パートごとに処理してからまとめられる'],tip:'VCAは出力先が違うチャンネルもまとめられ、Auxをマスターにするより処理が軽くなります。フェーダー後のセンドは、VCAの音量に合わせて送り量も変わります。',s:['mxs','vca','ragm']},
+ {id:'mx-save',t:'設定を保存して別の曲で使う',p:'チャンネルストリップ上部の設定ボタンから、プラグインを含む設定を保存して読み込めます。',d:['気に入ったボーカルやギターの設定を保存しておくと、次の曲ですぐに呼び出せる','保存されるのはルーティングとプラグインで、オートメーションは含まれない'],s:['mxs','ragm']},
+ {id:'sends',t:'リバーブをセンドで共有する',p:'リバーブなどを1つのAuxに入れ、複数のトラックから送ると、響きが揃います。',n:['チャンネルストリップのSendスロットをクリックする','使っていないバスを選ぶ(送り先のAuxができる)','Auxにリバーブなどのプラグインを入れる','Sendノブで送る量を決める'],d:['Post Pan:音量とパンの影響を受ける','Post Fader:音量の影響だけ受ける','Pre Fader:音量もパンも影響しない','1チャンネルにつきセンドは最大8つ','Sendスロットを[[⇧]]クリックすると、送り先のAuxが点滅して場所を確認できる'],tip:'出典は10.7版のガイドです。13.0で表示が変わっている可能性があります。',s:['send','ragm']},
+ {id:'autom',t:'曲の途中で音量や効果を動かす(オートメーション)',p:'[[A]]でオートメーションを表示します。トラックのモードで動作が変わります。',d:['Read:書いた通りに再生するだけ','Touch:触っている間だけ書き換え、離すと元に戻る','Latch:離した後もその値で書き換え続ける','Write:再生ヘッドが通った部分を消して書き込む(何もしなければ消える)','Trim:既存のカーブを全体的に上下させる(TouchかLatchと併用)'],tip:'Writeは操作しなくてもデータを消します。普段はTouchかLatchが安全です。全トラックをReadに戻すキーは[[⌃⇧⌘R]]です。',s:['auto','keys','main']},
+ {id:'plug',t:'付属プラグインの地図',p:'公式ガイドの分類に沿って、主なものを挙げます。プラグインウインドウの一括開閉は[[V]]です。',d:['EQ:Channel EQ、Linear Phase EQ、Match EQ、Vintage EQ','ダイナミクス:Compressor、Limiter、Adaptive Limiter、Multipressor、Noise Gate、DeEsser 2','リバーブ:ChromaVerb、Space Designer、Quantec Room Simulator','ディレイ:Delay Designer、Stereo Delay、Tape Delay','ひずみ:ChromaGlow、Overdrive、Distortion、Bitcrusher','ギターとベース:Amp Designer、Bass Amp Designer、Pedalboard','ピッチ:Pitch Correction、Vocal Transformer','音源:Alchemy、Sampler、Quick Sampler、Sample Alchemy、Studio Piano、Studio Bass、Drum Kit Designer、Drum Machine Designer'],s:['toc','keys']}
+]},
+{id:'finish',name:'仕上げと書き出し',color:'--r-pattern',lead:'音量を整えて、ファイルにします。',topics:[
+ {id:'mastering',t:'Mastering Assistantで仕上げる',p:'ステレオ出力に入れると曲全体を解析し、音量と音質を自動で整えます。',n:['ステレオ出力のエフェクトの最後にある「Mastering」をクリックする','解析を待って再生し、バイパスで前後を比べる','Character、EQ、Loudness、Excite、Widthを必要に応じて調整する','ミックスを変えたら「Reanalyze」を押す','Loudness Compensationをオフにしてからバウンスする'],d:['Loudnessの中央は約-14 LUFS-Iで、多くの配信サービスの目安','Characterは初期値Transparent。Clean、Valve、Punchも選べる(Apple siliconのMac)','Widthを左端まで回すとモノラル確認になる'],s:['master','missing']},
+ {id:'bounce',t:'ファイルに書き出す(バウンス)',p:'[[⌘B]]か「ファイル」→「バウンス」→「Project or Section」でダイアログを開きます。',n:['書き出すトラックがメイン出力(Output 1-2)に出ていて、ミュートされていないことを確認する','Destinationで形式を選ぶ(複数可)','StartとEndで範囲を決める(サイクルがオンならその範囲だけ)','Modeを選ぶ(Automatic、Offline、Realtime)','Normalizeを選び、保存先を決めて「Bounce」を押す'],d:['Include Audio Tail:残響が切れないようにする','既定の保存先は ~/Music/Logic/Bounces','トラック単体の書き出し:[[⌘E]]、全トラック:[[⇧⌘E]]'],tip:'Mastering系のプラグインを使うときは、Include Audio Tailをオフにするよう勧められています。',s:['bounce','main','keys']}
+]}
+];
+const FIRST=[['新しいプロジェクトを作る','newp'],['音の遅れの設定を確認する','buffer'],['Session Playerでドラムを鳴らす','player'],['ベースか鍵盤を1本足す','addt'],['メロディーを弾いて録音する','rec'],['切る、繰り返す、ずれを直す','region'],['ミキサーで音量を整える','balance'],['Mastering Assistantを通す','mastering'],['オーディオファイルに書き出す','bounce']];
+const KEYS=[
+['再生と移動',[['再生/停止','Space'],['選択範囲から再生','⇧Space'],['先頭へ戻る','↩'],['巻き戻し / 早送り',', / .'],['位置を指定して移動','/'],['最後のリージョンの終わりへ','⌥↩']]],
+['録音',[['録音','R'],['録音を破棄して戻る','⌘.'],['Flashback Capture','⇧R'],['メトロノーム','K'],['カウントイン','⇧K'],['トラックを録音可能に','⌃R'],['オートパンチ','⌃⌥⌘P'],['セルに録音','⌥R']]],
+['サイクルとマーカー',[['サイクルのオン/オフ','C'],['選択範囲をサイクルに','U'],['マーカーを作成',"⌥'"],['前 / 次のマーカーへ','⌥, / ⌥.'],['マーカー番号へ','⌥/']]],
+['パネルの開閉',[['Browser','B',1],['Browserで検索','⌘F',1],['Smart Controls','Y',1],['Flex表示','F',1],['Play Surface','⌘K',1],['Assistant','⌥⌘/',1],['ミキサー','X'],['ピアノロール','P'],['スコアエディタ','N'],['オーディオファイルエディタ','W'],['オートメーション','A'],['クイックヘルプ','⇧/'],['全プラグインウインドウ','V']]],
+['ウインドウを開く',[['メインウインドウ','⌘1'],['ミキサー','⌘2'],['ステップシーケンサー','⌘3'],['ピアノロール','⌘4'],['スコアエディタ','⌘5'],['オーディオファイルエディタ','⌘6'],['イベントリスト','⌘7'],['プロジェクトオーディオ','⌘8'],['設定','⌘,'],['キーコマンド割り当て','⌥K']]],
+['トラック',[['新規トラックダイアログ','⌥⌘N'],['オーディオトラック','⌥⌘A'],['ソフトウェア音源トラック','⌥⌘S'],['Session Playerトラック','⌥⌘P'],['外部MIDIトラック','⌥⌘X'],['同じ設定で複製','⌘D'],['トラックを削除','⌘⌫'],['ミュート / ソロ','M / S'],['前 / 次のトラック','↑ / ↓'],['入力モニタリング','⌃I']]],
+['編集',[['再生ヘッドで分割','⌘T'],['マーキー範囲で分割','⌥⌘T'],['結合','⌘J'],['繰り返し','⌘R'],['ループ','L'],['リージョンのミュート','⌃M'],['クオンタイズ','Q'],['クオンタイズ解除','⌥⌘Q'],['スナップ','⌘G'],['再生ヘッド位置へ移動',';'],['開始を再生ヘッドに','⌘['],['終了を再生ヘッドに','⌘]'],['Flexのオン/オフ','⌃F']]],
+['基本',[['取り消し','⌘Z'],['やり直し','⇧⌘Z'],['取り消し履歴','⌃⌥⌘Z'],['カット / コピー / ペースト','⌘X / ⌘C / ⌘V'],['すべて選択','⌘A']]],
+['拡大表示',[['横に縮小 / 拡大','⌘← / ⌘→'],['縦に縮小 / 拡大','⌘↑ / ⌘↓'],['全体と選択範囲を切替','Z'],['トラックを拡大','⌃Z'],['ロケータに合わせて拡大','⌃⇧Z']]],
+['ミキサー',[['ミキサーを表示','X'],['別ウインドウで開く','⌘2'],['Single / Tracks / Allを切替','⇧X'],['プラグインをバイパス','⌥クリック'],['プラグインを削除','⌘クリック'],['プラグインをコピー','⌥ドラッグ'],['Sendの送り先を確認','⇧クリック']]],
+['ピアノロール',[['ピアノロールを表示','P'],['別ウインドウで開く','⌘4'],['クオンタイズ','Q'],['ノートをミュート','⌃M'],['一時的にVelocityツール','⌃⌘ドラッグ'],['ベロシティをそろえる','⌥⇧ドラッグ'],['長さをそろえる','⌥⇧ドラッグ'],['細かく移動','⌃ドラッグ'],['ティック単位で移動','⌃⇧ドラッグ'],['正確な位置にノートを追加','⌃⇧クリック'],['複数のノートを追加','⇧鉛筆ドラッグ'],['同じ音程をまとめて選択','⇧鍵盤クリック'],['終わりの位置をそろえる','⇧端をドラッグ'],['スコアエディタで開く','⌥ダブルクリック']]],
+['オートメーション',[['全トラックをRead','⌃⇧⌘R'],['全トラックをTouch','⌃⇧⌘T'],['全トラックをLatch','⌃⇧⌘L'],['全トラックをオフ','⌃⇧⌘O']]],
+['ファイル',[['テンプレートから新規','⌘N'],['空のプロジェクト','⇧⌘N'],['開く','⌘O'],['保存','⌘S'],['別名で保存','⇧⌘S'],['読み込み','⌘I'],['オーディオファイル読み込み','⇧⌘I'],['プロジェクト設定','⌥P'],['バウンス','⌘B'],['トラックを書き出す','⌘E'],['全トラックを書き出す','⇧⌘E']]]
+];
+const TERMS=[
+['トラック','音を入れる横一列の場所。オーディオ、ソフトウェア音源、外部MIDIなどの種類がある。'],
+['リージョン','トラック上に置く音のかたまり。録音やループはリージョンとして現れ、移動や複製ができる。'],
+['オーディオとMIDI','オーディオは音そのものの記録。MIDIは音程や強さなどの演奏情報で、鳴らす音源を後から変えられる。'],
+['ソフトウェア音源','Mac内で鳴るシンセや楽器。Alchemy、Samplerなど。'],
+['パッチ','音源とエフェクトをまとめた音色の設定。'],
+['チャンネルストリップ','ミキサーの縦一列。音量、パン、プラグイン、センド、出力先が並ぶ。'],
+['インサートとセンド','インサートはそのトラックの音に直接かける。センドは音の一部を別のチャンネルへ送る。'],
+['Aux(バス)','複数のトラックの音を受けるチャンネル。共有リバーブやグループ処理に使う。'],
+['Track Stack','複数のトラックを束ねる仕組み。Summing Stackは音をまとめて1系統にする。'],
+['オートメーション','音量やエフェクトの値を時間に沿って変える記録。'],
+['クオンタイズ','ノートやオーディオのタイミングを拍の格子にそろえること。'],
+['サイクル','繰り返し再生する範囲。左右の端をロケータと呼ぶ。'],
+['テイクとコンプ','テイクは同じ箇所の録音の1回分。コンプはテイクの良い部分をつないだもの。'],
+['バウンス','プロジェクトの音を1つのオーディオファイルにする書き出し。'],
+['レイテンシー','入力してから音が聞こえるまでの遅れ。'],
+['I/Oバッファサイズ','音声をまとめて処理する単位。小さいと遅れが減り、負荷は増える。'],
+['Flex','録音済みオーディオのタイミング(Time)や音程(Pitch)を編集する機能。'],
+['Smart Tempo','オーディオのテンポを解析し、プロジェクトのテンポと合わせる機能。'],
+['Apple Loops','繰り返して使えるように作られた付属のオーディオとMIDIの素材。'],
+['ステム','ボーカル、ドラムなどパートごとに分けた音声。'],
+['LUFS','音の大きさの単位。配信サービスの音量基準で使われる。'],
+['ベロシティ','ノートを弾く強さの値。0〜127。'],
+['VCA','複数のチャンネルの音量をまとめて動かすフェーダー。音は通らず、音量の指示だけを伝える。'],
+['スナップ','編集の位置を格子に吸着させる設定。'],
+['ティック','MIDIの時間の最小単位。'],
+['アーティキュレーション','奏法のこと。スライド、ハーモニクス、デッドノートなど。Logic Proではノートごとに番号(ID)で持たせられる。'],
+['キースイッチ','音域外の鍵盤を押して奏法を切り替える仕組み。'],
+['ピッチベンド','音程をなめらかに上げ下げするMIDIデータ。0〜127で、64が変化なし。'],
+['レガート','音を切らずにつなぐ弾き方。シンセでは、重なったノートを弾き直さずにつなぐモード。'],
+['グライド(ポルタメント)','前の音から次の音へ、音程が滑るように移る効果。']
+];
+const TROUBLE=[
+['弾いた音が遅れて聞こえる','I/Oバッファサイズを小さくし、Low Latency Modeを試します。Bluetoothヘッドフォンは録音に使いません。','buffer',['lat']],
+['Rボタンが表示されない、録音できない','チャンネルストリップの入力が「No Input」になっていないか確認します。','rec',['ready']],
+['Stem SplitterやChromaGlowが見つからない','Intel Macや、Rosettaで動かしているLogic Proでは使えません。アプリを[[⌃クリック]]して「情報を見る」を開き、「Rosettaを使用して開く」のチェックを外して起動し直します。RosettaはARAモードでMelodyneなどを使うときに必要な場合があります。','stem',['missing']],
+['[[Y]]を押したのにBrowserが開かない','13.0で変わりました。Browserは[[B]]、Smart Controlsは[[Y]]、Flex表示は[[F]]です。','parts',['rel']],
+['Assistantのボタンがない、使えない','Creator Studioの契約、Apple silicon、macOS 27以降、iCloudの設定が必要です。指示は英語で入力します。','assistant',['rel']],
+['録音し忘れた音をFlashback Captureで取れない','オーディオは再生中の演奏だけが対象です。停止中に取り込めるのはMIDIだけです。','flash',['flash']],
+['書き出した音の末尾が切れる','バウンスのInclude Audio Tailをオンにします。Mastering系のプラグインを使うときはオフが勧められているので、Endの位置を後ろにして確認します。','bounce',['bounce']],
+['書き出しにトラックの音が入っていない','そのトラックがメイン出力に出ているか、ミュートされていないかを確認します。','bounce',['bounce']],
+['マスタリングの前後で音量が変わって比べにくい','Loudness Compensationをオンにして比べます。バウンスの前には必ずオフに戻します。','mastering',['master']],
+['オートメーションが消えた','Writeモードでは操作しなくても通過した部分が消えます。[[⌘Z]]で戻し、普段はTouchかLatchを使います。','autom',['auto']],
+['Browserの言葉検索やFind Similarが使えない','Apple siliconのMacが必要です。','browser',['rel']],
+['ミキサーのピーク表示が赤くなる','0 dBを超えてクリップしています。フェーダーかプラグインの出力を下げ、表示をクリックしてリセットしてから聴き直します。','balance',['mxs']],
+['ミキサーに見たいチャンネルが出ない','表示モードがSingleになっていないか確認します。[[⇧X]]で切り替えられます。フィルターボタンで種類が絞られていないかも確認します。','mx-view',['mxo','mxi']],
+['ノートが思った位置に置けない','スナップに吸着しています。[[⌃]]で細かく動かし、[[⌃⇧]]を押すとティック単位で置けます。','pr-move',['prm','prs']],
+['ノートを動かすと音程までずれる','「設定」→「一般」→「編集」で、ドラッグを1方向に制限する設定をオンにします。','pr-move',['prm']],
+['ピッチベンドの後ろの音まで音程がずれる','ベンドの値が64に戻っていません。次の音の前に64のポイントを置きます。','ex-bend',['pram','pbe']],
+['アーティキュレーションのメニューが出ない','ピアノロールの画面を縦に広げます。それでも出ないときは、トラックにアーティキュレーションセットが入っていません。Studio Bassなら、パッチを読み込み直すとセットも入ります。','ex-artic',['art','sbo']],
+['シンセでノートを重ねてもつながらない','音源のモードがLegatoになっているか、Glideの時間が0になっていないかを確認します。','ex-legato',['alc','smp']],
+['クオンタイズしたらノリがなくなった','Strengthを下げます。Time Quantizeを「オフ」にすれば元のタイミングに戻せます。','pr-quant',['prq']],
+['Spliceの音がBrowserに出てこない','Spliceアプリが入っていて、音をダウンロード済みのときだけ表示されます。','browser',['rel']]
+];
+const NEWS=[
+['13.0(最新)',['Assistant(beta):英語の指示でトラック作成やプラグイン追加などを実行','Browser統合:Sound Library、自分のサンプル、パッチを横断。言葉で検索し、似た音も探せる','Stem Splitter:ドラムをキック、スネアなどのキットピースに分割','Play Surface:鍵盤、コードストリップ、パッドの新しい演奏画面','Touch対応:PROLED XDR Display搭載MacBook ProとSidecarのiPad','Liquid Glassの新しいデザイン','Sergio George Producer Pack','キー変更:Browser [[B]]、Smart Controls [[Y]]、Browser検索 [[⌘F]]、Flex表示 [[F]]'],['rel','mr']],
+['12.3.1',['Chord Trackなどでの強制終了を修正。ビートマッピングとクロスフェードの操作を復旧'],['tid','lst2']],
+['12.3',['Beat Breakerにフィルタ、レゾナンス、パンのモードとランダマイズを追加','Sample Alchemyのグラニュラー同期とフォルマントシフト','プロデューサープロジェクト「Shoulda Never」を追加'],['lst']],
+['12.0',['Synth Playerを追加。コードの解析など音楽を理解する機能を強化','Apple Creator Studioが2026年1月に開始'],['wr','unite']]
+];
+const MAP=[
+['Logic Proの基本','画面の部品、ウインドウ、スクリーンセット、ツール、取り消し'],['外部デバイスを接続する','マイク、オーディオインターフェイス、MIDIキーボード'],['プロジェクトを操作する','作成、保存、再生、テンポとキー、整理'],['トラックを使って作業する','トラック、パッチ、Track Stack、バウンス'],['ボイスや楽器を録音する','オーディオ、ソフトウェア音源、Flashback Capture、コンピング'],['ループやその他のメディアファイル','Apple Loops、読み込み、対応フォーマット'],['プロジェクトをアレンジする','リージョン、コード、フェード、Stem Splitter'],['オーディオトラックエディタ','オーディオリージョンの編集'],['ピアノロールエディタ','ノートの追加と編集'],['Session Playerを操作する','Drummer、Bass、Keyboard、Synth'],['オーディオのタイミングとピッチ','Flex Time、Flex Pitch、Varispeed'],['高度な編集機能','イベントリスト、ステップエディタ、MIDIトランスフォーム'],['プロジェクトをミックスする','ミキサー、プラグイン、センド、グループ'],['ミックスを自動化する','オートメーション'],['Smart Control','スクリーンコントロールの割り当て'],['Live Loops','セルとシーン'],['ステップシーケンサー','パターン作成'],['グローバルプロジェクト設定','マーカー、拍子、テンポ、Smart Tempo'],['楽譜を作成する','スコアエディタ、譜表スタイル'],['プロジェクトを共有する','バウンス、書き出し'],['サラウンドと空間オーディオ','ドルビーアトモス、バイノーラル'],['ビデオと同期','ムービー、外部同期、Ableton Link'],['設定とキーコマンド','全設定項目、キーの一覧'],['コントロールサーフェス','外部コントローラの割り当て'],['エンバイロメント','MIDI信号の配線'],['Logic Proエフェクト','全エフェクトのパラメータ'],['Logic Pro音源','全音源のパラメータとチュートリアル'],['シンセサイザーの基礎','音の基礎と合成方式']
+];
+const MODES=[['home','ホーム','全体の流れと最初の1曲'],['c-start','章別ガイド','機能の使い方を順番に'],['keys','ショートカット','キーを一覧で引く'],['trouble','困ったとき','症状から解決策へ'],['terms','用語集','言葉の意味を確かめる'],['new','新機能','バージョン別の変更点'],['favs','お気に入り','★を付けた項目'],['map','公式ガイドの地図','公式の章立てを確認'],['sources','出典','使った資料の一覧']];
+
+/* 保存(per-viewerの便利機能のみ) */
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let favs=load('lp-favs',[]),done=load('lp-first',[]);
+const TTS=typeof speechSynthesis!=='undefined'&&typeof SpeechSynthesisUtterance!=='undefined';
+const SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const $=s=>document.querySelector(s),view=$('#view');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=s=>esc(s).replace(/\[\[(.+?)\]\]/g,'<kbd>$1</kbd>');
+const plain=s=>String(s).replace(/\[\[|\]\]/g,'');
+const kbd=k=>k.split(' / ').map(x=>'<kbd>'+esc(x)+'</kbd>').join(' / ');
+const allTopics=CH.flatMap(c=>c.topics.map(t=>({...t,ch:c})));
+const topicById=id=>allTopics.find(t=>t.id===id);
+function srcHtml(ids){return '<div class="src">'+ids.map(i=>{const s=S[i];return `<span class="tag ${s[3]||''}">${esc(s[2])}</span><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`}).join(' ')+'</div>'}
+function topicHtml(t){
+ const on=favs.includes(t.id);
+ return `<section class="topic" id="t-${t.id}"><div class="topic-h"><h2>${fmt(t.t)}</h2><span class="t-btns"><button class="say" data-say="${t.id}" aria-pressed="false" aria-label="この項目を読み上げ" title="読み上げ">${SPK}</button><button class="star" data-star="${t.id}" aria-pressed="${on}" aria-label="お気に入り">${on?'★':'☆'}</button></span></div><p>${fmt(t.p)}</p>
+ ${t.fig?({proll:prollFig,ks:ksFig,bend:bendFig,legato:legatoFig}[t.fig])():''}
+ ${t.rows?'<ol class="strip">'+t.rows.map(r=>`<li><b>${esc(r[0])}</b><span>${fmt(r[1])}</span></li>`).join('')+'</ol>':''}
+ ${t.n?'<ol class="steps">'+t.n.map(x=>`<li>${fmt(x)}</li>`).join('')+'</ol>':''}
+ ${t.d?'<ul class="dots">'+t.d.map(x=>`<li>${fmt(x)}</li>`).join('')+'</ul>':''}
+ ${t.tip?`<p class="tip"><b>注意とコツ</b> ${fmt(t.tip)}</p>`:''}${srcHtml(t.s)}</section>`;
+}
+/* Studio Bassのキースイッチ(C-1〜B-1)。表現に使う鍵盤を強調 */
+function ksFig(){
+ const W=84,x0=26,top=34,h=120,bh=74,bw=50;
+ const white=[['C','自動',0],['D','単一',0],['E','単一',0],['F','デッド',1],['G','ハーモ',1],['A','スライド',1],['B','スライドイン',1]];
+ const black=[[0,'C#','交互',0],[1,'E♭','レガート',1],[3,'F#','デッド',0],[4,'G#','叩く',0],[5,'B♭','叩く',0]];
+ let s='';
+ white.forEach((k,i)=>{const x=x0+i*W;s+=`<rect x="${x}" y="${top}" width="${W}" height="${h}" fill="var(--${k[2]?'accent':'surface'})" stroke="var(--line)" stroke-width="1.5"/><text class="jp ${k[2]?'on':''}" x="${x+W/2}" y="${top+h-30}" text-anchor="middle">${k[0]}-1</text><text class="jps" x="${x+W/2}" y="${top+h+20}" text-anchor="middle">${k[1]}</text>`});
+ black.forEach(k=>{const x=x0+(k[0]+1)*W-bw/2;s+=`<rect x="${x}" y="${top}" width="${bw}" height="${bh}" rx="2" fill="var(--${k[3]?'rec':'lcd'})"/><text class="jps" x="${x+bw/2}" y="${top-10}" text-anchor="middle" ${k[3]?'style="fill:var(--rec);font-weight:700"':''}>${k[2]}</text><text x="${x+bw/2}" y="${top+bh-10}" text-anchor="middle" style="fill:#E8EEEC">${k[1]}</text>`});
+ return `<figure class="fig" style="margin:0"><svg viewBox="0 0 640 186" role="img" aria-label="Studio Bassのキースイッチの鍵盤図">${s}</svg><p class="fig-cap">C-1からB-1までの1オクターブ。色の付いた鍵盤が、演奏表現に使う奏法です。Appleの割り当て表をもとに作図。</p></figure>`;
+}
+/* ピッチベンド:上がノート、下がベンドのレーン */
+function bendFig(){
+ const L=60,R=620,T=14,nh=18,lane0=96,lane1=196,mid=(lane0+lane1)/2;
+ const X=b=>L+(R-L)*b/8,Y=v=>lane1-(lane1-lane0)*v/127;
+ let s=`<rect x="${L}" y="${T}" width="${R-L}" height="${nh*3}" fill="var(--sunken)"/>`;
+ for(let i=0;i<=8;i++)s+=`<line x1="${X(i)}" y1="${T}" x2="${X(i)}" y2="${lane1}" stroke="var(--line)" stroke-width="${i%2?0.5:1}"/>`;
+ [[0,1.6,1],[2,3.2,1],[5.6,7.6,2]].forEach(n=>s+=`<rect x="${X(n[0])+1}" y="${T+n[2]*nh+1}" width="${X(n[1])-X(n[0])-2}" height="${nh-2}" rx="2" fill="var(--r-player)"/>`);
+ s+=`<rect x="${L}" y="${lane0}" width="${R-L}" height="${lane1-lane0}" fill="none" stroke="var(--line)"/>`;
+ s+=`<line x1="${L}" y1="${Y(64)}" x2="${R}" y2="${Y(64)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+ const pts=[[0,64],[2.3,64],[2.9,127],[4.2,127],[4.6,64],[5.6,64],[5.9,72],[6.15,64],[6.4,72],[6.65,64],[6.9,72],[7.15,64],[7.4,72],[7.6,64],[8,64]];
+ s+=`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+ s+=`<circle cx="${X(4.6)}" cy="${Y(64)}" r="5" fill="var(--rec)"/>`;
+ s+=`<text x="${L-6}" y="${Y(127)+4}" text-anchor="end">127</text><text x="${L-6}" y="${Y(64)+4}" text-anchor="end">64</text><text x="${L-6}" y="${Y(0)}" text-anchor="end">0</text>`;
+ s+=`<text class="jps" x="${X(2.9)}" y="${Y(127)-6}">チョーキング</text><text class="jps" x="${X(4.75)}" y="${Y(64)+18}" style="fill:var(--rec)">64に戻す</text><text class="jps" x="${X(5.7)}" y="${Y(72)-8}">ビブラート</text><text class="jps" x="${L+4}" y="${lane0-6}">Pitch Bend</text>`;
+ return `<figure class="fig" style="margin:0"><svg viewBox="0 0 640 ${lane1+12}" role="img" aria-label="ピッチベンドのカーブの例">${s}</svg><p class="fig-cap">上がノート、下がPitch Bendのレーン。点線の64が音程の変化なしです。模式図。</p></figure>`;
+}
+/* レガート:重ねない場合と重ねる場合 */
+function legatoFig(){
+ const L=150,R=620,X=b=>L+(R-L)*b/4;
+ const row=(y,title,sub,a,b,over)=>{let s=`<text class="jp" x="12" y="${y+16}">${title}</text><text class="jps" x="12" y="${y+34}">${sub}</text><rect x="${L}" y="${y}" width="${R-L}" height="52" fill="var(--sunken)"/>`;
+  s+=`<rect x="${X(a[0])}" y="${y+28}" width="${X(a[1])-X(a[0])}" height="16" rx="2" fill="var(--r-audio)"/><rect x="${X(b[0])}" y="${y+8}" width="${X(b[1])-X(b[0])}" height="16" rx="2" fill="var(--r-audio)"/>`;
+  if(over){s+=`<rect x="${X(b[0])}" y="${y+4}" width="${X(a[1])-X(b[0])}" height="44" fill="none" stroke="var(--rec)" stroke-width="2" stroke-dasharray="3 3"/><path d="M${X(a[1])-14} ${y+36} C ${X(a[1])+10} ${y+36}, ${X(b[0])+18} ${y+16}, ${X(b[0])+40} ${y+16}" fill="none" stroke="var(--rec)" stroke-width="2"/><text class="jps" x="${X(a[1])+12}" y="${y+66}" style="fill:var(--rec)">重なり → 弾き直さずにつながる</text>`}
+  else s+=`<text class="jps" x="${X(a[1])+4}" y="${y+66}">すき間 → 弾き直す</text>`;
+  return s};
+ return `<figure class="fig" style="margin:0"><svg viewBox="0 0 640 186" role="img" aria-label="ノートを重ねる場合と重ねない場合の比較">${row(10,'重ねない','普通の発音',[0.2,1.8],[2.1,3.6],0)}${row(104,'少し重ねる','Legatoモード',[0.2,2.3],[2.0,3.6],1)}</svg><p class="fig-cap">音源をLegatoモードにしたとき。重なった部分でGlideが働きます。模式図。</p></figure>`;
+}
+/* ピアノロールの模式図。番号は下の手順リストと対応 */
+function prollFig(){
+ const L=150,T=28,R=640,rows=12,rh=14,B=T+rows*rh,bar=(R-L)/4;
+ let k='',g='',n='',v='';
+ const black=[1,3,6,8,10];
+ for(let i=0;i<rows;i++){const y=T+i*rh,isB=black.includes(i);
+  k+=`<rect x="110" y="${y}" width="40" height="${rh}" fill="var(--${isB?'lcd':'surface'})" stroke="var(--line)"/>`;
+  g+=`<rect x="${L}" y="${y}" width="${R-L}" height="${rh}" fill="var(--${isB?'sunken':'surface'})"/>`}
+ for(let i=0;i<=16;i++){const x=L+i*bar/4;g+=`<line x1="${x}" y1="${T}" x2="${x}" y2="${B}" stroke="var(--line)" stroke-width="${i%4?0.5:1.2}"/>`}
+ const notes=[[0,8,1,.45],[1,6,1,.6],[2,4,1,.75],[3,3,1,.5],[4,5,2,.9],[6,6,1,.55],[7,8,1,.4],[8,3,1.5,.95],[10,4,1,.7],[11,6,1,.5],[12,8,3,.85],[15,6,1,.45]];
+ notes.forEach(a=>{const x=L+a[0]*bar/4,y=T+a[1]*rh,c=a[3]>.7?'--r-player':a[3]>.5?'--r-pattern':'--r-audio';
+  n+=`<rect x="${x+1}" y="${y+1}" width="${a[2]*bar/4-2}" height="${rh-2}" rx="2" fill="var(${c})"/>`;
+  v+=`<line x1="${x+4}" y1="${B+50}" x2="${x+4}" y2="${B+50-a[3]*40}" stroke="var(${c})" stroke-width="3"/>`});
+ const ruler=[1,2,3,4].map((b,i)=>`<text x="${L+i*bar+4}" y="18">${b}</text>`).join('');
+ const dot=(x,y,t)=>`<circle class="num" cx="${x}" cy="${y}" r="10"/><text class="numt" x="${x}" y="${y+4.5}">${t}</text>`;
+ return `<div class="fig"><svg viewBox="0 0 640 ${B+56}" role="img" aria-label="ピアノロールの画面構成の模式図"><rect width="640" height="${B+56}" fill="var(--surface)"/><rect x="0" y="0" width="110" height="${B+56}" fill="var(--sunken)"/><rect x="110" y="0" width="530" height="${T}" fill="var(--sunken)"/>${g}${k}${n}<line x1="110" y1="${B}" x2="640" y2="${B}" stroke="var(--line)"/>${v}${ruler}${dot(55,70,1)}${dot(130,20,2)}${dot(600,14,3)}${dot(360,T+rh*1.2,4)}${dot(125,B+30,5)}</svg></div>`;
+}
+/* リージョンの中身:オーディオは波形、それ以外はMIDIの短い線 */
+function regionArt(seed,midi){let x='',r=seed*7+3;const rnd=()=>(r=(r*9301+49297)%233280)/233280;
+ for(let i=0;i<40;i++){if(midi){const y=2+rnd()*14;x+=`<rect x="${i*2.5}" y="${y.toFixed(1)}" width="${(1.5+rnd()*2).toFixed(1)}" height="1.6" fill="currentColor"/>`}
+ else{const h=2+rnd()*14;x+=`<rect x="${i*2.5}" y="${(10-h/2).toFixed(1)}" width="1.4" height="${h.toFixed(1)}" fill="currentColor"/>`}}
+ return `<svg viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">${x}</svg>`}
+function home(){
+ const n=CH.length,w=34,p=done.length/FIRST.length;
+ const lanes=CH.map((c,i)=>{const left=i*(100-w)/(n-1);
+  return `<a class="lane" href="#c-${c.id}"><span class="thead">${esc(c.name)}</span><span class="track"><span class="region" style="--c:var(${c.color});left:${left.toFixed(1)}%;width:${w}%">${c.topics.length}項目${regionArt(i+1,i%2===1)}</span></span></a>`}).join('');
+ const next=FIRST.find((f,i)=>!done.includes(i));
+ view.innerHTML=`<div class="hero"><h1>1曲を作る順番で読むLogic Pro</h1><p>Appleの公式ガイドは目次だけでも非常に長い資料です。必要な操作だけを制作の流れに沿って短くまとめました。下の列を押すと、その章が開きます。</p></div>
+ <div class="arr" style="--p:${p}"><div class="ruler">${[1,2,3,4,5,6,7,8].map(b=>`<span>${b}</span>`).join('')}</div>${lanes}<div class="playhead" aria-hidden="true"></div></div>
+ <div class="home-grid"><section class="panel"><h2>最初の1曲チェックリスト</h2><p class="note">${done.length}/${FIRST.length}完了。進めると上の再生ヘッドが右へ動きます。${next?'次は「'+esc(next[0])+'」です。':'全部できました。'}</p><ul class="check">${FIRST.map((f,i)=>`<li><input type="checkbox" id="f${i}" data-first="${i}" ${done.includes(i)?'checked':''}><label for="f${i}" class="${done.includes(i)?'done':''}">${esc(f[0])}</label><a href="#t-${f[1]}">手順</a></li>`).join('')}</ul></section>
+ <section class="panel"><h2>すぐ引く</h2><ul class="quick"><li><a href="#keys"><b>ショートカット</b><small>最新版の既定キーをまとめて確認</small></a></li><li><a href="#trouble"><b>困ったとき</b><small>遅れる、Rボタンが出ない、機能がないなど</small></a></li><li><a href="#new"><b>13.0の新機能</b><small>Assistant、Browser、Play Surface</small></a></li><li><a href="#terms"><b>用語集</b><small>リージョンやセンドの意味</small></a></li></ul></section></div>`;
+}
+function chapter(id,scrollTo){
+ const i=CH.findIndex(c=>c.id===id);if(i<0)return home();const c=CH[i],pv=CH[i-1],nx=CH[i+1];
+ view.innerHTML=`<div class="ch-head"><button class="pop-btn" id="chBtn" aria-haspopup="listbox">${i+1}. ${esc(c.name)}</button></div><h1 class="page-title">${esc(c.name)}</h1><p>${fmt(c.lead)}</p>
+ ${TTS?`<div class="ch-tools"><button class="icon-btn" id="readAll">${SPK} この章を最初から読み上げ</button></div>`:''}
+ <div class="ch-layout"><div>${c.topics.map(topicHtml).join('')}<div class="pager">${pv?`<a href="#c-${pv.id}">← ${esc(pv.name)}</a>`:'<span></span>'}${nx?`<a href="#c-${nx.id}">${esc(nx.name)} →</a>`:''}</div></div><nav class="toc" aria-label="この章の項目">${c.topics.map(t=>`<a href="#t-${t.id}">${esc(plain(t.t))}</a>`).join('')}</nav></div>`;
+ if($('#readAll'))$('#readAll').onclick=()=>speakTopics(c.topics.map(t=>t.id));
+ $('#chBtn').onclick=e=>openPop(e.currentTarget,'章を選ぶ',CH.map((x,j)=>({v:x.id,l:(j+1)+'. '+x.name,s:x.topics.length+'項目'})),id,v=>location.hash='c-'+v);
+ if(scrollTo){const el=document.getElementById('t-'+scrollTo);if(el)el.scrollIntoView();}else window.scrollTo(0,0);
+}
+let keyCat='all',keyText='';
+function keysView(){
+ const cats=[{v:'all',l:'すべて'},{v:'chg',l:'13.0で変わったキー'},...KEYS.map(k=>({v:k[0],l:k[0],s:k[1].length+'個'}))];
+ const label=cats.find(c=>c.v===keyCat).l;
+ view.innerHTML=`<h1 class="page-title">ショートカット</h1><p class="note">Appleの米国キーボード既定プリセットです。日本語キーボードでは記号キーの位置が異なることがあります。割り当ての確認と変更は<kbd>⌥K</kbd>で行います。</p>
+ <div class="toolbar"><button class="pop-btn" id="catBtn" aria-haspopup="listbox">${esc(label)}</button><input id="keyQ" type="search" placeholder="機能名で絞り込む" aria-label="機能名で絞り込む" value="${esc(keyText)}"></div><div id="keyList"></div>${srcHtml(['keys','main','win','rel'])}`;
+ $('#catBtn').onclick=e=>openPop(e.currentTarget,'カテゴリを選ぶ',cats,keyCat,v=>{keyCat=v;keysView()});
+ $('#keyQ').oninput=e=>{keyText=e.target.value;renderKeys()};
+ renderKeys();
+}
+function renderKeys(){
+ const q=keyText.trim().toLowerCase();
+ const html=KEYS.map(g=>{if(keyCat!=='all'&&keyCat!=='chg'&&keyCat!==g[0])return'';
+  const rows=g[1].filter(r=>(keyCat!=='chg'||r[2])&&(!q||r[0].toLowerCase().includes(q)||r[1].toLowerCase().includes(q)));
+  if(!rows.length)return'';return `<div class="key-group"><h2>${esc(g[0])}</h2>${rows.map(r=>`<div class="key-row"><span>${esc(r[0])}${r[2]?'<span class="chg">13.0</span>':''}</span><span class="ks">${kbd(r[1])}</span></div>`).join('')}</div>`}).join('');
+ $('#keyList').innerHTML=html||'<p class="empty">該当するキーはありません。別の言葉で試してください。</p>';
+}
+function terms(){view.innerHTML=`<h1 class="page-title">用語集</h1><p class="note">公式ガイドの説明をもとに、短く言い換えています。</p><dl class="dl">${TERMS.map(t=>`<div><dt>${esc(t[0])}</dt><dd>${esc(t[1])}</dd></div>`).join('')}</dl>`}
+function trouble(){view.innerHTML=`<h1 class="page-title">困ったとき</h1><div class="card-list">${TROUBLE.map(t=>`<article><h2>${fmt(t[0])}</h2><p>${fmt(t[1])}</p><div class="src"><a href="#t-${t[2]}">詳しい手順</a></div>${srcHtml(t[3])}</article>`).join('')}</div>`}
+function news(){view.innerHTML=`<h1 class="page-title">新機能</h1><p class="note">日本語の公式ガイドは確認時点で12.3までの選択肢のため、13.0はリリースノートを基準にしています。</p><div class="card-list">${NEWS.map(n=>`<article><h2>${esc(n[0])}</h2><ul class="dots">${n[1].map(x=>`<li>${fmt(x)}</li>`).join('')}</ul>${srcHtml(n[2])}</article>`).join('')}</div>`}
+function favsView(){const list=allTopics.filter(t=>favs.includes(t.id));view.innerHTML=`<h1 class="page-title">お気に入り</h1>${list.length?list.map(topicHtml).join(''):'<p class="empty">まだありません。各項目の☆を押すとここに集まります。このブラウザにだけ保存されます。</p>'}`}
+function mapView(){view.innerHTML=`<h1 class="page-title">公式ガイドの地図</h1><p>この手引きにない細かな設定は、公式ガイドのどの章を見ればよいかをここで確かめます。章名は公式の目次に合わせ、一部を短くしています。</p><p style="margin-top:8px"><a href="${S.toc[1]}" target="_blank" rel="noopener">日本語の公式ガイドを開く</a></p><dl class="dl" style="margin-top:12px">${MAP.map(m=>`<div><dt>${esc(m[0])}</dt><dd>${esc(m[1])}</dd></div>`).join('')}</dl>`}
+function sources(){view.innerHTML=`<h1 class="page-title">出典</h1><p>Appleの公式資料を基準にし、公式に載っていない目安や最新の要件は音楽メディアや報道で補いました。出典の版が古い項目には<span class="tag old">10.7版</span>のように印を付けています。</p><div class="dl" style="margin-top:12px">${Object.values(S).map(s=>`<div class="src" style="padding:8px 0;border-top:1px solid var(--line)"><span class="tag ${s[3]||''}">${esc(s[2])}</span><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a></div>`).join('')}</div>`}
+
+/* 検索 */
+function hl(s,q){const e=esc(s),i=e.toLowerCase().indexOf(esc(q).toLowerCase());if(i<0)return e;const start=Math.max(0,i-30);return (start?'…':'')+e.slice(start,i)+'<mark>'+e.slice(i,i+esc(q).length)+'</mark>'+e.slice(i+esc(q).length,i+90)}
+function searchView(q){
+ const ql=q.toLowerCase(),r=[];
+ allTopics.forEach(t=>{const txt=plain([t.t,t.p,...(t.n||[]),...(t.d||[]),...(t.rows||[]).flat(),t.tip||''].join(' '));if(txt.toLowerCase().includes(ql))r.push(['#t-'+t.id,plain(t.t),t.ch.name,txt])});
+ TROUBLE.forEach(t=>{const txt=plain(t[0]+' '+t[1]);if(txt.toLowerCase().includes(ql))r.push(['#trouble',plain(t[0]),'困ったとき',txt])});
+ KEYS.forEach(g=>g[1].forEach(k=>{if((k[0]+' '+k[1]).toLowerCase().includes(ql))r.push(['#keys',k[0]+'  '+k[1],'ショートカット',k[0]])}));
+ TERMS.forEach(t=>{if((t[0]+t[1]).toLowerCase().includes(ql))r.push(['#terms',t[0],'用語集',t[1]])});
+ view.innerHTML=`<h1 class="page-title">「${esc(q)}」の検索結果</h1><p class="note">${r.length}件</p>${r.length?r.map(x=>`<a class="result" href="${x[0]}" data-res><b>${esc(x[1])}</b> <span class="tag">${esc(x[2])}</span><small>${hl(x[3],q)}</small></a>`).join(''):'<p class="empty">見つかりませんでした。「録音」「遅れ」「バウンス」のような短い言葉で試してください。</p>'}`;
+}
+
+/* ポップアップ */
+function openPop(anchor,title,items,current,onPick){
+ closePop();
+ const back=document.createElement('div');back.className='pop-back';
+ const pop=document.createElement('div');pop.className='pop';pop.setAttribute('role','listbox');pop.setAttribute('aria-label',title);
+ pop.innerHTML=(items[0]&&items[0].head?'':`<h3>${esc(title)}</h3>`)+items.map(i=>i.head?`<h3>${esc(i.head)}</h3>`:`<button role="option" data-v="${esc(i.v)}" aria-selected="${i.sel!==undefined?i.sel:i.v===current}">${esc(i.l)}${i.s?`<small>${esc(i.s)}</small>`:''}</button>`).join('');
+ document.body.append(back,pop);
+ const r=anchor.getBoundingClientRect(),pw=pop.offsetWidth;
+ pop.style.left=Math.max(8,Math.min(r.left,innerWidth-pw-8))+'px';
+ pop.style.top=Math.min(r.bottom+6,Math.max(8,innerHeight-pop.offsetHeight-8))+'px';
+ const btns=[...pop.querySelectorAll('button')];
+ (btns.find(b=>b.getAttribute('aria-selected')==='true')||btns[0]).focus();
+ const finish=()=>{closePop();anchor.focus()};
+ back.onclick=finish;
+ pop.onclick=e=>{const b=e.target.closest('button');if(b){closePop();onPick(b.dataset.v)}};
+ pop.onkeydown=e=>{const i=btns.indexOf(document.activeElement);
+  if(e.key==='Escape'){e.preventDefault();finish()}
+  else if(e.key==='ArrowDown'){e.preventDefault();btns[(i+1)%btns.length].focus()}
+  else if(e.key==='ArrowUp'){e.preventDefault();btns[(i-1+btns.length)%btns.length].focus()}
+  else if(e.key==='Tab'){e.preventDefault()}};
+}
+function closePop(){document.querySelectorAll('.pop,.pop-back').forEach(n=>n.remove())}
+
+/* ルーティング */
+function currentMode(h){if(h.startsWith('c-')||h.startsWith('t-'))return 'c-start';return MODES.some(m=>m[0]===h)?h:'home'}
+function route(){
+ closePop();
+ if(speaking&&!(location.hash||'').startsWith('#t-'+speaking.ids[speaking.i])&&!(location.hash==='#c-'+speaking.ch))stopSpeak();
+ const h=(location.hash||'#home').slice(1),m=currentMode(h);
+ $('#modeBtn').textContent=MODES.find(x=>x[0]===m)[1];
+ const q=$('#q');if(q.value&&document.activeElement!==q)q.value='';
+ if(h.startsWith('c-'))chapter(h.slice(2));
+ else if(h.startsWith('t-')){const t=topicById(h.slice(2));t?chapter(t.ch.id,t.id):home()}
+ else{({home,keys:keysView,terms,trouble,new:news,favs:favsView,map:mapView,sources}[m]||home)();window.scrollTo(0,0)}
+}
+$('#modeBtn').onclick=e=>{const h=(location.hash||'#home').slice(1);openPop(e.currentTarget,'表示を選ぶ',MODES.map(m=>({v:m[0],l:m[1],s:m[2]})),currentMode(h),v=>{if(location.hash==='#'+v)route();else location.hash=v})};
+$('#q').addEventListener('input',e=>{const v=e.target.value.trim();v?searchView(v):route()});
+view.addEventListener('click',e=>{const sy=e.target.closest('[data-say]');if(sy){const id=sy.dataset.say;if(speaking&&speaking.ids[speaking.i]===id)stopSpeak();else speakTopics([id]);return}
+ const s=e.target.closest('[data-star]');if(s){const id=s.dataset.star;favs=favs.includes(id)?favs.filter(x=>x!==id):[...favs,id];save('lp-favs',favs);const on=favs.includes(id);s.setAttribute('aria-pressed',on);s.textContent=on?'★':'☆'}
+ if(e.target.closest('[data-res]')){$('#q').value=''}});
+view.addEventListener('change',e=>{const c=e.target.closest('[data-first]');if(c){const i=+c.dataset.first;done=c.checked?[...new Set([...done,i])]:done.filter(x=>x!==i);save('lp-first',done);const y=scrollY;home();scrollTo(0,y);const el=document.getElementById('f'+i);if(el)el.focus()}});
+/* 表示設定(文字の大きさ・読み上げ速度・声) */
+const SIZES=[['90%','小さめ','90%'],['100%','標準','100%'],['115%','大きめ','115%'],['130%','大','130%'],['150%','特大','150%']];
+const RATES=[['0.8','ゆっくり'],['1','ふつう'],['1.25','やや速い'],['1.5','速い']];
+let fs=load('lp-fs','100%'),rate=load('lp-rate','1'),voiceName=load('lp-voice','');
+function applyFs(){document.documentElement.style.setProperty('--fs',fs)}
+applyFs();
+function jaVoices(){if(!TTS)return[];return speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang))}
+$('#viewBtn').onclick=e=>{
+ const btn=e.currentTarget;
+ const items=[{v:'h-size',head:'文字の大きさ'},...SIZES.map(s=>({v:'fs:'+s[0],l:s[1],s:s[2],sel:fs===s[0]}))];
+ if(TTS){items.push({v:'h-rate',head:'読み上げの速さ'},...RATES.map(r=>({v:'rate:'+r[0],l:r[1],s:'×'+r[0],sel:rate===r[0]})));
+  const vs=jaVoices();if(vs.length>1){items.push({v:'h-voice',head:'声'},...vs.map(v=>({v:'voice:'+v.name,l:v.name,sel:voiceName===v.name||(!voiceName&&v===vs[0])})))}}
+ else items.push({v:'h-no',head:'このブラウザは読み上げに対応していません'});
+ openPop(btn,'表示と読み上げ',items,null,v=>{
+  if(v.startsWith('fs:')){fs=v.slice(3);save('lp-fs',fs);applyFs()}
+  else if(v.startsWith('rate:')){rate=v.slice(5);save('lp-rate',rate);if(speaking)restartCurrent()}
+  else if(v.startsWith('voice:')){voiceName=v.slice(6);save('lp-voice',voiceName);if(speaking)restartCurrent()}
+ });
+};
+
+/* 音声読み上げ(ブラウザ内蔵の音声合成) */
+const KEYREAD={'⌘':'コマンド ','⌥':'オプション ','⇧':'シフト ','⌃':'コントロール ','⌫':'デリート','↩':'リターン','↑':'上矢印','↓':'下矢印','←':'左矢印','→':'右矢印','Space':'スペース','Esc':'エスケープ','Tab':'タブ','Return':'リターン','/':'スラッシュ',';':'セミコロン',',':'カンマ','.':'ピリオド'};
+function keyToSpeech(k){let s=k;for(const[a,b]of Object.entries(KEYREAD))s=s.split(a).join(b);return ' '+s.trim()+' キー '}
+function speakText(t){
+ const P=x=>x.replace(/\[\[(.+?)\]\]/g,(m,k)=>keyToSpeech(k));
+ const parts=[P(t.t)+'。',P(t.p)];
+ if(t.rows)t.rows.forEach(r=>parts.push(r[0]+'。'+P(r[1])+'。'));
+ if(t.n)t.n.forEach((x,i)=>parts.push((i+1)+'。'+P(x)+'。'));
+ if(t.d)t.d.forEach(x=>parts.push(P(x)+'。'));
+ if(t.tip)parts.push('注意とコツ。'+P(t.tip));
+ return parts.join('\n').replace(/[「」]/g,'').replace(/:/g,'、').replace(/→/g,'から').replace(/\//g,'または').replace(/〜/g,'から').replace(/。。/g,'。');
+}
+/* 長い文はブラウザによって途中で止まるため、文ごとに区切って順に読む */
+function chunks(s){return s.split(/(?<=[。\n])/).map(x=>x.trim()).filter(Boolean)}
+let speaking=null;
+function speakTopics(ids){
+ if(!TTS)return;
+ stopSpeak(true);
+ const h=(location.hash||'').slice(1);
+ speaking={ids,i:0,j:0,parts:[],paused:false,ch:topicById(ids[0]).ch.id};
+ startTopic();
+}
+function startTopic(){
+ const sp=speaking;if(!sp)return;
+ if(sp.i>=sp.ids.length){stopSpeak();return}
+ const t=topicById(sp.ids[sp.i]);sp.parts=chunks(speakText(t));sp.j=0;
+ document.querySelectorAll('.topic.reading').forEach(n=>n.classList.remove('reading'));
+ document.querySelectorAll('[data-say]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.say===t.id));
+ const el=document.getElementById('t-'+t.id);
+ if(el){el.classList.add('reading');if(sp.ids.length>1)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})}
+ $('#playerTxt').innerHTML=`<i>${sp.ids.length>1?(sp.i+1)+'/'+sp.ids.length:'再生中'}</i>${esc(plain(t.t))}`;
+ $('#player').hidden=false;document.body.classList.add('has-player');
+ $('#pPause').textContent='一時停止';
+ nextChunk();
+}
+function nextChunk(){
+ const sp=speaking;if(!sp)return;
+ if(sp.j>=sp.parts.length){sp.i++;startTopic();return}
+ const u=new SpeechSynthesisUtterance(sp.parts[sp.j]);
+ u.lang='ja-JP';u.rate=+rate;
+ const vs=jaVoices(),v=vs.find(x=>x.name===voiceName)||vs[0];if(v)u.voice=v;
+ u.onend=()=>{if(speaking===sp&&!sp.restart){sp.j++;nextChunk()}};
+ u.onerror=e=>{if(speaking===sp&&e.error!=='interrupted'&&e.error!=='canceled'){sp.j++;nextChunk()}};
+ speechSynthesis.speak(u);
+}
+function restartCurrent(){const sp=speaking;if(!sp)return;sp.restart=true;speechSynthesis.cancel();setTimeout(()=>{sp.restart=false;sp.paused=false;$('#pPause').textContent='一時停止';nextChunk()},60)}
+function stopSpeak(keepBar){
+ speaking=null;if(TTS)speechSynthesis.cancel();
+ document.querySelectorAll('.topic.reading').forEach(n=>n.classList.remove('reading'));
+ document.querySelectorAll('[data-say]').forEach(b=>b.setAttribute('aria-pressed','false'));
+ if(!keepBar){$('#player').hidden=true;document.body.classList.remove('has-player')}
+}
+$('#pStop').onclick=()=>stopSpeak();
+$('#pPause').onclick=()=>{const sp=speaking;if(!sp)return;
+ if(sp.paused){sp.paused=false;$('#pPause').textContent='一時停止';restartCurrent()}
+ else{sp.paused=true;sp.restart=true;speechSynthesis.cancel();$('#pPause').textContent='再開'}};
+if(TTS&&speechSynthesis.addEventListener)speechSynthesis.addEventListener('voiceschanged',()=>{});
+addEventListener('pagehide',()=>{if(TTS)speechSynthesis.cancel()});
+
+addEventListener('hashchange',route);
+route();
+</script>
+
+<style>.top .oapps-top::after{display:none}</style><style id="oapps-css">.oapps-btn{display:inline-flex;align-items:center;gap:6px;font:800 13px/1.15 system-ui,-apple-system,"Hiragino Sans",sans-serif;padding:7px 12px;border-radius:999px;border:1px solid #e0875f;background:#a8452a;color:#fff;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+.oapps-ov{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.oapps-ov[hidden]{display:none!important}
+.oapps-box{width:min(420px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fffaf3;color:#2a1d17;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4);font:15px/1.5 system-ui,-apple-system,"Hiragino Sans",sans-serif}
+.oapps-box h2{margin:0 0 10px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+.oapps-x{font:700 18px/1 system-ui;border:0;background:#eadfce;color:#2a1d17;border-radius:50%;width:36px;height:36px;cursor:pointer}
+.oapps-box a{display:flex;align-items:center;gap:12px;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #e3d3bf;background:#fff;color:#2a1d17;text-decoration:none}
+.oapps-box a b{display:block;font-size:15px}.oapps-box a small{display:block;color:#7a6656;font-size:12px}
+.oapps-box a i{font-style:normal;font-size:24px;width:32px;text-align:center;flex:none}
+.oapps-box a.cur{border:2px solid #a8452a;background:#fbeee2;pointer-events:none}
+.oapps-box a.cur b:after{content:"（表示中）";font-weight:600;color:#a8452a;font-size:12px}
+.oapps-note{font-size:12px;color:#7a6656;margin:6px 2px 0}</style>
+<script id="oapps-js">(function(){
+var ME="logic",B="https://o-ut46.github.io/WEB-app-out46/";
+var L=[["guitar","🎸","Scale & Chord","スケール・コード・指板・メトロノーム",B+"guitar/"],
+["note","📘","O-UTのギターと音楽理論","公開版：理論・奏法・コード進行のカード",B+"guitar-note/"],
+["hx","🎛️","OUT HX-STOMP まるわかり辞典","Line 6 HX Stompの使い方",B+"hx-stomp/"],
+["logic","🎹","Logic Pro 手引き","Mac版Logic Proの使い方",B+"logic-pro/"]];
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var ov;function build(){ov=document.createElement("div");ov.className="oapps-ov";ov.hidden=true;ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","O-UTのアプリを切り替え");
+var h='<div class="oapps-box"><h2>O-UTのアプリ<button type="button" class="oapps-x" aria-label="閉じる">✕</button></h2>';
+L.forEach(function(a){var ext=a[4].indexOf("claude.ai")>=0;h+='<a href="'+a[4]+'"'+(a[0]===ME?' class="cur" aria-current="page"':'')+(ext?' target="_blank" rel="noopener"':'')+'><i>'+a[1]+'</i><span><b>'+esc(a[2])+'</b><small>'+esc(a[3])+'</small></span></a>'});
+h+='</div>';ov.innerHTML=h;document.body.appendChild(ov);
+ov.addEventListener("click",function(e){if(e.target===ov||e.target.closest(".oapps-x"))close()});}
+function open(){if(!ov)build();ov.hidden=false;var x=ov.querySelector(".oapps-x");if(x)x.focus()}
+function close(){if(ov)ov.hidden=true}
+document.addEventListener("keydown",function(e){if(e.key==="Escape")close()});
+window.OApps={open:open,close:close};
+function wire(){document.querySelectorAll("[data-oapps]").forEach(function(b){b.addEventListener("click",function(e){e.preventDefault();open()})})}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",wire);else wire();
+})();</script>
+</body></html>
