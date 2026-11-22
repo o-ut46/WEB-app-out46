@@ -1,10 +1,8 @@
 import os, urllib.request
 U={
-"kw_cruise":"https://www.kouwan.metro.tokyo.lg.jp/kanko/cruise",
-"kw_ship":"https://www.kouwan.metro.tokyo.lg.jp/yakuwari/minatomaru/shippingschedule",
-"kw_pdf26a":"https://www.kouwan.metro.tokyo.lg.jp/documents/d/kouwan/cruiseschedule_2026_japanese",
-"kw_pdf24":"https://www.kouwan.metro.tokyo.lg.jp/documents/d/kouwan/cruiseschedule_2024_japanese",
-"walker_day_p2":"https://www.walkerplus.com/event_list/1129/ar0313/2.html",
+"tptc_cruise":"https://www.tptc.co.jp/terminal/guide/cruise",
+"tptc_harumi":"https://www.tptc.co.jp/terminal/guide/harumi",
+"tptc_top":"https://www.tptc.co.jp/terminal/",
 }
 os.makedirs("probe",exist_ok=True)
 for k,u in U.items():
