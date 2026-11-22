@@ -303,6 +303,10 @@ def main():
     for name in ["bigsight", "dome", "hall", "ariake", "garden", "forum", "walker", "cruise"]:
         r = src.get(name)
         if not r: r = old.get(name, [])
+        elif name in ("walker", "cruise"):
+            # 取得が不安定な情報源は、今回見つからなかった前回分も残す
+            have = {e["u"] for e in r}
+            r = r + [e for e in old.get(name, []) if e.get("u") not in have]
         for e in r: e["k"] = name; events.append(e)
     # 過去は1週間前まで（終了日で判定）
     events = [e for e in events if e["e"] >= KEEP_FROM.isoformat() and e["t"]]
