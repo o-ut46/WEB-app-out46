@@ -1,19 +1,19 @@
 import os, urllib.request
 U={
-"bigsight":"https://www.bigsight.jp/visitor/event/",
-"dome":"https://www.tokyo-dome.co.jp/dome/event/schedule.html",
-"budokan":"https://www.nipponbudokan.or.jp/schedule/",
-"forum":"https://www.t-i-forum.co.jp/visitors/event/",
-"ariake":"https://ariake-arena.tokyo/event/",
-"gardentheater":"https://www.shopping-sumitomo-rd.com/tokyo_garden_theater/schedule/",
-"kokugikan":"https://www.ryogoku-kokugikan.jp/schedule/",
-"kouwan_cruise":"https://www.kouwan.metro.tokyo.lg.jp/kanko/kyakusen",
-"kouwan_pdf26":"https://www.kouwan.metro.tokyo.lg.jp/documents/d/kouwan/cruiseschedule_2026_japanese",
-"gotokyo":"https://www.gotokyo.org/jp/event/index.html",
-"walker":"https://www.walkerplus.com/event_list/today/ar0313/",
-"jorudan":"https://www.jorudan.co.jp/eventinfo/tokyo/",
-"tokyodome_city_hall":"https://www.tokyo-dome.co.jp/hall/event/",
-"ntt_budokan_alt":"https://www.nipponbudokan.or.jp/schedule/2026/12",
+"walker_p2":"https://www.walkerplus.com/event_list/ar0313/2.html",
+"walker_all":"https://www.walkerplus.com/event_list/ar0313/",
+"walker_day":"https://www.walkerplus.com/event_list/1129/ar0313/",
+"walker_detail":"https://www.walkerplus.com/event/ar0313e614246/",
+"dome_dec":"https://www.tokyo-dome.co.jp/dome/event/schedule.html?date=2026-12",
+"forum_dec":"https://www.t-i-forum.co.jp/visitors/event/?year=2026&month=12",
+"ariake_next":"https://ariake-arena.tokyo/event/next/",
+"garden_dec":"https://www.shopping-sumitomo-rd.com/tokyo_garden_theater/schedule/?date=2026-12",
+"bigsight_p2":"https://www.bigsight.jp/visitor/event/search.php?page=2",
+"kouwan_top":"https://www.kouwan.metro.tokyo.lg.jp/",
+"kouwan_kanko":"https://www.kouwan.metro.tokyo.lg.jp/kanko/",
+"cruiseterminal":"https://www.tokyo-cruise-terminal.jp/",
+"budokan_sched":"https://www.nipponbudokan.or.jp/schedule",
+"kokugikan_s":"https://ryogoku-kokugikan.jp/schedule/",
 }
 os.makedirs("probe",exist_ok=True)
 for k,u in U.items():
