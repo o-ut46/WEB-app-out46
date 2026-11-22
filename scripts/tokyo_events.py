@@ -385,6 +385,18 @@ def main():
             "count": len(events), "events": events, "cache": {"walker": wcache, "cruise": ccache}}
     os.makedirs("data", exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    # 日報との照合用に、過去のイベントも残す（約400日分）
+    AR = "data/tokyo-events-archive.json"
+    arc = {}
+    if os.path.exists(AR):
+        try: arc = {tuple(x["key"]): x["ev"] for x in json.load(open(AR, encoding="utf-8")).get("items", [])}
+        except Exception: arc = {}
+    for e in events:
+        arc[(e.get("k"), e["d"], e["t"], e.get("s", ""), e.get("v", ""))] = {k: v for k, v in e.items() if k not in ("h",)}
+    cut = (TODAY - dt.timedelta(days=400)).isoformat()
+    items = [{"key": list(k), "ev": v} for k, v in sorted(arc.items(), key=lambda kv: (kv[1]["d"], kv[1]["t"])) if v["e"] >= cut]
+    with open(AR, "w", encoding="utf-8") as f:
+        json.dump({"updated": data["updated"], "count": len(items), "items": items}, f, ensure_ascii=False, separators=(",", ":"))
     log("total", len(events), {k: len(v) for k, v in src.items()})
 
 if __name__ == "__main__":
