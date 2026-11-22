@@ -1299,18 +1299,21 @@ table.mt td:first-child { font-weight: 600; white-space: nowrap; }
 .oapps-box a i{font-style:normal;font-size:24px;width:32px;text-align:center;flex:none}
 .oapps-box a.cur{border:2px solid #a8452a;background:#fbeee2;pointer-events:none}
 .oapps-box a.cur b:after{content:"（表示中）";font-weight:600;color:#a8452a;font-size:12px}
+.oapps-box a.oapps-add{border-style:dashed;background:#fbeee2}
 .oapps-note{font-size:12px;color:#7a6656;margin:6px 2px 0}</style>
 <script id="oapps-js">(function(){
 var ME="hx",B="https://o-ut46.github.io/WEB-app-out46/";
 var L=[["guitar","🎸","Scale & Chord","スケール・コード・指板・メトロノーム",B+"guitar/"],
 ["note","📘","O-UTのギターと音楽理論","公開版：理論・奏法・コード進行のカード",B+"guitar-note/"],
 ["hx","🎛️","OUT HX-STOMP まるわかり辞典","Line 6 HX Stompの使い方",B+"hx-stomp/"],
-["logic","🎹","Logic Pro 手引き","Mac版Logic Proの使い方",B+"logic-pro/"]];
+["logic","🎹","Logic Pro 手引き","Mac版Logic Proの使い方",B+"logic-pro/"],
+["oboe","📝","oUTの覚書","メモ・見たいところ・弦の在庫・HXリスト",B+"oboegaki/"]];
+function here(){var best="",hs=document.querySelectorAll("h1,h2,h3");for(var i=0;i<hs.length;i++){var r=hs[i].getBoundingClientRect();if(r.height&&r.top<160&&!hs[i].closest(".oapps-ov,header,.top"))best=hs[i].textContent.trim()}return (best||document.title).replace(/\s+/g," ").slice(0,80)}
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 var ov;function build(){ov=document.createElement("div");ov.className="oapps-ov";ov.hidden=true;ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","O-UTのアプリを切り替え");
 var h='<div class="oapps-box"><h2>O-UTのアプリ<button type="button" class="oapps-x" aria-label="閉じる">✕</button></h2>';
 L.forEach(function(a){var ext=a[4].indexOf("claude.ai")>=0;h+='<a href="'+a[4]+'"'+(a[0]===ME?' class="cur" aria-current="page"':'')+(ext?' target="_blank" rel="noopener"':'')+'><i>'+a[1]+'</i><span><b>'+esc(a[2])+'</b><small>'+esc(a[3])+'</small></span></a>'});
-h+='</div>';ov.innerHTML=h;document.body.appendChild(ov);
+if(ME!=="oboe")h+='<a href="#" class="oapps-add"><i>📌</i><span><b>いま見ているところを覚書に追加</b><small>oUTの覚書の「見たいところ」に登録します</small></span></a>';h+='</div>';ov.innerHTML=h;var ad=ov.querySelector(".oapps-add");if(ad)ad.addEventListener("click",function(e){e.preventDefault();location.href=B+"oboegaki/#add?app="+encodeURIComponent(ME)+"&u="+encodeURIComponent(location.href)+"&t="+encodeURIComponent(here())});document.body.appendChild(ov);
 ov.addEventListener("click",function(e){if(e.target===ov||e.target.closest(".oapps-x"))close()});}
 function open(){if(!ov)build();ov.hidden=false;var x=ov.querySelector(".oapps-x");if(x)x.focus()}
 function close(){if(ov)ov.hidden=true}
