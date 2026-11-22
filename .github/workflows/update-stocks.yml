@@ -67,6 +67,9 @@ jobs:
           cp -R data public/data
           cp -R guitar public/guitar
           cp -R hx-stomp public/hx-stomp
+          cp -R guitar-note public/guitar-note
+          cp -R logic-pro public/logic-pro
+          cp -R oboegaki public/oboegaki
           cp -R ledger public/ledger
           cp -R nippo-map public/nippo-map
           for file in icon-192.png icon-512.png CNAME; do
