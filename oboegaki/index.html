@@ -123,7 +123,7 @@ footer details{margin-top:8px}
   <span class="sp"></span>
   <button class="hbtn fs" type="button" id="fsBtn" aria-haspopup="dialog" aria-label="文字の大きさ">Aa</button>
   <button class="hbtn" type="button" data-oapps aria-haspopup="dialog">🔀 アプリ</button>
-  <div class="ver" title="更新履歴は一番下">Ver.2<span>2026.11.22</span></div>
+  <div class="ver" title="更新履歴は一番下">Ver.3<span>2026.11.23</span></div>
 </div></header>
 
 <main class="wrap" id="view"></main>
@@ -132,6 +132,7 @@ footer details{margin-top:8px}
   データはこの端末（このブラウザ）の中だけに保存されます。機種変更やデータ消去に備えて、ときどき「バックアップ」で保存してください。
   <p><button class="btn" type="button" id="bkBtn">💾 バックアップと読み込み</button></p>
   <details><summary>更新履歴</summary><ol reversed>
+    <li>Ver.3（2026.11.23）「調号の覚え方」の要約メモと、参考ページ（かのんピアノ教室）・ギターと音楽理論のカードを「見たいところ」に追加</li>
     <li>Ver.2（2026.11.22）文字の大きさを6段階で変えられるように（右上の「Aa」）</li>
     <li>Ver.1（2026.11.22）作成。メモ、見たいところリスト、弦の在庫管理、HX Stompのプリセットリスト。ほかのO-UTアプリと行き来できるように</li>
   </ol></details>
@@ -390,6 +391,17 @@ $("#bkBtn").onclick=function(){
     if(!Array.isArray(d.memos)&&!Array.isArray(d.links)&&!Array.isArray(d.strings)&&!Array.isArray(d.hx))throw 0;
     confirmBox("いまの記録をファイルの内容に置き換えます。よろしいですか？","置き換える",function(){D.memos=d.memos||[];D.links=d.links||[];D.strings=d.strings||[];D.hx=d.hx||[];save();close();render();toast("読み込みました")})}
    catch(_){toast("このファイルは読み込めません")}};r.readAsText(f)}})};
+
+/* ---- あらかじめ入れておく覚書（一度だけ追加。消しても再追加しない） ---- */
+var SEEDS=[{key:"keysig-20261123",memo:{t:"調号の覚え方（要約）",b:"・調号なし＝ハ長調（C）\n・主音が完全5度上がるごとに #が1つ増える\n　C→G→D→A→E→B→F#→C#\n・主音が完全5度下がるごとに ♭が1つ増える\n　C→F→B♭→E♭→A♭→D♭→G♭→C♭\n・#が付く順番も5度上へ：F C G D A E B\n・♭が付く順番は5度下へ：B E A D G C F（#の逆）\n・調号は全部で15種類\n・ギターでは5度上＝1本細い弦の2フレット上（3弦→2弦は3フレット上）\n\n参考：かのんピアノ教室「［楽典］14：調号の覚え方」"},
+ links:[{app:"other",t:"調号の覚え方（かのんピアノ教室）",u:"https://canon-piano-kyoushitu.com/?p=431",n:"5度上がると#が1つ、5度下がると♭が1つ増える"},
+        {app:"note",t:"調号の覚え方のカード",u:"",n:"検索に「調号」と入れると出ます"}]}];
+D.ui.seeds=D.ui.seeds||[];
+SEEDS.forEach(function(sd){if(D.ui.seeds.indexOf(sd.key)>=0)return;var now=Date.now();
+ if(sd.memo)D.memos.push({id:uid(),t:sd.memo.t,b:sd.memo.b,pin:false,up:now});
+ (sd.links||[]).forEach(function(l){D.links.push({id:uid(),app:l.app,t:l.t,u:l.u,n:l.n})});
+ D.ui.seeds.push(sd.key)});
+save();
 
 /* ---- 文字の大きさ ---- */
 var FS=[["小",14],["中",16],["大",18],["特大",20],["超大",23],["最大",26]];
