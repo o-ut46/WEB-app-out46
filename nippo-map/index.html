@@ -56,6 +56,13 @@ body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{
 .anal{position:absolute;transform:translate(-50%,-50%);background:#fff;border:2px solid;border-radius:10px;padding:1px 6px;text-align:center;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);line-height:1.15}
 .anal b{display:block;font-size:15px}.anal span{font-size:10px;color:#444}
 .leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+body.biz .chip,body.biz .panel .ctl,body.biz #sl,body.biz .ends,body.biz #bBand,body.biz #bPrev,body.biz #bNext{display:none}
+body:not(.biz) #bizCtl{display:none}
+#bizCtl .bt{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#bizCtl .bt b{font-size:17px}
+.bz{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.bz.sel{border:3px solid var(--ink)}
+.bzd{width:7px;height:7px;border-radius:50%;background:#9aa1ab;opacity:.75;transform:translate(-50%,-50%);position:absolute}
 .arow{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-top:1px solid var(--line);cursor:pointer}
 </style>
 </head>
@@ -87,6 +94,11 @@ body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{
   </div>
   <input type="range" id="sl" min="0" max="100" value="0" step="1">
   <div class="ends"><span id="t0"></span><span id="t1"></span></div>
+  <div id="bizCtl">
+    <div class="bt"><div><span class="s" style="color:var(--sub);font-size:12px">見ている時刻</span><br><b id="bizSee">--:--</b></div><button class="btn ghost" id="bizNow">今に戻す</button></div>
+    <input type="range" id="bizSl" min="0" max="360" step="5" value="0" aria-label="何分先を見るか">
+    <div class="ends" style="display:flex"><span>今</span><span>+2時間</span><span>+4時間</span><span>+6時間</span></div>
+  </div>
   <div class="info" id="info"></div>
 </div>
 <div class="sheet-bg" id="sbg" hidden><div class="sheet" id="sheet"></div></div>
@@ -160,6 +172,7 @@ const curEmpty=L.polyline([],{color:LC.emp,weight:5,opacity:1,lineCap:"round",da
 function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml,e.me].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine,curEmpty].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
 function loadDay(d){
   if(typeof clearAna==="function"){ clearAna(); document.body.classList.remove("ana"); }
+  if(typeof clearBiz==="function") clearBiz();
   stop(); clearDay();
   st.day=d; st.sel=null;
   const base=tmin(d.dep) ?? tmin(d.r?.[0]?.[1]) ?? 0; st.base=base;
@@ -266,7 +279,7 @@ $("#bBand").onclick=()=>sheet("時間帯を選んでください",Object.entries
 $("#bTile").onclick=()=>sheet("地図の種類",Object.entries(TILES).map(([k,v])=>({label:v[0],cls:k===pref.tile?"acc":"sub",fn:()=>setTile(k)})));
 $("#bSpeed").onclick=()=>sheet("再生の速さ",Object.entries(SPEEDS).map(([k,v])=>({label:v[0],cls:k===pref.speed?"acc":"sub",fn:()=>{ pref.speed=k; savePref(); $("#bSpeed").textContent=`速さ：${v[0]} ▼`; }})));
 $("#bSpeed").textContent=`速さ：${SPEEDS[pref.speed]?.[0]||"普通"} ▼`;
-$("#bDate").onclick=()=>{
+$("#bDate").onclick=()=>{ if(bizData) return;
   const days=loadDays(); const ks=Object.keys(days).sort().reverse();
   if(!ks.length) return;
   sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>{ loadDay(days[k]); st.T=0; play(); }})),
@@ -297,7 +310,7 @@ function padded(H){
 }
 function clearAna(){ anaLayers.forEach(l=>map.removeLayer(l)); anaLayers=[]; }
 function showAna(A){
-  stop(); clearDay(); clearAna(); anaData=A; anaSel=null; st.day=null;
+  stop(); clearDay(); clearAna(); clearBiz(); anaData=A; anaSel=null; st.day=null;
   document.body.classList.add("ana");
   const items=A.items.slice().sort((a,b)=>a.n-b.n);
   const all=[];
@@ -326,6 +339,61 @@ function anaInfo(){
   $("#info").innerHTML=h;
   $("#info").querySelectorAll("[data-i]").forEach(r=>r.onclick=()=>{ const o=A.items[+r.dataset.i]; anaPick(o); if(o.pg) map.fitBounds(o.pg.getBounds(),{maxZoom:15}); });
 }
+
+/* ---------- 営業モード（端末の時計に合わせて、これからの1時間に乗せた場所） ---------- */
+let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[];
+function clearBiz(){ bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[]; if(bizData){ bizData=null; document.body.classList.remove("biz"); } }
+const bizT=()=>{ const t=new Date(); return (t.getHours()*60+t.getMinutes()+bizS)%1440; };
+const bizDl=(m,T)=>((m-T)%1440+1440)%1440;
+function bizColor(r){ const A=[246,205,198], B=[200,16,16]; return `rgb(${A.map((a,i)=>Math.round(a+(B[i]-a)*r)).join(",")})`; }
+function bizDraw(){
+  bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[];
+  const T=bizT();
+  const all=bizData.S.map(([la,ln,a,R])=>{ const h=R.map(r=>({m:r[0],d:r[1],to:r[2],f:r[3],dl:bizDl(r[0],T)})).filter(r=>r.dl<=60).sort((p,q)=>p.dl-q.dl);
+    return {la,ln,a,h,r:h.length?1-h[0].dl/60:0}; });
+  bizHitsNow=all.filter(s=>s.h.length);
+  for(const s of all) if(!s.h.length) bizLayers.push(L.marker([s.la,s.ln],{interactive:false,icon:L.divIcon({className:"",html:`<div class="bzd"></div>`,iconSize:[0,0]})}).addTo(map));
+  for(const s of bizHitsNow.slice().sort((a,b)=>a.r-b.r||a.h.length-b.h.length)){
+    const n=s.h.length, D=Math.round(26+Math.min(22,(n-1)*5));
+    const mk=L.marker([s.la,s.ln],{zIndexOffset:Math.round(s.r*1000)+n,icon:L.divIcon({className:"",iconSize:[0,0],
+      html:`<div class="bz${s.a===bizSel?" sel":""}" style="width:${D}px;height:${D}px;background:${bizColor(s.r)};opacity:${(0.6+0.4*s.r).toFixed(2)};color:${s.r>0.45?"#fff":"#7a1410"};font-size:${Math.round(D*0.5)}px">${n}</div>`})}).addTo(map);
+    mk.on("click",()=>{ bizSel=s.a; bizDraw(); });
+    bizLayers.push(mk);
+  }
+  bizInfo();
+}
+function bizClock(){
+  const t=new Date(), T=bizT();
+  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]}) 今`;
+  $("#clk").textContent=`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+  const plus=bizS?`+${Math.floor(bizS/60)?Math.floor(bizS/60)+"時間":""}${bizS%60?bizS%60+"分":""}`:"";
+  $("#st").textContent= bizS ? `見ている時刻 ${hm(T)}（${plus}）` : "見ている時刻：今"; $("#el").textContent="";
+  $("#bizSee").textContent=`${hm(T)}${bizS?`（今から${plus}）`:"（今）"}`;
+}
+function bizInfo(){
+  const B=bizData, T=bizT(), list=bizHitsNow.slice().sort((a,b)=>b.h.length-a.h.length||a.h[0].dl-b.h[0].dl);
+  const tot=list.reduce((t,s)=>t+s.h.length,0);
+  let h=`<div class="h"><span>${hm(T)}〜${hm(T+60)} に乗せた場所</span><span>${B.days}乗務・${tot}回</span></div>
+   <div class="s">${esc(B.per)}・${esc(B.wd)}（期間と曜日は日報リーダーの地図タブで選びます）</div>`;
+  const sel=list.find(s=>s.a===bizSel);
+  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${esc(r.d)} ${hm(r.m)} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
+  if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。下のバーで先の時刻も見られます。</div>`;
+  h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
+  $("#info").innerHTML=h;
+  $("#info").querySelectorAll("[data-a]").forEach(r=>r.onclick=()=>{ bizSel=r.dataset.a; const s=bizHitsNow.find(o=>o.a===bizSel); if(s) map.setView([s.la,s.ln],Math.max(map.getZoom(),15)); bizDraw(); });
+}
+function showBiz(B){
+  stop(); clearDay(); clearAna(); clearBiz(); st.day=null;
+  bizData=B; bizS=0; bizSel=null; bizMin=null; $("#bizSl").value=0;
+  document.body.classList.add("biz");
+  $("#bDate").textContent=B.wd;
+  const P=B.S.map(s=>[s[0],s[1]]);
+  if(P.length) map.fitBounds(L.latLngBounds(P),{padding:[24,24]});
+  bizClock(); bizDraw();
+}
+$("#bizSl").addEventListener("input",e=>{ bizS=+e.target.value; bizSel=null; if(bizData){ bizClock(); bizDraw(); } });
+$("#bizNow").onclick=()=>{ bizS=0; $("#bizSl").value=0; if(bizData){ bizClock(); bizDraw(); } };
+setInterval(()=>{ if(!bizData) return; bizClock(); const m=bizT(); if(m!==bizMin){ bizMin=m; bizDraw(); } },1000);
 /* ---------- 起動 ---------- */
 async function start(){
   const h=location.hash.slice(1);
@@ -333,6 +401,7 @@ async function start(){
   if(h){
     try{
       const d=await decode(h);
+      if(d && d.b){ showBiz(d); history.replaceState(null,"",location.pathname); return; }
       if(d && d.a){ showAna(d); history.replaceState(null,"",location.pathname); return; }
       if(d && d.d){ days[d.d]=d; saveDays(days); loadDay(d); history.replaceState(null,"",location.pathname); st.T=0; play(); return; }
     }catch(e){ $("#info").innerHTML=`<div class="s" style="color:var(--red)">データを読み込めませんでした（${esc(e.message||e)}）</div>`; }
