@@ -57,7 +57,7 @@ body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{
 .anal b{display:block;font-size:15px}.anal span{font-size:10px;color:#444}
 .leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 body.biz .chip,body.biz .panel .ctl,body.biz #sl,body.biz .ends,body.biz #bBand,body.biz #bPrev,body.biz #bNext{display:none}
-body:not(.biz) #bizCtl,body:not(.biz) #bPer,body:not(.biz) #bWd{display:none}
+body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
 .vs{position:absolute;right:6px;top:92px;bottom:78px;width:48px;z-index:600;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;justify-content:center;cursor:pointer}
 .vs[hidden]{display:none}
 .vs-track{position:relative;width:8px;height:100%;background:rgba(40,40,48,.28);border-radius:4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
@@ -71,6 +71,7 @@ body:not(.biz) #bizCtl,body:not(.biz) #bPer,body:not(.biz) #bWd{display:none}
 .bz{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .bz.sel{border:3px solid var(--ink)}
 .bzd{width:7px;height:7px;border-radius:50%;background:#9aa1ab;opacity:.75;transform:translate(-50%,-50%);position:absolute}
+.mukae{color:#1f6fe0;font-weight:800;margin-left:3px}
 .arow{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-top:1px solid var(--line);cursor:pointer}
 </style>
 </head>
@@ -79,8 +80,10 @@ body:not(.biz) #bizCtl,body:not(.biz) #bPer,body:not(.biz) #bWd{display:none}
   <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button></div></div>
   <div class="row">
     <button class="btn" id="bBand">時間帯：すべて ▼</button>
-    <button class="btn" id="bPer">期間 ▼</button>
-    <button class="btn" id="bWd">曜日 ▼</button>
+    <button class="btn fbtn" id="fY">年 ▼</button>
+    <button class="btn fbtn" id="fM">月 ▼</button>
+    <button class="btn fbtn" id="fW">曜日 ▼</button>
+    <button class="btn fbtn" id="fH">祝日 ▼</button>
     <button class="btn" id="bTile">地図：地理院（淡色） ▼</button>
   </div>
   <div class="row">
@@ -122,6 +125,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const pad=n=>String(n).padStart(2,"0");
 const yen=n=>(Number(n)||0).toLocaleString("ja-JP");
 const WD=["日","月","火","水","木","金","土"];
+const MUKAE='<span class="mukae">迎</span>';
 const tmin=t=>{const m=String(t||"").match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null;};
 const rel=(t,base)=>{const m=tmin(t);if(m==null)return null;let r=m-base;if(r<-60)r+=1440;return r;};
 const hm=min=>{min=((Math.round(min)%1440)+1440)%1440;return pad(Math.floor(min/60))+":"+pad(min%60);};
@@ -268,7 +272,7 @@ function renderInfo(e){
   const q=a=>encodeURIComponent("東京都"+a);
   const url=`https://www.google.com/maps/dir/?api=1&origin=${q(e.from)}&destination=${q(e.to)}${e.via?`&waypoints=${q(e.via)}`:""}&travelmode=driving`;
   box.innerHTML=`<div class="h"><span>No.${e.no??""}　${esc(e.on)} → ${esc(e.off)}</span><span>${e.fare!=null?yen(e.fare)+"円":""}</span></div>
-   <div>${esc(e.from)} → ${esc(e.to)}${e.via?`<span class="s">（経由 ${esc(e.via)}）</span>`:""}</div>
+   <div>${esc(e.from)}${e.pk?MUKAE:""} → ${esc(e.to)}${e.via?`<span class="s">（経由 ${esc(e.via)}）</span>`:""}</div>
    <div class="s">${e.km??"—"}km・${e.pk?"迎車":"一般"}　<a href="${url}" target="_blank" rel="noopener">Googleマップで開く</a></div>${note}`;
 }
 function select(e){ stop(); st.sel=e.no; if(st.T<e.offR) st.T=e.offR; lastInfo=undefined; render(); }
@@ -370,35 +374,47 @@ function vSlider(el, max, step, onInput, onChange){
 }
 
 /* ---------- 営業モード（端末の時計に合わせて、これからの1時間に乗せた場所） ---------- */
-const BIZ_W={auto:"今日に合わせる",all:"全曜日","0":"日曜","1":"月曜","2":"火曜","3":"水曜","4":"木曜","5":"金曜","6":"土曜",hol:"祝日",wd:"平日（月〜金）",we:"土日祝"};
-const BPREF="out-nippo-map-biz";
-let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[], bizSpots=[], bizP={k:"all"}, bizW="auto";
+// 絞り込み：年・月・曜日・祝日（日報リーダーと同じ考え方）
+const F_W={all:"全ての曜日",auto:"今日に合わせる","0":"日曜","1":"月曜","2":"火曜","3":"水曜","4":"木曜","5":"金曜","6":"土曜",wd:"平日（月〜金）",we:"土日"};
+const F_WO=["all","auto","0","1","2","3","4","5","6","wd","we"];
+const F_H={all:"区別しない",auto:"今日に合わせる",ex:"祝日を除く",only:"全ての祝日"};
+let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[], bizSpots=[], bizF={y:"all",m:"all",w:"auto",h:"auto"};
 const isoD=t=>`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
-const addD=(d,n)=>{ const[y,m,dd]=d.split("-").map(Number); return isoD(new Date(y,m-1,dd+n)); };
-const wkStart=d=>{ const[y,m,dd]=d.split("-").map(Number); const t=new Date(y,m-1,dd); t.setDate(t.getDate()-t.getDay()); return isoD(t); };
 const bizToday=()=>{ const t=new Date(); if(t.getHours()<5) t.setDate(t.getDate()-1); return isoD(t); };
-const dayCls=d=>(bizData&&bizData.hol&&bizData.hol[d])?"hol":String(new Date(d+"T00:00").getDay());
-const bizWKey=()=>bizW==="auto"?dayCls(bizToday()):bizW;
-const bizWLabel=()=>bizW==="auto"?`今日（${BIZ_W[bizWKey()]}）`:BIZ_W[bizW];
-function bizDayOk(d){ const k=bizWKey(), c=dayCls(d);
-  if(k==="all") return true; if(k==="hol") return c==="hol";
-  if(k==="wd") return c!=="hol"&&+c>=1&&+c<=5; if(k==="we") return c==="hol"||c==="0"||c==="6"; return c===k; }
-function bizPLabel(P){ P=P||bizP;
-  if(P.k==="y") return `${P.v}年`; if(P.k==="m"){ const[y,m]=P.v.split("-"); return `${y}年${+m}月`; }
-  if(P.k==="w") return `${md(P.v)}(日)〜${md(addD(P.v,6))}(土)`; return "全期間"; }
-function bizDateOk(d){ const P=bizP;
-  if(P.k==="y"&&d.slice(0,4)!==P.v) return false; if(P.k==="m"&&d.slice(0,7)!==P.v) return false; if(P.k==="w"&&wkStart(d)!==P.v) return false;
-  return bizDayOk(d); }
+const holName=d=>(bizData&&bizData.hol&&bizData.hol[d])||"";
+const wdi=d=>new Date(d+"T00:00").getDay();
+function fNow(F){ F=F||bizF; let w=F.w, h=F.h; const t=bizToday(), th=!!holName(t);
+  if(w==="auto") w = th ? "all" : String(wdi(t));
+  if(h==="auto") h = th ? "only" : "ex";
+  return {y:F.y,m:F.m,w,h}; }
+function fOk(d,F){ const R=fNow(F), hn=holName(d), w=wdi(d);
+  if(R.y!=="all" && d.slice(0,4)!==R.y) return false;
+  if(R.m!=="all" && +d.slice(5,7)!==+R.m) return false;
+  if(R.w==="wd" && !(w>=1&&w<=5)) return false;
+  if(R.w==="we" && !(w===0||w===6)) return false;
+  if(/^\d$/.test(R.w) && w!==+R.w) return false;
+  if(R.h==="ex" && hn) return false;
+  if(R.h==="only" && !hn) return false;
+  if(!["all","ex","only"].includes(R.h) && hn!==R.h) return false;
+  return true; }
+const fCount=F=>bizData.D.filter(d=>fOk(d,F)).length;
+function fLabel(F){ F=F||bizF; const R=fNow(F), p=[];
+  p.push(F.y==="all"?"全ての年":F.y+"年"); p.push(F.m==="all"?"全ての月":F.m+"月");
+  p.push(F.w==="auto" ? `今日に合わせる（${R.w==="all"?"祝日":F_W[R.w]}）` : F_W[F.w]);
+  if(R.h!=="all") p.push(R.h==="ex"?"祝日を除く":R.h==="only"?"全ての祝日":R.h);
+  return p.join("・"); }
 function clearBiz(){ bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[]; $("#bizVs").hidden=true; if(bizData){ bizData=null; document.body.classList.remove("biz"); } }
 const bizT=()=>{ const t=new Date(); return (t.getHours()*60+t.getMinutes()+bizS)%1440; };
 const bizDl=(m,T)=>((m-T)%1440+1440)%1440;
 function bizColor(r){ const A=[246,205,198], B=[200,16,16]; return `rgb(${A.map((a,i)=>Math.round(a+(B[i]-a)*r)).join(",")})`; }
 function bizApply(){
-  const D=bizData.D, ok=D.map(bizDateOk);
+  const D=bizData.D, ok=D.map(d=>fOk(d));
   bizData.days=D.filter((d,i)=>ok[i]).length;
-  bizSpots=bizData.S.map(([la,ln,a,R])=>({la,ln,a,R:R.filter(r=>ok[r[1]]).map(r=>({m:r[0],d:D[r[1]],to:r[2],f:r[3]}))})).filter(s=>s.R.length);
-  $("#bPer").textContent=`期間：${bizPLabel()} ▼`; $("#bWd").textContent=`曜日：${bizWLabel()} ▼`;
-  try{ localStorage.setItem(BPREF,JSON.stringify({P:bizP,W:bizW})); }catch(e){}
+  bizSpots=bizData.S.map(([la,ln,a,R])=>({la,ln,a,R:R.filter(r=>ok[r[1]]).map(r=>({m:r[0],d:D[r[1]],to:r[2],f:r[3],pk:r[4]}))})).filter(s=>s.R.length);
+  const F=bizF;
+  $("#fY").textContent=`年：${F.y==="all"?"全て":F.y+"年"} ▼`; $("#fM").textContent=`月：${F.m==="all"?"全て":F.m+"月"} ▼`;
+  $("#fW").textContent=`曜日：${F.w==="auto"?"今日":F.w==="all"?"全て":F_W[F.w].replace(/（.*）/,"")} ▼`;
+  $("#fH").textContent=`祝日：${F.h==="auto"?"今日に合わせる":F.h==="all"?"区別しない":(F_H[F.h]||F.h)} ▼`;
   bizSel=null; bizDraw();
 }
 function bizDraw(){
@@ -418,7 +434,7 @@ function bizDraw(){
 }
 function bizClock(){
   const t=new Date(), T=bizT();
-  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})${bizData&&bizData.hol&&bizData.hol[isoD(t)]?"・祝":""} 今`;
+  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})${holName(isoD(t))?"・祝":""} 今`;
   $("#clk").textContent=`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
   const plus=bizS?`+${Math.floor(bizS/60)?Math.floor(bizS/60)+"時間":""}${bizS%60?bizS%60+"分":""}`:"";
   $("#st").textContent= bizS ? `見ている時刻 ${hm(T)}（${plus}）` : "見ている時刻：今"; $("#el").textContent="";
@@ -428,12 +444,12 @@ function bizInfo(){
   const B=bizData, T=bizT(), list=bizHitsNow.slice().sort((a,b)=>b.h.length-a.h.length||a.h[0].dl-b.h[0].dl);
   const tot=list.reduce((t,s)=>t+s.h.length,0);
   let h=`<div class="h"><span>${hm(T)}〜${hm(T+60)} に乗せた場所</span><span>${B.days}乗務・${tot}回</span></div>
-   <div class="s">${esc(bizPLabel())}・${esc(bizWLabel())}</div>`;
+   <div class="s">${esc(fLabel())}</div>`;
   const sel=list.find(s=>s.a===bizSel);
-  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${B.hol&&B.hol[r.d]?"・祝":""}) ${hm(r.m)} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
-  if(!B.days) h+=`<div class="s" style="margin-top:6px">この期間・曜日の日報がありません。上のボタンで期間や曜日を変えてください。</div>`;
+  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${holName(r.d)?"・祝":""}) ${hm(r.m)}${r.pk?MUKAE:""} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
+  if(!B.days) h+=`<div class="s" style="margin-top:6px">この期間・曜日の日報がありません。上のボタンで年・月・曜日・祝日を変えてください。</div>`;
   else if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。右の縦のバーで先の時刻も見られます。</div>`;
-  h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
+  h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}${s.h.some(r=>r.pk)?MUKAE:""}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
   $("#info").innerHTML=h;
   $("#info").querySelectorAll("[data-a]").forEach(r=>r.onclick=()=>{ bizSel=r.dataset.a; const s=bizHitsNow.find(o=>o.a===bizSel); if(s) map.setView([s.la,s.ln],Math.max(map.getZoom(),15)); bizDraw(); });
 }
@@ -441,32 +457,28 @@ const bizVs=vSlider($("#bizVs"),360,5,v=>{ bizS=v; bizSel=null; if(bizData){ biz
 function showBiz(B){
   stop(); clearDay(); clearAna(); clearBiz(); st.day=null;
   bizData=B; bizS=0; bizSel=null; bizMin=null; bizVs.set(0);
-  bizP=B.P||{k:"all"}; bizW=B.W||"auto";
+  bizF={y:"all",m:"all",w:"auto",h:"auto",...(B.F||{})};
   document.body.classList.add("biz"); $("#bizVs").hidden=false;
   $("#bDate").textContent="営業モード";
   const P=B.S.map(s=>[s[0],s[1]]);
   if(P.length) map.fitBounds(L.latLngBounds(P),{padding:[24,24]});
   bizClock(); bizApply();
 }
-$("#bPer").onclick=()=>{
-  if(!bizData) return;
-  const ds=bizData.D.slice().sort().reverse();
-  const ys=[...new Set(ds.map(d=>d.slice(0,4)))], ms=[...new Set(ds.map(d=>d.slice(0,7)))], ws=[...new Set(ds.map(wkStart))];
-  const cur=P=>JSON.stringify(P)===JSON.stringify(bizP)?"acc":"sub";
-  const set=P=>()=>{ bizP=P; bizApply(); };
-  const back={label:"やめる",cls:"ghost"};
-  sheet("期間を選んでください",[
-    {label:"全期間",cls:cur({k:"all"}),fn:set({k:"all"})},
-    {label:"年で選ぶ ›",cls:"ghost",fn:()=>sheet("年を選んでください",[...ys.map(y=>({label:`${y}年`,cls:cur({k:"y",v:y}),fn:set({k:"y",v:y})})),back])},
-    {label:"月で選ぶ ›",cls:"ghost",fn:()=>sheet("月を選んでください",[...ms.slice(0,36).map(m=>({label:bizPLabel({k:"m",v:m}),cls:cur({k:"m",v:m}),fn:set({k:"m",v:m})})),back])},
-    {label:"週で選ぶ ›",cls:"ghost",fn:()=>sheet("週を選んでください（日〜土）",[...ws.slice(0,30).map(w=>({label:bizPLabel({k:"w",v:w}),cls:cur({k:"w",v:w}),fn:set({k:"w",v:w})})),back])},
-    back]);
-};
-$("#bWd").onclick=()=>{
-  if(!bizData) return;
-  sheet("曜日を選んでください",[...["auto","all","0","1","2","3","4","5","6","hol","wd","we"].map(k=>[k,BIZ_W[k]]).map(([k,v])=>({label:k==="auto"?`${v}（今日は${BIZ_W[dayCls(bizToday())]}）`:v,cls:k===bizW?"acc":"sub",fn:()=>{ bizW=k; bizApply(); }})),{label:"やめる",cls:"ghost"}],
-   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日は各曜日から外し「祝日」に入れます。「今日に合わせる」は今日の曜日（祝日なら祝日）を自動で選びます（朝5時までは前日扱い）。</div>`);
-};
+const fSet=(k,v)=>()=>{ bizF={...bizF,[k]:v}; bizApply(); };
+const fBack={label:"やめる",cls:"ghost"};
+$("#fY").onclick=()=>{ if(!bizData) return; const ys=[...new Set(bizData.D.map(d=>d.slice(0,4)))].sort().reverse();
+  sheet("年を選んでください",[{label:"全ての年",cls:bizF.y==="all"?"acc":"sub",fn:fSet("y","all")},...ys.map(y=>({label:`${y}年（${fCount({...bizF,y})}乗務）`,cls:bizF.y===y?"acc":"sub",fn:fSet("y",y)})),fBack]); };
+$("#fM").onclick=()=>{ if(!bizData) return;
+  sheet("月を選んでください",[{label:"全ての月",cls:bizF.m==="all"?"acc":"sub",fn:fSet("m","all")},...Array.from({length:12},(_,i)=>String(i+1)).map(m=>({label:`${m}月（${fCount({...bizF,m})}乗務）`,cls:bizF.m===m?"acc":"sub",fn:fSet("m",m)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:13px;margin-bottom:8px">「全ての年」なら、どの年のその月もまとめます。</div>`); };
+$("#fW").onclick=()=>{ if(!bizData) return; const t=bizToday();
+  sheet("曜日を選んでください",[...F_WO.map(k=>({label:k==="auto"?`今日に合わせる（今日は${holName(t)?"祝日":WD[wdi(t)]+"曜"}）`:`${F_W[k]}（${fCount({...bizF,w:k})}乗務）`,cls:bizF.w===k?"acc":"sub",fn:fSet("w",k)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日を含めるかどうかは「祝日」で選びます。「今日に合わせる」は今日の曜日を選び、今日が祝日なら全ての祝日になります（朝5時までは前日扱い）。</div>`); };
+$("#fH").onclick=()=>{ if(!bizData) return;
+  const names={}; for(const d of bizData.D) if(fOk(d,{...bizF,h:"only"})){ const n=holName(d); names[n]=(names[n]||0)+1; }
+  sheet("祝日を選んでください",[...["all","auto","ex","only"].map(k=>({label:k==="all"||k==="auto"?F_H[k]:`${F_H[k]}（${fCount({...bizF,h:k})}乗務）`,cls:bizF.h===k?"acc":"sub",fn:fSet("h",k)})),
+    ...Object.entries(names).sort((a,b)=>b[1]-a[1]).map(([n,c])=>({label:`${n}（${c}乗務）`,cls:bizF.h===n?"acc":"sub",fn:fSet("h",n)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">「全ての祝日」は祝日に当たる日だけ、「祝日を除く」は祝日以外の日だけ、「区別しない」は両方を使います。下には、選んでいる年・月・曜日に当たる祝日を並べています。</div>`); };
 $("#bizNow").onclick=()=>{ bizS=0; bizVs.set(0); if(bizData){ bizClock(); bizDraw(); } };
 setInterval(()=>{ if(!bizData) return; bizClock(); const m=bizT(); if(m!==bizMin){ bizMin=m; bizDraw(); } },1000);
 /* ---------- 起動 ---------- */
