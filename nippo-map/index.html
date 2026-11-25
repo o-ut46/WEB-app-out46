@@ -26,7 +26,7 @@ header h1{font-size:16px;margin:0}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
 #mapBox{position:relative;flex:1;min-height:240px}
 #map{position:absolute;inset:0}
-.clock{position:absolute;left:54px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:12px;display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
+.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:12px;display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
 #cdate{font-weight:700;font-size:13px}
 .clock b{font-size:24px;font-variant-numeric:tabular-nums}
 .fit{position:absolute;right:10px;bottom:24px;z-index:500}
@@ -57,7 +57,15 @@ body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{
 .anal b{display:block;font-size:15px}.anal span{font-size:10px;color:#444}
 .leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 body.biz .chip,body.biz .panel .ctl,body.biz #sl,body.biz .ends,body.biz #bBand,body.biz #bPrev,body.biz #bNext{display:none}
-body:not(.biz) #bizCtl{display:none}
+body:not(.biz) #bizCtl,body:not(.biz) #bPer,body:not(.biz) #bWd{display:none}
+.vs{position:absolute;right:6px;top:92px;bottom:78px;width:48px;z-index:600;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;justify-content:center;cursor:pointer}
+.vs[hidden]{display:none}
+.vs-track{position:relative;width:8px;height:100%;background:rgba(40,40,48,.28);border-radius:4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.vs-fill{position:absolute;left:0;right:0;top:0;background:#c81010;border-radius:4px}
+.vs-thumb{position:absolute;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;border:3px solid #c81010;box-shadow:0 1px 4px rgba(0,0,0,.35);box-sizing:border-box}
+.vs-thumb span{position:absolute;right:34px;top:50%;transform:translateY(-50%);background:rgba(27,30,36,.9);color:#fff;font-size:12px;font-weight:700;padding:3px 7px;border-radius:7px;white-space:nowrap;pointer-events:none}
+.vs-tk{position:absolute;right:16px;transform:translateY(-50%);font-size:10px;font-weight:700;color:#333;background:rgba(255,255,255,.8);border-radius:4px;padding:0 3px;white-space:nowrap;pointer-events:none}
+
 #bizCtl .bt{display:flex;justify-content:space-between;align-items:center;gap:8px}
 #bizCtl .bt b{font-size:17px}
 .bz{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
@@ -71,6 +79,8 @@ body:not(.biz) #bizCtl{display:none}
   <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button></div></div>
   <div class="row">
     <button class="btn" id="bBand">時間帯：すべて ▼</button>
+    <button class="btn" id="bPer">期間 ▼</button>
+    <button class="btn" id="bWd">曜日 ▼</button>
     <button class="btn" id="bTile">地図：地理院（淡色） ▼</button>
   </div>
   <div class="row">
@@ -84,6 +94,7 @@ body:not(.biz) #bizCtl{display:none}
   <div id="map"></div>
   <div class="clock"><div id="cdate">--/--</div><b id="clk">--:--:--</b><div><span id="st"></span>　<span id="el"></span></div></div>
   <button class="btn l fit" id="bFit">全体</button>
+  <div class="vs" id="bizVs" hidden aria-label="何分先を見るか"></div>
   <div class="empty" id="empty" hidden>表示する日報がありません。<br>「O-UT 乗務日報リーダー」の地図タブにある<br>「詳しい地図で開く」から開いてください。</div>
 </div>
 <div class="panel">
@@ -96,8 +107,7 @@ body:not(.biz) #bizCtl{display:none}
   <div class="ends"><span id="t0"></span><span id="t1"></span></div>
   <div id="bizCtl">
     <div class="bt"><div><span class="s" style="color:var(--sub);font-size:12px">見ている時刻</span><br><b id="bizSee">--:--</b></div><button class="btn ghost" id="bizNow">今に戻す</button></div>
-    <input type="range" id="bizSl" min="0" max="360" step="5" value="0" aria-label="何分先を見るか">
-    <div class="ends" style="display:flex"><span>今</span><span>+2時間</span><span>+4時間</span><span>+6時間</span></div>
+    <div class="s" style="color:var(--sub);font-size:12px;margin-top:2px">地図の右の縦のバーを下へずらすと、6時間先まで見られます。</div>
   </div>
   <div class="info" id="info"></div>
 </div>
@@ -154,7 +164,8 @@ const SPEEDS={slow:["ゆっくり",6],normal:["普通",20],fast:["速い",60]};
 let pref={tile:"pale",speed:"normal"}; try{ Object.assign(pref, JSON.parse(localStorage.getItem("out-nippo-map-pref")||"{}")); }catch(e){}
 const savePref=()=>{ try{ localStorage.setItem("out-nippo-map-pref", JSON.stringify(pref)); }catch(e){} };
 
-const map=L.map("map",{zoomControl:true}).setView([35.68,139.74],12);
+const map=L.map("map",{zoomControl:false}).setView([35.68,139.74],12);
+L.control.zoom({position:"topright"}).addTo(map);
 let tile=null;
 function setTile(k){ if(tile) map.removeLayer(tile); const t=TILES[k]||TILES.pale; tile=L.tileLayer(t[1],{attribution:t[2],maxZoom:t[3]}).addTo(map); pref.tile=k; savePref(); $("#bTile").textContent=`地図：${t[0]} ▼`; }
 setTile(pref.tile);
@@ -340,23 +351,66 @@ function anaInfo(){
   $("#info").querySelectorAll("[data-i]").forEach(r=>r.onclick=()=>{ const o=A.items[+r.dataset.i]; anaPick(o); if(o.pg) map.fitBounds(o.pg.getBounds(),{maxZoom:15}); });
 }
 
+
+// 縦のスライダー（上が今、下が6時間先）
+function vSlider(el, max, step, onInput, onChange){
+  el.innerHTML=`<div class="vs-track"><div class="vs-fill"></div><div class="vs-thumb"><span></span></div>${[0,120,240,360].map(v=>`<div class="vs-tk" style="top:${v/max*100}%">${v?"+"+v/60+"h":"今"}</div>`).join("")}</div>`;
+  const tr=el.querySelector(".vs-track"), fill=el.querySelector(".vs-fill"), th=el.querySelector(".vs-thumb"), lb=th.querySelector("span");
+  let val=0, drag=false;
+  const lab=v=>v?`+${Math.floor(v/60)?Math.floor(v/60)+"時間":""}${v%60?v%60+"分":""}`:"今";
+  const set=v=>{ val=Math.max(0,Math.min(max,Math.round(v/step)*step)); const p=val/max*100; fill.style.height=p+"%"; th.style.top=p+"%"; lb.textContent=lab(val); };
+  const at=e=>{ const r=tr.getBoundingClientRect(); return (e.clientY-r.top)/r.height*max; };
+  el.addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); drag=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} const o=val; set(at(e)); if(val!==o) onInput(val); });
+  el.addEventListener("pointermove",e=>{ if(!drag) return; e.preventDefault(); const o=val; set(at(e)); if(val!==o) onInput(val); });
+  const end=e=>{ if(!drag) return; drag=false; onChange&&onChange(val); };
+  el.addEventListener("pointerup",end); el.addEventListener("pointercancel",end);
+  ["touchstart","touchmove","wheel","click","dblclick","mousedown"].forEach(t=>el.addEventListener(t,e=>e.stopPropagation(),{passive:true}));
+  set(0);
+  return {set, get:()=>val};
+}
+
 /* ---------- 営業モード（端末の時計に合わせて、これからの1時間に乗せた場所） ---------- */
-let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[];
-function clearBiz(){ bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[]; if(bizData){ bizData=null; document.body.classList.remove("biz"); } }
+const BIZ_W={auto:"今日に合わせる",all:"全曜日","0":"日曜","1":"月曜","2":"火曜","3":"水曜","4":"木曜","5":"金曜","6":"土曜",hol:"祝日",wd:"平日（月〜金）",we:"土日祝"};
+const BPREF="out-nippo-map-biz";
+let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[], bizSpots=[], bizP={k:"all"}, bizW="auto";
+const isoD=t=>`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+const addD=(d,n)=>{ const[y,m,dd]=d.split("-").map(Number); return isoD(new Date(y,m-1,dd+n)); };
+const wkStart=d=>{ const[y,m,dd]=d.split("-").map(Number); const t=new Date(y,m-1,dd); t.setDate(t.getDate()-t.getDay()); return isoD(t); };
+const bizToday=()=>{ const t=new Date(); if(t.getHours()<5) t.setDate(t.getDate()-1); return isoD(t); };
+const dayCls=d=>(bizData&&bizData.hol&&bizData.hol[d])?"hol":String(new Date(d+"T00:00").getDay());
+const bizWKey=()=>bizW==="auto"?dayCls(bizToday()):bizW;
+const bizWLabel=()=>bizW==="auto"?`今日（${BIZ_W[bizWKey()]}）`:BIZ_W[bizW];
+function bizDayOk(d){ const k=bizWKey(), c=dayCls(d);
+  if(k==="all") return true; if(k==="hol") return c==="hol";
+  if(k==="wd") return c!=="hol"&&+c>=1&&+c<=5; if(k==="we") return c==="hol"||c==="0"||c==="6"; return c===k; }
+function bizPLabel(P){ P=P||bizP;
+  if(P.k==="y") return `${P.v}年`; if(P.k==="m"){ const[y,m]=P.v.split("-"); return `${y}年${+m}月`; }
+  if(P.k==="w") return `${md(P.v)}(日)〜${md(addD(P.v,6))}(土)`; return "全期間"; }
+function bizDateOk(d){ const P=bizP;
+  if(P.k==="y"&&d.slice(0,4)!==P.v) return false; if(P.k==="m"&&d.slice(0,7)!==P.v) return false; if(P.k==="w"&&wkStart(d)!==P.v) return false;
+  return bizDayOk(d); }
+function clearBiz(){ bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[]; $("#bizVs").hidden=true; if(bizData){ bizData=null; document.body.classList.remove("biz"); } }
 const bizT=()=>{ const t=new Date(); return (t.getHours()*60+t.getMinutes()+bizS)%1440; };
 const bizDl=(m,T)=>((m-T)%1440+1440)%1440;
 function bizColor(r){ const A=[246,205,198], B=[200,16,16]; return `rgb(${A.map((a,i)=>Math.round(a+(B[i]-a)*r)).join(",")})`; }
+function bizApply(){
+  const D=bizData.D, ok=D.map(bizDateOk);
+  bizData.days=D.filter((d,i)=>ok[i]).length;
+  bizSpots=bizData.S.map(([la,ln,a,R])=>({la,ln,a,R:R.filter(r=>ok[r[1]]).map(r=>({m:r[0],d:D[r[1]],to:r[2],f:r[3]}))})).filter(s=>s.R.length);
+  $("#bPer").textContent=`期間：${bizPLabel()} ▼`; $("#bWd").textContent=`曜日：${bizWLabel()} ▼`;
+  try{ localStorage.setItem(BPREF,JSON.stringify({P:bizP,W:bizW})); }catch(e){}
+  bizSel=null; bizDraw();
+}
 function bizDraw(){
   bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[];
   const T=bizT();
-  const all=bizData.S.map(([la,ln,a,R])=>{ const h=R.map(r=>({m:r[0],d:r[1],to:r[2],f:r[3],dl:bizDl(r[0],T)})).filter(r=>r.dl<=60).sort((p,q)=>p.dl-q.dl);
-    return {la,ln,a,h,r:h.length?1-h[0].dl/60:0}; });
+  const all=bizSpots.map(s=>{ const h=s.R.map(r=>({...r,dl:bizDl(r.m,T)})).filter(r=>r.dl<=60).sort((p,q)=>p.dl-q.dl); return {...s,h,r:h.length?1-h[0].dl/60:0}; });
   bizHitsNow=all.filter(s=>s.h.length);
   for(const s of all) if(!s.h.length) bizLayers.push(L.marker([s.la,s.ln],{interactive:false,icon:L.divIcon({className:"",html:`<div class="bzd"></div>`,iconSize:[0,0]})}).addTo(map));
   for(const s of bizHitsNow.slice().sort((a,b)=>a.r-b.r||a.h.length-b.h.length)){
-    const n=s.h.length, D=Math.round(26+Math.min(22,(n-1)*5));
+    const n=s.h.length, Dm=Math.round(26+Math.min(22,(n-1)*5));
     const mk=L.marker([s.la,s.ln],{zIndexOffset:Math.round(s.r*1000)+n,icon:L.divIcon({className:"",iconSize:[0,0],
-      html:`<div class="bz${s.a===bizSel?" sel":""}" style="width:${D}px;height:${D}px;background:${bizColor(s.r)};opacity:${(0.6+0.4*s.r).toFixed(2)};color:${s.r>0.45?"#fff":"#7a1410"};font-size:${Math.round(D*0.5)}px">${n}</div>`})}).addTo(map);
+      html:`<div class="bz${s.a===bizSel?" sel":""}" style="width:${Dm}px;height:${Dm}px;background:${bizColor(s.r)};opacity:${(0.6+0.4*s.r).toFixed(2)};color:${s.r>0.45?"#fff":"#7a1410"};font-size:${Math.round(Dm*0.5)}px">${n}</div>`})}).addTo(map);
     mk.on("click",()=>{ bizSel=s.a; bizDraw(); });
     bizLayers.push(mk);
   }
@@ -364,7 +418,7 @@ function bizDraw(){
 }
 function bizClock(){
   const t=new Date(), T=bizT();
-  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]}) 今`;
+  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})${bizData&&bizData.hol&&bizData.hol[isoD(t)]?"・祝":""} 今`;
   $("#clk").textContent=`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
   const plus=bizS?`+${Math.floor(bizS/60)?Math.floor(bizS/60)+"時間":""}${bizS%60?bizS%60+"分":""}`:"";
   $("#st").textContent= bizS ? `見ている時刻 ${hm(T)}（${plus}）` : "見ている時刻：今"; $("#el").textContent="";
@@ -374,25 +428,46 @@ function bizInfo(){
   const B=bizData, T=bizT(), list=bizHitsNow.slice().sort((a,b)=>b.h.length-a.h.length||a.h[0].dl-b.h[0].dl);
   const tot=list.reduce((t,s)=>t+s.h.length,0);
   let h=`<div class="h"><span>${hm(T)}〜${hm(T+60)} に乗せた場所</span><span>${B.days}乗務・${tot}回</span></div>
-   <div class="s">${esc(B.per)}・${esc(B.wd)}（期間と曜日は日報リーダーの地図タブで選びます）</div>`;
+   <div class="s">${esc(bizPLabel())}・${esc(bizWLabel())}</div>`;
   const sel=list.find(s=>s.a===bizSel);
-  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${esc(r.d)} ${hm(r.m)} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
-  if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。下のバーで先の時刻も見られます。</div>`;
+  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${B.hol&&B.hol[r.d]?"・祝":""}) ${hm(r.m)} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
+  if(!B.days) h+=`<div class="s" style="margin-top:6px">この期間・曜日の日報がありません。上のボタンで期間や曜日を変えてください。</div>`;
+  else if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。右の縦のバーで先の時刻も見られます。</div>`;
   h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
   $("#info").innerHTML=h;
   $("#info").querySelectorAll("[data-a]").forEach(r=>r.onclick=()=>{ bizSel=r.dataset.a; const s=bizHitsNow.find(o=>o.a===bizSel); if(s) map.setView([s.la,s.ln],Math.max(map.getZoom(),15)); bizDraw(); });
 }
+const bizVs=vSlider($("#bizVs"),360,5,v=>{ bizS=v; bizSel=null; if(bizData){ bizClock(); bizDraw(); } });
 function showBiz(B){
   stop(); clearDay(); clearAna(); clearBiz(); st.day=null;
-  bizData=B; bizS=0; bizSel=null; bizMin=null; $("#bizSl").value=0;
-  document.body.classList.add("biz");
-  $("#bDate").textContent=B.wd;
+  bizData=B; bizS=0; bizSel=null; bizMin=null; bizVs.set(0);
+  bizP=B.P||{k:"all"}; bizW=B.W||"auto";
+  document.body.classList.add("biz"); $("#bizVs").hidden=false;
+  $("#bDate").textContent="営業モード";
   const P=B.S.map(s=>[s[0],s[1]]);
   if(P.length) map.fitBounds(L.latLngBounds(P),{padding:[24,24]});
-  bizClock(); bizDraw();
+  bizClock(); bizApply();
 }
-$("#bizSl").addEventListener("input",e=>{ bizS=+e.target.value; bizSel=null; if(bizData){ bizClock(); bizDraw(); } });
-$("#bizNow").onclick=()=>{ bizS=0; $("#bizSl").value=0; if(bizData){ bizClock(); bizDraw(); } };
+$("#bPer").onclick=()=>{
+  if(!bizData) return;
+  const ds=bizData.D.slice().sort().reverse();
+  const ys=[...new Set(ds.map(d=>d.slice(0,4)))], ms=[...new Set(ds.map(d=>d.slice(0,7)))], ws=[...new Set(ds.map(wkStart))];
+  const cur=P=>JSON.stringify(P)===JSON.stringify(bizP)?"acc":"sub";
+  const set=P=>()=>{ bizP=P; bizApply(); };
+  const back={label:"やめる",cls:"ghost"};
+  sheet("期間を選んでください",[
+    {label:"全期間",cls:cur({k:"all"}),fn:set({k:"all"})},
+    {label:"年で選ぶ ›",cls:"ghost",fn:()=>sheet("年を選んでください",[...ys.map(y=>({label:`${y}年`,cls:cur({k:"y",v:y}),fn:set({k:"y",v:y})})),back])},
+    {label:"月で選ぶ ›",cls:"ghost",fn:()=>sheet("月を選んでください",[...ms.slice(0,36).map(m=>({label:bizPLabel({k:"m",v:m}),cls:cur({k:"m",v:m}),fn:set({k:"m",v:m})})),back])},
+    {label:"週で選ぶ ›",cls:"ghost",fn:()=>sheet("週を選んでください（日〜土）",[...ws.slice(0,30).map(w=>({label:bizPLabel({k:"w",v:w}),cls:cur({k:"w",v:w}),fn:set({k:"w",v:w})})),back])},
+    back]);
+};
+$("#bWd").onclick=()=>{
+  if(!bizData) return;
+  sheet("曜日を選んでください",[...["auto","all","0","1","2","3","4","5","6","hol","wd","we"].map(k=>[k,BIZ_W[k]]).map(([k,v])=>({label:k==="auto"?`${v}（今日は${BIZ_W[dayCls(bizToday())]}）`:v,cls:k===bizW?"acc":"sub",fn:()=>{ bizW=k; bizApply(); }})),{label:"やめる",cls:"ghost"}],
+   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日は各曜日から外し「祝日」に入れます。「今日に合わせる」は今日の曜日（祝日なら祝日）を自動で選びます（朝5時までは前日扱い）。</div>`);
+};
+$("#bizNow").onclick=()=>{ bizS=0; bizVs.set(0); if(bizData){ bizClock(); bizDraw(); } };
 setInterval(()=>{ if(!bizData) return; bizClock(); const m=bizT(); if(m!==bizMin){ bizMin=m; bizDraw(); } },1000);
 /* ---------- 起動 ---------- */
 async function start(){
