@@ -580,17 +580,21 @@ input[type=range]{flex:1;min-width:140px;accent-color:var(--accent)}
             <div class="vlist" id="mList"></div>
             <p class="note vstat" id="mStat"></p>
           </div>
-          <div class="dk adj" data-dk="vadj" hidden>
+          <div class="dk adj mt" data-dk="vadj" hidden>
             <div class="adjrow"><span>粗さ</span><input type="range" id="vGrain" min="0" max="100" value="50" aria-label="モザイクの粗さ"><span class="rval" id="vGrainV">50</span></div>
             <div class="adjrow"><span>はみ出し</span><input type="range" id="vMargin" min="0" max="80" value="25" aria-label="隠す範囲の広さ"><span class="rval" id="vMarginV">25</span></div>
-            <div class="adjrow"><span>保存サイズ</span><div class="seg" id="vOut"><button type="button" data-v="720">720p</button><button type="button" data-v="1080">1080p</button><button type="button" data-v="1920">最大</button></div><span></span></div>
+            <div class="adjrow"><span>比率</span><div class="seg" id="vAR"><button type="button" data-v="orig">元のまま</button><button type="button" data-v="1:1">1:1</button><button type="button" data-v="4:5">4:5</button><button type="button" data-v="3:4">3:4</button><button type="button" data-v="9:16">9:16</button><button type="button" data-v="16:9">16:9</button><button type="button" data-v="4:3">4:3</button></div><span></span></div>
+            <div class="adjrow"><span>画質</span><div class="seg" id="vOut"><button type="button" data-v="720">720p</button><button type="button" data-v="1080">1080p</button><button type="button" data-v="1440">2K</button><button type="button" data-v="2160">4K</button></div><span></span></div>
+            <p class="note" id="vOutInfo"></p>
           </div>
-          <div class="dk adj" data-dk="eadj" hidden>
+          <div class="dk adj mt" data-dk="eadj" hidden>
             <div class="adjrow"><span>強さ</span><input type="range" id="eS2" min="0" max="100" value="50" aria-label="強さ"><span class="rval" id="eS2v">50</span></div>
             <div class="ecats" id="eAK" role="tablist" aria-label="調整する項目"><button type="button" data-k="bri">明るさ</button><button type="button" data-k="con">コントラスト</button><button type="button" data-k="vib">鮮やかさ</button><button type="button" data-k="temp">色温度</button><button type="button" data-k="shp">シャープ</button><button type="button" data-k="clr">明瞭度</button><button type="button" data-k="haze">かすみ除去</button><button type="button" data-k="grain">粒子</button><button type="button" data-k="vig">ビネット</button></div>
             <div class="adjrow"><span id="eAKn">明るさ</span><input type="range" id="eAKr" min="-50" max="50" value="0" aria-label="調整の量"><span class="rval" id="eAKv">0</span></div>
             <div hidden><input type="range" id="eB"><span id="eBv"></span><input type="range" id="eV"><span id="eVv"></span></div>
-            <div class="adjrow"><span>保存サイズ</span><div class="seg" id="eSize"><button type="button" data-v="1080">1080px</button><button type="button" data-v="2048">2048px</button><button type="button" data-v="4096">4096px</button></div><button class="xbtn" id="eReset" type="button" aria-label="強さ・明るさ・鮮やかさを元に戻す" title="元に戻す"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button></div>
+            <div class="adjrow"><span>比率</span><div class="seg" id="eAR"><button type="button" data-v="orig">元のまま</button><button type="button" data-v="1:1">1:1</button><button type="button" data-v="4:5">4:5</button><button type="button" data-v="3:4">3:4</button><button type="button" data-v="9:16">9:16</button><button type="button" data-v="16:9">16:9</button><button type="button" data-v="4:3">4:3</button></div><span></span></div>
+            <div class="adjrow"><span>画質</span><div class="seg" id="eSize"><button type="button" data-v="1080">1080px</button><button type="button" data-v="2048">2K</button><button type="button" data-v="3840">4K</button></div><button class="xbtn" id="eReset" type="button" aria-label="強さ・明るさ・鮮やかさを元に戻す" title="元に戻す"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button></div>
+            <p class="note" id="eSizeInfo"></p>
           </div>
         </div>
       </section>
@@ -2181,10 +2185,10 @@ const GROUPS=[
 ];
 const ALL=GROUPS.flatMap(g=>g.fx.map(([id,name,desc])=>({id,name,desc,group:g.name})));
 const ELS="shuffleFrame.edit.v1";
-let st={fx:"manga",s:50,bri:0,vib:0,size:2048,con:0,shp:0,clr:0,haze:0,temp:0,grain:0,vig:0,ak:"bri",fav:[]};
+let st={fx:"manga",s:50,bri:0,vib:0,size:2048,ar:"orig",con:0,shp:0,clr:0,haze:0,temp:0,grain:0,vig:0,ak:"bri",fav:[]};
 try{Object.assign(st,JSON.parse(localStorage.getItem(ELS))||{});}catch(e){}
 const persist=()=>{try{localStorage.setItem(ELS,JSON.stringify(st));}catch(e){}};
-let src=null, srcName="sample", prev=null, started=false, reqId=0, busy=0, thumbsFor=null, downloads=null;
+let srcRaw=null, src=null, srcName="sample", prev=null, started=false, reqId=0, busy=0, thumbsFor=null, downloads=null;
 const worker=new Worker(URL.createObjectURL(new Blob([`(${fxWorker.toString()})()`],{type:"text/javascript"})));
 const pending=new Map();
 worker.onmessage=e=>{const p=pending.get(e.data.id);if(p){pending.delete(e.data.id);p(e.data.buf);}};
@@ -2214,7 +2218,12 @@ async function render(){ if(!prev) return; const key=st.fx+"|"+JSON.stringify(op
 async function thumbs(){ if(!prev||thumbsFor===prev) return; thumbsFor=prev; const t=scaled(prev,140),td=t.getContext("2d").getImageData(0,0,t.width,t.height);
   for(const f of ALL){ if(thumbsFor!==prev) return; const out=await run(td,f.id,{s:.5,bri:0,vib:0});
     document.querySelectorAll(`.echip[data-fx="${f.id}"] canvas`).forEach(c=>{c.width=out.width;c.height=out.height;c.getContext("2d").putImageData(out,0,0);});} }
-function setSource(img,name){ src=img; srcName=(name||"image").replace(/\.[^.]+$/,""); prev=scaled(img,900); lastKey="";
+const ARV={"1:1":1,"4:5":.8,"3:4":.75,"9:16":9/16,"16:9":16/9,"4:3":4/3};
+function cropAR(img,ar){const r=ARV[ar];if(!r)return img;const W=img.width,H=img.height;let w=W,h=Math.round(W/r);if(h>H){h=H;w=Math.round(H*r);}
+  const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,(W-w)/2,(H-h)/2,w,h,0,0,w,h);return c;}
+function sizeInfo(){const el=$("#eSizeInfo");if(!el||!src)return;const k=Math.min(1,st.size/Math.max(src.width,src.height));
+  el.textContent=`保存サイズ ${Math.round(src.width*k)}×${Math.round(src.height*k)}${k===1&&st.size>Math.max(src.width,src.height)?"（元の画像の大きさまで）":""}`;}
+function setSource(img,name){ srcRaw=img; src=cropAR(img,st.ar); srcName=(name||"image").replace(/\.[^.]+$/,""); prev=scaled(src,900); lastKey="";sizeInfo();
   const o=$("#eOrig");o.width=prev.width;o.height=prev.height;o.getContext("2d").drawImage(prev,0,0);
   ps.faces=[];ps.for=null;pm=[];if(window.__mosReady){renderMosList();mStatus("");}if(ps.on)ensureFaces();syncPs(); render(); thumbs(); }
 
@@ -2233,7 +2242,7 @@ function showCat(name){cat=name;$("#eCats").querySelectorAll("button").forEach(b
   $("#eFavNote").hidden=!(fav&&!st.fav.length);}
 /* the bar's エフェクト / 調整 swap what is shown under the picture (no sheet) */
 let curMode="home";
-function mode(t){let m=["efx","eadj","pstamp","emos"].includes(t)?t:"home";if(kind!=="photo"&&m==="pstamp")m="home";if(kind==="multi"&&m==="emos")m="home";curMode=m;let dk=m==="emos"?"emos":(kind==="video"?"v":"")+m;vm.draw=kind==="video"&&m==="emos";if(m!=="emos")$("#vMark").setAttribute("aria-pressed","false");
+function mode(t){let m=["efx","eadj","pstamp","emos"].includes(t)?t:"home";if(kind!=="photo"&&m==="pstamp")m="home";if(kind==="multi"&&m==="emos")m="home";curMode=m;let dk=m==="emos"?"emos":(kind==="video"?"v":"")+m;if(dk==="veadj")dk="vadj";vm.draw=kind==="video"&&m==="emos";if(m!=="emos")$("#vMark").setAttribute("aria-pressed","false");
   if(kind==="multi"){const has=x=>document.querySelector(`#eDock .dk[data-dk="${x}"]`);dk=m==="home"?tool:m==="eadj"&&has(tool+"3")?tool+"3":has(tool+"2")?tool+"2":tool;}document.querySelectorAll("#eDock .dk").forEach(d=>d.hidden=d.dataset.dk!==dk);
   paintBoxes();if(window.__mosReady){syncMos();renderMosList();paintMos();if(m==="emos")mStatus(kind==="video"?(vm.file?"一時停止して、隠したい所を指で囲んでください。自動で動きを追いかけます":"先に「＋ 動画を選ぶ」で動画を選んでください"):"隠したい所を指で囲んでください");}
   if(kind!=="photo")return;
@@ -2244,7 +2253,8 @@ function centerChip(c,smooth){if(!c||c.hidden)return;const s=c.parentElement;s.s
 function syncUI(){document.querySelectorAll(".echip").forEach(b=>b.setAttribute("aria-selected",b.dataset.fx===st.fx));
   for(const [a,b] of [["#eS","#eSv"],["#eS2","#eS2v"]]){$(a).value=st.s;$(b).textContent=st.s;}
   $("#eB").value=st.bri;$("#eBv").textContent=st.bri;$("#eV").value=st.vib;$("#eVv").textContent=st.vib;
-  $("#eSize").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===+st.size));
+  if(st.size>3840)st.size=3840;$("#eSize").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===+st.size));
+  $("#eAR").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===st.ar));sizeInfo();
   $("#eTag").textContent=fxName(st.fx); syncAK?.(); syncFav?.(); }
 function pick(id){st.fx=id;persist();syncUI();schedule();
   document.querySelectorAll(`.echip[data-fx="${id}"]`).forEach(c=>{if(!c.hidden&&c.offsetParent)centerChip(c,true);});}
@@ -2252,6 +2262,8 @@ for(const id of ["#eS","#eS2"]) $(id).addEventListener("input",e=>{st.s=+e.targe
 $("#eB").addEventListener("input",e=>{st.bri=+e.target.value;persist();syncUI();schedule();});
 $("#eV").addEventListener("input",e=>{st.vib=+e.target.value;persist();syncUI();schedule();});
 $("#eSize").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;st.size=+b.dataset.v;persist();syncUI();});
+$("#eAR").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.dataset.v===st.ar)return;const hadMarks=pm.length||ps.faces.length;st.ar=b.dataset.v;persist();syncUI();
+  if(srcRaw){setSource(srcRaw,srcName);if(hadMarks)toast("比率を変えたので、モザイクの範囲はやり直してください");}});
 $("#eReset").onclick=()=>{st.s=50;for(const k of ["bri","vib","con","shp","clr","haze","temp","grain","vig"])st[k]=0;persist();syncUI();schedule();};
 const AK={bri:["明るさ",-50,50],con:["コントラスト",-50,50],vib:["鮮やかさ",-50,50],temp:["色温度",-50,50],shp:["シャープ",0,100],clr:["明瞭度",-50,50],haze:["かすみ除去",-50,100],grain:["粒子",0,100],vig:["ビネット",-50,100]};
 function syncAK(){const k=AK[st.ak]?st.ak:"bri",[n,lo,hi]=AK[k];$("#eAK").querySelectorAll("button").forEach(b=>{b.setAttribute("aria-selected",b.dataset.k===k);b.classList.toggle("changed",!!st[b.dataset.k]);});
@@ -2307,9 +2319,9 @@ function sample(){const W=1200,H=900,c=document.createElement("canvas");c.width=
 /* ---------- 動画モザイク: auto face finding (tracking.js Viola-Jones) + user-drawn marks that follow the picture ---------- */
 let kind="photo";
 const vm={file:null,url:null,dur:0,w:0,h:0,tracks:[],seq:0,style:"mosaic",shape:"rect",mshape:"lasso",grain:50,margin:25,out:1080,busy:null,cancel:null,draw:false};
-try{Object.assign(vm,{style:"mosaic",shape:"rect",mshape:"lasso",grain:50,margin:25,out:1080},JSON.parse(localStorage.getItem("shuffleFrame.vmos.v1"))||{});}catch(e){}
+try{Object.assign(vm,{style:"mosaic",shape:"rect",mshape:"lasso",grain:50,margin:25,out:1080,ar:"orig"},JSON.parse(localStorage.getItem("shuffleFrame.vmos.v1"))||{});}catch(e){}
 vm.tracks=[];vm.busy=null;vm.draw=false;
-const vSave=()=>{try{localStorage.setItem("shuffleFrame.vmos.v1",JSON.stringify({style:vm.style,shape:vm.shape,mshape:vm.mshape,grain:vm.grain,margin:vm.margin,out:vm.out}));}catch(e){}};
+const vSave=()=>{try{localStorage.setItem("shuffleFrame.vmos.v1",JSON.stringify({style:vm.style,shape:vm.shape,mshape:vm.mshape,grain:vm.grain,margin:vm.margin,out:vm.out,ar:vm.ar}));}catch(e){}};
 const V=$("#vVid"),OV=$("#vOver");
 const hasFaceAI=()=>!!(window.tracking&&tracking.ViolaJones&&tracking.ViolaJones.classifiers&&tracking.ViolaJones.classifiers.face);
 const VMIME2=(()=>{if(!window.MediaRecorder)return null;for(const m of["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"])try{if(MediaRecorder.isTypeSupported(m))return m;}catch(e){}return null;})();
@@ -2317,6 +2329,10 @@ const fmtT=t=>!isFinite(t)?"0:00":`${Math.floor(t/60)}:${String(Math.floor(t%60)
 function vStatus(t){$("#vStat").textContent=t||"";}
 
 /* geometry: where the video sits inside the preview box */
+function vcrop(){const r=ARV[vm.ar];if(!r||!vm.w)return{x:0,y:0,w:1,h:1};const F=vm.w/vm.h;return r>F?{x:0,y:(1-F/r)/2,w:1,h:F/r}:{x:(1-r/F)/2,y:0,w:r/F,h:1};}
+function vOutSize(){const C=vcrop(),cw=C.w*vm.w,ch=C.h*vm.h,k=Math.min(1,vm.out/Math.max(1,Math.min(cw,ch)));return[Math.max(2,Math.round(cw*k)&~1),Math.max(2,Math.round(ch*k)&~1),k];}
+function vOutInfo(){const el=$("#vOutInfo");if(!el)return;if(!vm.w){el.textContent="";return;}const [w,h,k]=vOutSize();
+  el.textContent=`書き出しサイズ ${w}×${h}${k===1&&vm.out>Math.min(w,h)?"（元の動画の大きさまで）":""}${Math.max(w,h)>2600?"。4Kは書き出しに時間がかかり、機種によってはカクつくことがあります":""}`;}
 function vRect(){const W=OV.clientWidth,H=OV.clientHeight;if(!vm.w)return{x:0,y:0,w:W,h:H};const k=Math.min(W/vm.w,H/vm.h),w=vm.w*k,h=vm.h*k;return{x:(W-w)/2,y:(H-h)/2,w,h};}
 /* box of every track at time t, normalised 0..1, already grown by the margin */
 function boxesAt(t){const out=[],m=vm.margin/100;
@@ -2343,6 +2359,8 @@ function paint(){rafOn=false;if(kind!=="video")return;const W=OV.clientWidth,H=O
   const g=OV.getContext("2d");g.clearRect(0,0,W,H);const R=vRect();
   if(vm.w&&V.readyState>=2&&!cmpOn){for(const b of boxesAt(V.currentTime)){const sx=b.x*vm.w,sy=b.y*vm.h,sw=b.w*vm.w,sh=b.h*vm.h;
       hideRegion(g,V,Math.max(0,sx),Math.max(0,sy),Math.min(vm.w-Math.max(0,sx),sw),Math.min(vm.h-Math.max(0,sy),sh),R.x+Math.max(0,b.x)*R.w,R.y+Math.max(0,b.y)*R.h,Math.min(1-Math.max(0,b.x),b.w)*R.w,Math.min(1-Math.max(0,b.y),b.h)*R.h,b,{x:R.x+b.x*R.w,y:R.y+b.y*R.h,w:b.w*R.w,h:b.h*R.h});}}
+  if(vm.w&&vm.ar!=="orig"){const C=vcrop(),x=R.x+C.x*R.w,y=R.y+C.y*R.h,w=C.w*R.w,h=C.h*R.h;g.save();g.fillStyle="rgba(0,0,0,.62)";
+    g.beginPath();g.rect(R.x,R.y,R.w,R.h);g.rect(x,y,w,h);g.fill("evenodd");g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=1.5;g.setLineDash([6,4]);g.strokeRect(x+.5,y+.5,w-1,h-1);g.restore();}
   if(drag)drawDrag(g,drag);
   $("#vTime").textContent=$("#mTime").textContent=`${fmtT(V.currentTime)} / ${fmtT(vm.dur)}`;if(!vm.seeking)$("#vSeek").value=$("#mSeek").value=vm.dur?Math.round(V.currentTime/vm.dur*1000):0;
   if(!V.paused||drag) loop();}
@@ -2377,7 +2395,7 @@ function renderTracks(){const L=$("#vList");L.innerHTML="";
 /* load */
 $("#vIn").addEventListener("change",e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;
   if(vm.url)URL.revokeObjectURL(vm.url);vm.file=f;vm.url=URL.createObjectURL(f);vm.tracks=[];renderTracks();
-  V.src=vm.url;V.load();V.onloadedmetadata=()=>{vm.dur=V.duration;vm.w=V.videoWidth;vm.h=V.videoHeight;try{V.currentTime=Math.min(.1,vm.dur/2);}catch(_){}
+  V.src=vm.url;V.load();V.onloadedmetadata=()=>{vm.dur=V.duration;vm.w=V.videoWidth;vm.h=V.videoHeight;vOutInfo();try{V.currentTime=Math.min(.1,vm.dur/2);}catch(_){}
     vStatus(hasFaceAI()?"「自動で追いかける」で顔を探して、動きに合わせてモザイクをかけます":"顔の自動検出を読み込めませんでした。マークを囲む方法は使えます");loop();};
   V.onerror=()=>toast("この動画は読み込めませんでした");});
 
@@ -2453,14 +2471,14 @@ async function exportVideo(){
     try{await first;}catch(e){v.muted=true;await v.play();} v.pause();
     if(!v.videoWidth) await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=rej;});
     try{v.currentTime=0;}catch(e){}
-    const k=Math.min(1,vm.out/Math.max(vm.w,vm.h)),tw=Math.max(2,Math.round(vm.w*k)&~1),th=Math.max(2,Math.round(vm.h*k)&~1);
+    const [tw,th]=vOutSize(),C=vcrop();
     const c=document.createElement("canvas");c.width=tw;c.height=th;const g=c.getContext("2d");
     tracks.push(...c.captureStream(30).getVideoTracks());
     if(actx&&!v.muted){try{const s=actx.createMediaElementSource(v),d=actx.createMediaStreamDestination();s.connect(d);tracks.push(...d.stream.getAudioTracks());}catch(e){}}
     rec=new MediaRecorder(new MediaStream(tracks),{mimeType:VMIME2,videoBitsPerSecond:Math.round(tw*th*30*.12),audioBitsPerSecond:128000});
     const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};const done=new Promise(r=>rec.onstop=r);
-    const draw=()=>{g.drawImage(v,0,0,tw,th);for(const b of boxesAt(v.currentTime)){const x=Math.max(0,b.x),y=Math.max(0,b.y),w=Math.min(1-x,b.w-(x-b.x)),h=Math.min(1-y,b.h-(y-b.y));
-      hideRegion(g,v,x*vm.w,y*vm.h,w*vm.w,h*vm.h,x*tw,y*th,w*tw,h*th,b,{x:b.x*tw,y:b.y*th,w:b.w*tw,h:b.h*th});}};
+    const draw=()=>{g.drawImage(v,C.x*vm.w,C.y*vm.h,C.w*vm.w,C.h*vm.h,0,0,tw,th);for(const b of boxesAt(v.currentTime)){const x=Math.max(C.x,b.x),y=Math.max(C.y,b.y),x2=Math.min(C.x+C.w,b.x+b.w),y2=Math.min(C.y+C.h,b.y+b.h);if(x2<=x||y2<=y)continue;
+      const X=u=>(u-C.x)/C.w*tw,Y=u=>(u-C.y)/C.h*th;hideRegion(g,v,x*vm.w,y*vm.h,(x2-x)*vm.w,(y2-y)*vm.h,X(x),Y(y),X(x2)-X(x),Y(y2)-Y(y),b,{x:X(b.x),y:Y(b.y),w:b.w/C.w*tw,h:b.h/C.h*th});}};
     let lastP=0;const tick=()=>{if(stopped||v.ended)return;draw();if(Date.now()-lastP>400){busyEl.textContent=`書き出し中 ${Math.round(v.currentTime/Math.max(.01,vm.dur)*100)}%（もう一度押すと中止）`;lastP=Date.now();}
       v.requestVideoFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick);};
     draw();rec.start(1000);v.onended=()=>{draw();setTimeout(()=>{try{rec.state!=="inactive"&&rec.stop();}catch(e){}},150);};
@@ -2474,9 +2492,9 @@ async function exportVideo(){
 }
 
 /* settings */
-function syncV(){for(const [id,key] of [["#vStyle","style"],["#vShape","shape"],["#vOut","out"]])$(id).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===String(vm[key])));
-  $("#vGrain").value=vm.grain;$("#vGrainV").textContent=vm.grain;$("#vMargin").value=vm.margin;$("#vMarginV").textContent=vm.margin;if(window.__mosReady)syncMos();}
-for(const [id,key,num] of [["#vStyle","style"],["#vShape","shape"],["#vOut","out",1]])$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;vm[key]=num?+b.dataset.v:b.dataset.v;vSave();syncV();loop();});
+function syncV(){if(![720,1080,1440,2160].includes(+vm.out))vm.out=1080;for(const [id,key] of [["#vStyle","style"],["#vShape","shape"],["#vOut","out"],["#vAR","ar"]])$(id).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===String(vm[key])));
+  $("#vGrain").value=vm.grain;$("#vGrainV").textContent=vm.grain;$("#vMargin").value=vm.margin;$("#vMarginV").textContent=vm.margin;if(window.__mosReady)syncMos();vOutInfo();}
+for(const [id,key,num] of [["#vStyle","style"],["#vShape","shape"],["#vOut","out",1],["#vAR","ar"]])$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;vm[key]=num?+b.dataset.v:b.dataset.v;vSave();syncV();loop();});
 $("#vGrain").addEventListener("input",e=>{vm.grain=+e.target.value;vSave();syncV();loop();});
 $("#vMargin").addEventListener("input",e=>{vm.margin=+e.target.value;vSave();syncV();loop();});
 
@@ -2786,7 +2804,7 @@ if(window.__app?.page===2)window.__ed.activate();
 <script>
 /* ============ 日本語 / English ============ */
 (()=>{
-const EN={"モザイクをかける範囲を指で囲む":"Circle the area to hide","囲み方":"Shape","なぞって囲む":"Freehand","全部外す":"Remove all","隠したい所を指で囲んでください":"Circle what you want to hide","動画を選んでから、隠したい所を指で囲んでください":"Choose a video, then circle what to hide","もう少し大きく囲んでください":"Circle a slightly bigger area","囲んだ所を追いかけています…":"Following the circled area…","一時停止して、隠したい所を指で囲んでください。自動で動きを追いかけます":"Pause, then circle what to hide. It will follow the movement automatically.","先に「＋ 動画を選ぶ」で動画を選んでください":"Choose a video first with “+ Choose video”","追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます":"Done following. Play ▶ to check, then Save to export.","いまは別の処理中です。終わったら「自動で追いかける」を押してください":"Busy right now. Tap “Follow automatically” when it finishes.","映画カラー・美学":"Cinematic & aesthetic","ティール":"Teal","映画のようなティール＆オレンジ":"Film-style teal & orange","上下に黒帯の入った映画のワンシーン":"A movie still with letterbox bars","ゴールデンアワー":"Golden hour","夕方の金色の光が差しこむ":"Warm evening light","ナイトフィルム":"Night film","夜の街の光がにじむフィルム写真":"Night film with glowing city lights","マイアミ":"Miami","ピンクと水色の80年代カラー":"80s pink and aqua","Y2K":"Y2K","2000年代風のふんわり光るにじみ":"Soft 2000s glow","VHS":"VHS","ビデオテープの走査線と色ずれ":"Videotape scanlines and colour bleed","ダスト":"Dust","フィルムのほこりと傷":"Film dust and scratches","ライトリーク":"Light leak","フィルムに光が漏れた色かぶり":"Film light-leak tint","プリズム":"Prism","虹色の光と色のずれ":"Rainbow light and colour split","キラキラ":"Sparkle","明るい所に十字の光":"Star glints on highlights","モーションブラー":"Motion blur","左右が流れるスピード感":"Speed streaks at the sides","調整する項目":"Adjustment","コントラスト":"Contrast","色温度":"Temperature","シャープ":"Sharpen","明瞭度":"Clarity","かすみ除去":"Dehaze","粒子":"Grain","ビネット":"Vignette","調整の量":"Amount","❤ お気に入り":"❤ Favourites","いまのエフェクトをお気に入りに追加":"Add this effect to favourites","お気に入りから外しました":"Removed from favourites","お気に入りに追加しました":"Added to favourites","エフェクトを選んで左上の♡を押すと、ここに集まります。":"Pick an effect and tap ♡ at the top left to collect it here.","デザイン":"Design","Instagram投稿":"Instagram post","縦長投稿":"Portrait post","ストーリー":"Story","チラシA4":"A4 flyer","プレゼン":"Slide","サムネイル":"Thumbnail","テンプレ":"Template","帯":"Banner","写真全面":"Full photo","上に写真":"Photo on top","フレーム":"Frame","丸窓":"Circle","文字だけ":"Text only","写真の色":"Photo look","そのまま":"Original","写真の拡大":"Photo zoom","文字やスタンプは指で動かせます。写真をドラッグすると見える位置が変わります。":"Drag text and stickers to move them. Drag the photo to reframe it.","見出し":"Heading","小見出し":"Subheading","タイトルを入力":"Type a title","サブテキスト":"Subtext","書体":"Font","丸ゴシック":"Rounded","ゴシック":"Gothic","明朝":"Serif","文字色":"Text colour","文字効果":"Text effect","影":"Shadow","縁取り":"Outline","背景帯":"Backing","背景色":"Background","スタンプ":"Stickers","消す":"Delete","選んだものの大きさ":"Size of the selected item","「大きさ」は枠で囲まれているもの（タップで選択）に効きます。":"“Size” applies to the outlined item (tap to select).","紫":"Purple","青":"Blue","写真加工":"Photo FX","動画モザイク":"Video mosaic","フォトブース":"Photo booth","コラージュ":"Collage","カルーセル":"Carousel","何をつくる？":"What to make?","＋ 写真を選ぶ":"+ Choose photos","使う写真を選ぶ（複数）":"Choose photos (several)","並べ方":"Layout","縦4コマ":"4-strip","グレイニー":"Grainy","ヴィンテージ":"Vintage","写真を4枚まで選ぶと、プリクラのような4コマに並べます（少ないときは繰り返します）。":"Pick up to 4 photos for a photo-booth strip (fewer are repeated).","枠の色":"Frame","飾り":"Deco","文字":"Text","下に入れる文字":"Caption","グリッド":"Grid","大きく1枚":"One big","横並び":"Side by side","縦並び":"Stacked","比率":"Ratio","写真を2〜10枚選ぶと1枚にまとめます。":"Pick 2–10 photos to combine into one.","すき間":"Gap","角の丸み":"Corners","背景":"Background","枚数":"Panels","分ける枚数":"Number of panels","1枚の比率":"Panel ratio","ライト・カメラ風":"Light & camera","G7X風":"G7X look","コンデジで撮ったような明るく柔らかい写り":"Bright, soft compact-camera look","デジカメ":"Digicam","フラッシュ感と日付入りの懐かしいデジカメ":"Nostalgic flash digicam with date stamp","レッドライト":"Red light","赤いテールライトに照らされたような光":"Lit by red tail lights","グロー":"Glow","肌をなめらかにしてふんわり光らせる":"Smooth skin with a soft glow","くっきりした白黒写真":"Crisp black and white","フィルムのようなざらつき":"Film-like grain","色あせた古い写真":"A faded old photo","ツールを選ぶ":"Choose a tool","白":"White","黒":"Black","ピンク":"Pink","水色":"Light blue","黄色":"Yellow","緑":"Green","赤":"Red","ベージュ":"Beige",
+const EN={"比率を変えたので、モザイクの範囲はやり直してください":"The ratio changed, so please circle the mosaic areas again","モザイクをかける範囲を指で囲む":"Circle the area to hide","囲み方":"Shape","なぞって囲む":"Freehand","全部外す":"Remove all","隠したい所を指で囲んでください":"Circle what you want to hide","動画を選んでから、隠したい所を指で囲んでください":"Choose a video, then circle what to hide","もう少し大きく囲んでください":"Circle a slightly bigger area","囲んだ所を追いかけています…":"Following the circled area…","一時停止して、隠したい所を指で囲んでください。自動で動きを追いかけます":"Pause, then circle what to hide. It will follow the movement automatically.","先に「＋ 動画を選ぶ」で動画を選んでください":"Choose a video first with “+ Choose video”","追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます":"Done following. Play ▶ to check, then Save to export.","いまは別の処理中です。終わったら「自動で追いかける」を押してください":"Busy right now. Tap “Follow automatically” when it finishes.","映画カラー・美学":"Cinematic & aesthetic","ティール":"Teal","映画のようなティール＆オレンジ":"Film-style teal & orange","上下に黒帯の入った映画のワンシーン":"A movie still with letterbox bars","ゴールデンアワー":"Golden hour","夕方の金色の光が差しこむ":"Warm evening light","ナイトフィルム":"Night film","夜の街の光がにじむフィルム写真":"Night film with glowing city lights","マイアミ":"Miami","ピンクと水色の80年代カラー":"80s pink and aqua","Y2K":"Y2K","2000年代風のふんわり光るにじみ":"Soft 2000s glow","VHS":"VHS","ビデオテープの走査線と色ずれ":"Videotape scanlines and colour bleed","ダスト":"Dust","フィルムのほこりと傷":"Film dust and scratches","ライトリーク":"Light leak","フィルムに光が漏れた色かぶり":"Film light-leak tint","プリズム":"Prism","虹色の光と色のずれ":"Rainbow light and colour split","キラキラ":"Sparkle","明るい所に十字の光":"Star glints on highlights","モーションブラー":"Motion blur","左右が流れるスピード感":"Speed streaks at the sides","調整する項目":"Adjustment","コントラスト":"Contrast","色温度":"Temperature","シャープ":"Sharpen","明瞭度":"Clarity","かすみ除去":"Dehaze","粒子":"Grain","ビネット":"Vignette","調整の量":"Amount","❤ お気に入り":"❤ Favourites","いまのエフェクトをお気に入りに追加":"Add this effect to favourites","お気に入りから外しました":"Removed from favourites","お気に入りに追加しました":"Added to favourites","エフェクトを選んで左上の♡を押すと、ここに集まります。":"Pick an effect and tap ♡ at the top left to collect it here.","デザイン":"Design","Instagram投稿":"Instagram post","縦長投稿":"Portrait post","ストーリー":"Story","チラシA4":"A4 flyer","プレゼン":"Slide","サムネイル":"Thumbnail","テンプレ":"Template","帯":"Banner","写真全面":"Full photo","上に写真":"Photo on top","フレーム":"Frame","丸窓":"Circle","文字だけ":"Text only","写真の色":"Photo look","そのまま":"Original","写真の拡大":"Photo zoom","文字やスタンプは指で動かせます。写真をドラッグすると見える位置が変わります。":"Drag text and stickers to move them. Drag the photo to reframe it.","見出し":"Heading","小見出し":"Subheading","タイトルを入力":"Type a title","サブテキスト":"Subtext","書体":"Font","丸ゴシック":"Rounded","ゴシック":"Gothic","明朝":"Serif","文字色":"Text colour","文字効果":"Text effect","影":"Shadow","縁取り":"Outline","背景帯":"Backing","背景色":"Background","スタンプ":"Stickers","消す":"Delete","選んだものの大きさ":"Size of the selected item","「大きさ」は枠で囲まれているもの（タップで選択）に効きます。":"“Size” applies to the outlined item (tap to select).","紫":"Purple","青":"Blue","写真加工":"Photo FX","動画モザイク":"Video mosaic","フォトブース":"Photo booth","コラージュ":"Collage","カルーセル":"Carousel","何をつくる？":"What to make?","＋ 写真を選ぶ":"+ Choose photos","使う写真を選ぶ（複数）":"Choose photos (several)","並べ方":"Layout","縦4コマ":"4-strip","グレイニー":"Grainy","ヴィンテージ":"Vintage","写真を4枚まで選ぶと、プリクラのような4コマに並べます（少ないときは繰り返します）。":"Pick up to 4 photos for a photo-booth strip (fewer are repeated).","枠の色":"Frame","飾り":"Deco","文字":"Text","下に入れる文字":"Caption","グリッド":"Grid","大きく1枚":"One big","横並び":"Side by side","縦並び":"Stacked","比率":"Ratio","写真を2〜10枚選ぶと1枚にまとめます。":"Pick 2–10 photos to combine into one.","すき間":"Gap","角の丸み":"Corners","背景":"Background","枚数":"Panels","分ける枚数":"Number of panels","1枚の比率":"Panel ratio","ライト・カメラ風":"Light & camera","G7X風":"G7X look","コンデジで撮ったような明るく柔らかい写り":"Bright, soft compact-camera look","デジカメ":"Digicam","フラッシュ感と日付入りの懐かしいデジカメ":"Nostalgic flash digicam with date stamp","レッドライト":"Red light","赤いテールライトに照らされたような光":"Lit by red tail lights","グロー":"Glow","肌をなめらかにしてふんわり光らせる":"Smooth skin with a soft glow","くっきりした白黒写真":"Crisp black and white","フィルムのようなざらつき":"Film-like grain","色あせた古い写真":"A faded old photo","ツールを選ぶ":"Choose a tool","白":"White","黒":"Black","ピンク":"Pink","水色":"Light blue","黄色":"Yellow","緑":"Green","赤":"Red","ベージュ":"Beige",
 
 "フォルダの写真と動画を、すぐにスクリーンセーバーに。":"Turn a folder of photos and videos into a screensaver.",
 "写真も動画も、サイズとデータ量を小さく。":"Shrink photos and videos, size and data.",
@@ -2908,6 +2926,8 @@ function piece(t){ if(EN[t]!==undefined) return EN[t];
   if(t==="動画全部") return "Videos full"; if(t==="音あり") return "Sound on";
   return null; }
 const PAT=[
+  [/^保存サイズ (\d+)×(\d+)(（元の画像の大きさまで）)?$/,m=>`Output ${m[1]}×${m[2]}${m[3]?" (up to the original size)":""}`],
+  [/^書き出しサイズ (\d+)×(\d+)(（元の動画の大きさまで）)?(。4K.*)?$/,m=>`Export ${m[1]}×${m[2]}${m[3]?" (up to the original size)":""}${m[4]?". 4K takes longer and may stutter on some phones":""}`],
   [/^範囲(\d+)にモザイクをかけました$/,m=>`Mosaic applied to area ${m[1]}`],[/^範囲(\d+)((?:・追従|・固定)?)$/,m=>`Area ${m[1]}${m[2]==="・追従"?" · following":m[2]==="・固定"?" · fixed":""}`],
   [/^囲んだ所を追いかけています… (\d+)%.*$/,m=>`Following the circled area… ${m[1]}%`],
   [/^(.+) ・ (\d+)枚$/,m=>`${tr1(m[1])} · ${m[2]} photos`],[/^(.+) ・ サンプル$/,m=>`${tr1(m[1])} · sample`],[/^(\d+)枚を読み込みました$/,m=>`Loaded ${m[1]} photos`],
