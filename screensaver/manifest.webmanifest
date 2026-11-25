@@ -1,0 +1,22 @@
+{
+  "name": "o-UTスクリーンセーバー&リサイズ",
+  "short_name": "o-UTスクリーンセーバー",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffafc",
+  "theme_color": "#fffafc",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
