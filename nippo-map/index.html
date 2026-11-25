@@ -6,56 +6,77 @@
 <title>O-UT 乗務マップ</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{--ink:#1b1e24;--sub:#6b7280;--line:#e3e6ea;--acc:#0f6e5c;--acc2:#e7f3f0;--drop:#d9480f;--red:#b42318}
+:root{--ink:#1b1e24;--sub:#6b7280;--line:#e3e6ea;--acc:#0f6e5c;--acc2:#e7f3f0;--drop:#d9480f;--red:#b42318;--bg:#f4f5f7;--panel:#fff;--card:#f1f3f5;--ghost:#eef0f3;--hdr:#1b1e24;--fs:1}
+html[data-theme="dark"]{--ink:#e6e9f0;--sub:#9aa3b5;--line:#2a3142;--acc:#3fb89c;--acc2:#163a33;--bg:#0b0e16;--panel:#131826;--card:#1d2334;--ghost:#252c3d;--hdr:#05070d;color-scheme:dark}
+html[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.6)}
+html[data-theme="dark"] .leaflet-bar a{background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] .leaflet-container{background:#1a1f2b}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#f4f5f7;color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:calc(15px*var(--fs,1));-webkit-text-size-adjust:100%}
 body{display:flex;flex-direction:column;height:100dvh}
-header{background:var(--ink);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+header{flex:none;background:var(--hdr);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
 header .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
-header h1{font-size:16px;margin:0}
+header h1{font-size:calc(16px*var(--fs,1));margin:0}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.btn{border:0;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;background:#2b3038;color:#fff;cursor:pointer}
-.btn.l{background:#fff;color:var(--ink)}
+.btn{border:0;border-radius:10px;padding:9px 12px;font-size:calc(14px*var(--fs,1));font-weight:600;background:#2b3038;color:#fff;cursor:pointer}
+.btn.l{background:var(--panel);color:var(--ink)}
 .btn.acc{background:var(--acc);color:#fff}
 .btn.sub{background:var(--acc2);color:var(--acc)}
-.btn.ghost{background:#eef0f3;color:var(--ink)}
-.chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600}
-.chip.on{background:#fff;color:var(--ink);border-color:#fff}
+.btn.ghost{background:var(--ghost);color:var(--ink)}
+.chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:calc(13px*var(--fs,1));font-weight:600}
+.chip.on{background:#fff;color:#1b1e24;border-color:#fff}
 .ln{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}.ln.b{background:#1f6fe0}.ln.r{background:repeating-linear-gradient(90deg,#1f6fe0 0 4px,transparent 4px 7px)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
-#mapBox{position:relative;flex:1;min-height:240px}
+#mapBox{position:relative;flex:1;min-height:160px}
 #map{position:absolute;inset:0}
-.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:12px;display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
-#cdate{font-weight:700;font-size:13px}
-.clock b{font-size:24px;font-variant-numeric:tabular-nums}
+.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:calc(12px*var(--fs,1));display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
+#cdate{font-weight:700;font-size:calc(13px*var(--fs,1))}
+.clock b{font-size:calc(24px*var(--fs,1));font-variant-numeric:tabular-nums}
 .fit{position:absolute;right:10px;bottom:24px;z-index:500}
-.panel{background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.panel{flex:none;background:var(--panel);padding:8px 12px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.ctlbar:empty{display:none}
 .panel .ctl{display:flex;gap:6px;align-items:center}
 input[type=range]{width:100%;margin:10px 0 0}
-.ends{display:flex;justify-content:space-between;color:var(--sub);font-size:12px}
-.info{margin-top:8px;font-size:14px;line-height:1.5;max-height:26vh;overflow:auto}
+.ends{display:flex;justify-content:space-between;color:var(--sub);font-size:calc(12px*var(--fs,1))}
+.info{margin-top:6px;font-size:calc(14px*var(--fs,1));line-height:1.5;height:30vh;height:30dvh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* 横置きのときは、下のリストを画面の2割にして、上の操作を1行にまとめる */
+@media (orientation:landscape){
+  .info{height:20vh;height:20dvh}
+  header{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left))}
+  header h1{display:none}
+  header .row{flex-wrap:nowrap;margin-top:0}
+  header .btn,header .chip{white-space:nowrap;padding-top:6px;padding-bottom:6px}
+  .panel{padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
+  .ctlbar{display:flex;gap:10px;align-items:center}
+  .ctlbar input[type=range]{margin:0;flex:1}
+  .ctlbar .ends{display:none!important}
+  #mapBox{min-height:120px}
+  .vs{top:10px!important;bottom:10px!important;right:52px!important}
+  #bizCtl .bt .s{display:none}
+  #bizCtl .bt{flex:1}
+}
 .info .h{display:flex;justify-content:space-between;font-weight:700}
-.info .s{color:var(--sub);font-size:13px}
+.info .s{color:var(--sub);font-size:calc(13px*var(--fs,1))}
 .info a{color:var(--acc);font-weight:700}
-.pin{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pin{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:calc(11px*var(--fs,1));border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .pin.p{background:var(--acc);border-radius:50%}
 .pin.d{background:var(--drop);border-radius:4px}
 .pin.cur{transform:scale(1.35);z-index:1000}
-.car{width:16px;height:16px;border-radius:50%;background:var(--ink);border:3px solid #ffd43b;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.car{width:16px;height:16px;border-radius:50%;background:#1b1e24;border:3px solid #ffd43b;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .ring{width:26px;height:26px;border-radius:50%;border:3px dashed var(--drop)}
 .sheet-bg{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
 .sheet-bg[hidden]{display:none}
-.sheet{background:#fff;width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
-.sheet h2{font-size:16px;margin:0 0 10px}
+.sheet{background:var(--panel);color:var(--ink);width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:calc(16px*var(--fs,1));margin:0 0 10px}
 .sheet .acts{display:flex;flex-direction:column;gap:8px}
 .sheet .acts .btn{padding:12px}
 .empty[hidden]{display:none}
-.empty{position:absolute;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--sub);background:#f4f5f7;line-height:1.7}
+.empty{position:absolute;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--sub);background:var(--bg);line-height:1.7}
 body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{display:none}
 .anal{position:absolute;transform:translate(-50%,-50%);background:#fff;border:2px solid;border-radius:10px;padding:1px 6px;text-align:center;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);line-height:1.15}
-.anal b{display:block;font-size:15px}.anal span{font-size:10px;color:#444}
-.leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.anal b{display:block;font-size:calc(15px*var(--fs,1))}.anal span{font-size:calc(10px*var(--fs,1));color:#444}
+.leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:calc(12px*var(--fs,1));margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 body.biz .chip,body.biz .panel .ctl,body.biz #sl,body.biz .ends,body.biz #bBand,body.biz #bPrev,body.biz #bNext{display:none}
 body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
 .vs{position:absolute;right:6px;top:92px;bottom:78px;width:48px;z-index:600;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;justify-content:center;cursor:pointer}
@@ -63,21 +84,21 @@ body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
 .vs-track{position:relative;width:8px;height:100%;background:rgba(40,40,48,.28);border-radius:4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
 .vs-fill{position:absolute;left:0;right:0;top:0;background:#c81010;border-radius:4px}
 .vs-thumb{position:absolute;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;border:3px solid #c81010;box-shadow:0 1px 4px rgba(0,0,0,.35);box-sizing:border-box}
-.vs-thumb span{position:absolute;right:34px;top:50%;transform:translateY(-50%);background:rgba(27,30,36,.9);color:#fff;font-size:12px;font-weight:700;padding:3px 7px;border-radius:7px;white-space:nowrap;pointer-events:none}
-.vs-tk{position:absolute;right:16px;transform:translateY(-50%);font-size:10px;font-weight:700;color:#333;background:rgba(255,255,255,.8);border-radius:4px;padding:0 3px;white-space:nowrap;pointer-events:none}
+.vs-thumb span{position:absolute;right:34px;top:50%;transform:translateY(-50%);background:rgba(27,30,36,.9);color:#fff;font-size:calc(12px*var(--fs,1));font-weight:700;padding:3px 7px;border-radius:7px;white-space:nowrap;pointer-events:none}
+.vs-tk{position:absolute;right:16px;transform:translateY(-50%);font-size:calc(10px*var(--fs,1));font-weight:700;color:#333;background:rgba(255,255,255,.8);border-radius:4px;padding:0 3px;white-space:nowrap;pointer-events:none}
 
 #bizCtl .bt{display:flex;justify-content:space-between;align-items:center;gap:8px}
-#bizCtl .bt b{font-size:17px}
+#bizCtl .bt b{font-size:calc(17px*var(--fs,1))}
 .bz{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .bz.sel{border:3px solid var(--ink)}
 .bzd{width:7px;height:7px;border-radius:50%;background:#9aa1ab;opacity:.75;transform:translate(-50%,-50%);position:absolute}
 .mukae{color:#1f6fe0;font-weight:800;margin-left:3px}
-.arow{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-top:1px solid var(--line);cursor:pointer}
+.arow{display:flex;justify-content:space-between;font-size:calc(13px*var(--fs,1));padding:5px 0;border-top:1px solid var(--line);cursor:pointer}
 </style>
 </head>
 <body>
 <header>
-  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button></div></div>
+  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button><button class="btn" id="bView" aria-label="表示の設定">Aa</button></div></div>
   <div class="row">
     <button class="btn" id="bBand">時間帯：すべて ▼</button>
     <button class="btn fbtn" id="fY">年 ▼</button>
@@ -101,6 +122,7 @@ body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
   <div class="empty" id="empty" hidden>表示する日報がありません。<br>「O-UT 乗務日報リーダー」の地図タブにある<br>「詳しい地図で開く」から開いてください。</div>
 </div>
 <div class="panel">
+  <div class="ctlbar">
   <div class="ctl">
     <button class="btn acc" id="bPlay" style="min-width:92px">▶ 再生</button>
     <button class="btn ghost" id="bSpeed" style="flex:1">速さ：普通 ▼</button>
@@ -109,8 +131,8 @@ body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
   <input type="range" id="sl" min="0" max="100" value="0" step="1">
   <div class="ends"><span id="t0"></span><span id="t1"></span></div>
   <div id="bizCtl">
-    <div class="bt"><div><span class="s" style="color:var(--sub);font-size:12px">見ている時刻</span><br><b id="bizSee">--:--</b></div><button class="btn ghost" id="bizNow">今に戻す</button></div>
-    <div class="s" style="color:var(--sub);font-size:12px;margin-top:2px">地図の右の縦のバーを下へずらすと、6時間先まで見られます。</div>
+    <div class="bt"><div><span class="s" style="color:var(--sub);font-size:calc(12px*var(--fs,1))">見ている時刻（右の縦のバーで6時間先まで）</span><br><b id="bizSee">--:--</b></div><button class="btn ghost" id="bizNow">今に戻す</button></div>
+  </div>
   </div>
   <div class="info" id="info"></div>
 </div>
@@ -142,6 +164,30 @@ function sheet(title, actions, html){
 }
 function closeSheet(){ $("#sbg").hidden=true; }
 $("#sbg").onclick=e=>{ if(e.target.id==="sbg") closeSheet(); };
+
+/* ---------- 表示（文字の大きさ・ライト／ダーク） ---------- */
+const VPREF="out-nippo-map-view";
+let view={theme:"auto",font:"m"}; try{ Object.assign(view, JSON.parse(localStorage.getItem(VPREF)||"{}")); }catch(e){}
+const FONTS={s:["小",0.9],m:["標準",1],l:["大",1.15],xl:["特大",1.3]};
+const THEMES={auto:"端末の設定に合わせる",light:"ライト",dark:"ダーク"};
+const mqD=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
+function applyView(){
+  const dark=view.theme==="dark"||(view.theme==="auto"&&mqD&&mqD.matches);
+  document.documentElement.dataset.theme=dark?"dark":"light";
+  document.documentElement.style.setProperty("--fs",(FONTS[view.font]||FONTS.m)[1]);
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=dark?"#05070d":"#1b1e24";
+  setTimeout(()=>{ try{ map&&map.invalidateSize&&map.invalidateSize(); }catch(e){} },50);
+}
+if(mqD){ try{ mqD.addEventListener("change",applyView); }catch(e){ mqD.addListener&&mqD.addListener(applyView); } }
+applyView();
+$("#bView").onclick=()=>{
+  const save=()=>{ try{ localStorage.setItem(VPREF,JSON.stringify(view)); }catch(e){} applyView(); };
+  sheet("表示の設定",[
+    ...Object.entries(THEMES).map(([k,v])=>({label:`画面：${v}`,cls:view.theme===k?"acc":"sub",fn:()=>{ view.theme=k; save(); }})),
+    ...Object.entries(FONTS).map(([k,v])=>({label:`文字の大きさ：${v[0]}`,cls:view.font===k?"acc":"sub",fn:()=>{ view.font=k; save(); }})),
+    {label:"やめる",cls:"ghost"}]);
+};
+window.addEventListener("resize",()=>{ try{ map.invalidateSize(); }catch(e){} });
 
 /* ---------- データ受け取り（URLの#以降） ---------- */
 const STORE="out-nippo-map-days";
@@ -299,7 +345,7 @@ $("#bDate").onclick=()=>{ if(bizData) return;
   if(!ks.length) return;
   sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>{ loadDay(days[k]); st.T=0; play(); }})),
     {label:"この端末の記録を消す",cls:"ghost",fn:()=>{ saveDays({}); }}],
-    `<div style="color:var(--sub);font-size:13px;margin-bottom:10px">日報リーダーから開いた日がこの端末に残ります。</div>`);
+    `<div style="color:var(--sub);font-size:calc(13px*var(--fs,1));margin-bottom:10px">日報リーダーから開いた日がこの端末に残ります。</div>`);
 };
 
 function stepDay(k){ const days=loadDays(); const ks=Object.keys(days).sort(); const i=ks.indexOf(st.day?.d); const n=ks[i+k]; if(!n) return; loadDay(days[n]); st.T=0; play(); }
@@ -349,7 +395,7 @@ function anaInfo(){
   const A=anaData, tot=A.items.reduce((s,o)=>s+o.n,0), list=A.items.slice().sort((a,b)=>b.n-a.n);
   let h=`<div class="h"><span>${esc(A.range)}の${esc(A.kind)}</span><span>${A.days}乗務・${tot}回</span></div>
    <div class="leg">${ANA_STEPS.map(([,c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join("")}</div>`;
-  if(anaSel){ const o=anaSel; h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(o.t)}</b>　${o.n}回・${yen(o.f)}円（平均${yen(Math.round(o.f/o.n))}円）<div class="s">${esc(o.ch||"")}${o.rg?`<br>囲んだ範囲：${esc(o.rg)}`:""}</div>${(o.dst&&o.dst.length)?`<div class="s" style="margin-top:6px"><b>${esc(o.dw||"よく送る行き先")}</b><table style="width:100%;border-collapse:collapse;margin-top:3px;font-size:inherit"><tr style="opacity:.7"><td>${o.dw&&o.dw.includes("出発")?"出発地":"行き先"}</td><td style="text-align:right">回数</td><td style="text-align:right">割合</td><td style="text-align:right">平均料金</td><td style="text-align:right">平均km</td></tr>${o.dst.map(([t,n,f,k])=>`<tr style="border-top:1px solid rgba(128,128,128,.25)"><td>${esc(t)}</td><td style="text-align:right">${n}</td><td style="text-align:right">${Math.round(n/o.n*100)}%</td><td style="text-align:right">${Number(f).toLocaleString()}円</td><td style="text-align:right">${k!=null?k:"–"}</td></tr>`).join("")}</table></div>`:""}</div>`; }
+  if(anaSel){ const o=anaSel; h+=`<div style="margin:6px 0;padding:8px;background:var(--card);border-radius:8px"><b>${esc(o.t)}</b>　${o.n}回・${yen(o.f)}円（平均${yen(Math.round(o.f/o.n))}円）<div class="s">${esc(o.ch||"")}${o.rg?`<br>囲んだ範囲：${esc(o.rg)}`:""}</div>${(o.dst&&o.dst.length)?`<div class="s" style="margin-top:6px"><b>${esc(o.dw||"よく送る行き先")}</b><table style="width:100%;border-collapse:collapse;margin-top:3px;font-size:inherit"><tr style="opacity:.7"><td>${o.dw&&o.dw.includes("出発")?"出発地":"行き先"}</td><td style="text-align:right">回数</td><td style="text-align:right">割合</td><td style="text-align:right">平均料金</td><td style="text-align:right">平均km</td></tr>${o.dst.map(([t,n,f,k])=>`<tr style="border-top:1px solid rgba(128,128,128,.25)"><td>${esc(t)}</td><td style="text-align:right">${n}</td><td style="text-align:right">${Math.round(n/o.n*100)}%</td><td style="text-align:right">${Number(f).toLocaleString()}円</td><td style="text-align:right">${k!=null?k:"–"}</td></tr>`).join("")}</table></div>`:""}</div>`; }
   h+=list.slice(0,15).map((o,i)=>`<div class="arow" data-i="${A.items.indexOf(o)}"><span><i style="background:${anaCol(o.n)}"></i>${i+1}. ${esc(o.t)}</span><span>${o.n}回・${yen(o.f)}円</span></div>`).join("");
   $("#info").innerHTML=h;
   $("#info").querySelectorAll("[data-i]").forEach(r=>r.onclick=()=>{ const o=A.items[+r.dataset.i]; anaPick(o); if(o.pg) map.fitBounds(o.pg.getBounds(),{maxZoom:15}); });
@@ -446,7 +492,7 @@ function bizInfo(){
   let h=`<div class="h"><span>${hm(T)}〜${hm(T+60)} に乗せた場所</span><span>${B.days}乗務・${tot}回</span></div>
    <div class="s">${esc(fLabel())}</div>`;
   const sel=list.find(s=>s.a===bizSel);
-  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:#f1f3f5;border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${holName(r.d)?"・祝":""}) ${hm(r.m)}${r.pk?MUKAE:""} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
+  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:var(--card);border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${holName(r.d)?"・祝":""}) ${hm(r.m)}${r.pk?MUKAE:""} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
   if(!B.days) h+=`<div class="s" style="margin-top:6px">この期間・曜日の日報がありません。上のボタンで年・月・曜日・祝日を変えてください。</div>`;
   else if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。右の縦のバーで先の時刻も見られます。</div>`;
   h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}${s.h.some(r=>r.pk)?MUKAE:""}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
@@ -470,15 +516,15 @@ $("#fY").onclick=()=>{ if(!bizData) return; const ys=[...new Set(bizData.D.map(d
   sheet("年を選んでください",[{label:"全ての年",cls:bizF.y==="all"?"acc":"sub",fn:fSet("y","all")},...ys.map(y=>({label:`${y}年（${fCount({...bizF,y})}乗務）`,cls:bizF.y===y?"acc":"sub",fn:fSet("y",y)})),fBack]); };
 $("#fM").onclick=()=>{ if(!bizData) return;
   sheet("月を選んでください",[{label:"全ての月",cls:bizF.m==="all"?"acc":"sub",fn:fSet("m","all")},...Array.from({length:12},(_,i)=>String(i+1)).map(m=>({label:`${m}月（${fCount({...bizF,m})}乗務）`,cls:bizF.m===m?"acc":"sub",fn:fSet("m",m)})),fBack],
-   `<div class="s" style="color:var(--sub);font-size:13px;margin-bottom:8px">「全ての年」なら、どの年のその月もまとめます。</div>`); };
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));margin-bottom:8px">「全ての年」なら、どの年のその月もまとめます。</div>`); };
 $("#fW").onclick=()=>{ if(!bizData) return; const t=bizToday();
   sheet("曜日を選んでください",[...F_WO.map(k=>({label:k==="auto"?`今日に合わせる（今日は${holName(t)?"祝日":WD[wdi(t)]+"曜"}）`:`${F_W[k]}（${fCount({...bizF,w:k})}乗務）`,cls:bizF.w===k?"acc":"sub",fn:fSet("w",k)})),fBack],
-   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日を含めるかどうかは「祝日」で選びます。「今日に合わせる」は今日の曜日を選び、今日が祝日なら全ての祝日になります（朝5時までは前日扱い）。</div>`); };
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日を含めるかどうかは「祝日」で選びます。「今日に合わせる」は今日の曜日を選び、今日が祝日なら全ての祝日になります（朝5時までは前日扱い）。</div>`); };
 $("#fH").onclick=()=>{ if(!bizData) return;
   const names={}; for(const d of bizData.D) if(fOk(d,{...bizF,h:"only"})){ const n=holName(d); names[n]=(names[n]||0)+1; }
   sheet("祝日を選んでください",[...["all","auto","ex","only"].map(k=>({label:k==="all"||k==="auto"?F_H[k]:`${F_H[k]}（${fCount({...bizF,h:k})}乗務）`,cls:bizF.h===k?"acc":"sub",fn:fSet("h",k)})),
     ...Object.entries(names).sort((a,b)=>b[1]-a[1]).map(([n,c])=>({label:`${n}（${c}乗務）`,cls:bizF.h===n?"acc":"sub",fn:fSet("h",n)})),fBack],
-   `<div class="s" style="color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:8px">「全ての祝日」は祝日に当たる日だけ、「祝日を除く」は祝日以外の日だけ、「区別しない」は両方を使います。下には、選んでいる年・月・曜日に当たる祝日を並べています。</div>`); };
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));line-height:1.6;margin-bottom:8px">「全ての祝日」は祝日に当たる日だけ、「祝日を除く」は祝日以外の日だけ、「区別しない」は両方を使います。下には、選んでいる年・月・曜日に当たる祝日を並べています。</div>`); };
 $("#bizNow").onclick=()=>{ bizS=0; bizVs.set(0); if(bizData){ bizClock(); bizDraw(); } };
 setInterval(()=>{ if(!bizData) return; bizClock(); const m=bizT(); if(m!==bizMin){ bizMin=m; bizDraw(); } },1000);
 /* ---------- 起動 ---------- */
