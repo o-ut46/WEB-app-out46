@@ -82,6 +82,8 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: public
+      - name: Wait for the uploaded site to register (avoids 'No artifacts named github-pages')
+        run: sleep 20
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
