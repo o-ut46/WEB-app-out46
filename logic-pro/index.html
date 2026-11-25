@@ -1,4 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.try{margin:14px 0 4px;border:1px dashed var(--accent);border-radius:8px;padding:8px 12px;background:var(--surface)}.try summary{cursor:pointer;font-weight:700;color:var(--accent);min-height:32px;display:flex;align-items:center}.try-q{font-weight:700;margin:8px 0 6px}.try-ok{margin-top:8px;font-size:.92rem;color:var(--muted)}.try-ok b{color:var(--accent);margin-right:4px}
+.swipe-hint{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);background:rgba(23,33,31,.88);color:#E8EEEC;padding:10px 18px;border-radius:999px;font-weight:700;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}.swipe-hint.on{opacity:1}
 </style></head><body>
 <title>Logic Pro 手引き</title>
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Logic Pro 手引き">
@@ -197,7 +198,7 @@ mark{background:var(--amber);color:var(--bg);border-radius:2px;padding:0 1px}
     <button class="pop-btn" id="modeBtn" aria-haspopup="listbox">ホーム</button>
     <button class="icon-btn" id="viewBtn" aria-haspopup="listbox" aria-label="文字の大きさと読み上げの設定"><span style="font-weight:700">Aa</span></button>
     <button class="pop-btn oapps-top" type="button" data-oapps aria-haspopup="dialog" aria-label="O-UTのほかのアプリへ切り替える">🔀 アプリ</button>
-    <span class="ver" title="この手引きのバージョン">v1.8</span>
+    <span class="ver" title="この手引きのバージョン">v1.9</span>
   </div>
 </header>
 <div class="player" id="player" hidden><div class="wrap gutter player-in"><span class="player-txt" id="playerTxt"></span><button id="pPause">一時停止</button><button id="pStop">停止</button></div></div>
@@ -709,8 +710,33 @@ $('#pPause').onclick=()=>{const sp=speaking;if(!sp)return;
 if(TTS&&speechSynthesis.addEventListener)speechSynthesis.addEventListener('voiceschanged',()=>{});
 addEventListener('pagehide',()=>{if(TTS)speechSynthesis.cancel()});
 
-addEventListener('hashchange',route);
+/* ページの行き来を数える(スワイプで戻る・進むため) */
+function navMark(){let st=history.state;let max=+(sessionStorage.getItem('lpNavMax')||0);
+ if(!st||typeof st.i!=='number'){const prev=+(sessionStorage.getItem('lpNavCur')||-1);const i=prev+1;try{history.replaceState({i},'')}catch(e){}max=i;st={i}}
+ sessionStorage.setItem('lpNavCur',st.i);sessionStorage.setItem('lpNavMax',Math.max(max,st.i))}
+addEventListener('hashchange',()=>{navMark();route()});
+addEventListener('popstate',()=>{if(history.state&&typeof history.state.i==='number')sessionStorage.setItem('lpNavCur',history.state.i)});
+try{sessionStorage.setItem('lpNavCur',-1);sessionStorage.setItem('lpNavMax',0)}catch(e){}
+navMark();
 route();
+/* 左上の「Logic Pro 手引き」で最初のページへ */
+document.querySelector('.top .brand').addEventListener('click',e=>{e.preventDefault();closePop();const q=$('#q');if(q)q.value='';
+ if((location.hash||'#home')==='#home'){route();window.scrollTo(0,0)}else location.hash='home'});
+/* 横スワイプ:右へなぞると前のページ、左へなぞると次のページ */
+(function(){let sx=0,sy=0,st=0,ok=false;
+ const hint=document.createElement('div');hint.className='swipe-hint';hint.setAttribute('aria-hidden','true');document.body.appendChild(hint);
+ function scrollableX(el){for(;el&&el!==document.body;el=el.parentElement){const cs=getComputedStyle(el);if(/(auto|scroll)/.test(cs.overflowX)&&el.scrollWidth>el.clientWidth+2)return true}return false}
+ function show(t){hint.textContent=t;hint.classList.add('on');clearTimeout(show.t);show.t=setTimeout(()=>hint.classList.remove('on'),700)}
+ addEventListener('touchstart',e=>{ok=false;if(e.touches.length!==1)return;const t=e.touches[0],w=innerWidth;
+  if(t.clientX<24||t.clientX>w-24)return;
+  const el=e.target;if(el.closest('input,textarea,select,.pop,.pop-back,.oapps-ov,.player,svg,[contenteditable]')||scrollableX(el))return;
+  sx=t.clientX;sy=t.clientY;st=Date.now();ok=true},{passive:true});
+ addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;
+  if(Date.now()-st>700||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6)return;
+  const cur=+(sessionStorage.getItem('lpNavCur')||0),max=+(sessionStorage.getItem('lpNavMax')||0);
+  if(dx>0){if(cur>0){show('← 前のページ');history.back()}else show('最初のページです')}
+  else{if(cur<max){show('次のページ →');history.forward()}else show('これ以上進めません')}},{passive:true});
+})();
 </script>
 
 <style>.top .oapps-top::after{display:none}</style><style id="oapps-css">.oapps-btn{display:inline-flex;align-items:center;gap:6px;font:800 13px/1.15 system-ui,-apple-system,"Hiragino Sans",sans-serif;padding:7px 12px;border-radius:999px;border:1px solid #e0875f;background:#a8452a;color:#fff;cursor:pointer;touch-action:manipulation;white-space:nowrap}
