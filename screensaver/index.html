@@ -376,6 +376,29 @@ select{appearance:none;-webkit-appearance:none;padding-right:34px;background-ima
 .page{scroll-snap-align:start;scroll-snap-stop:always;min-height:0;min-width:0;display:flex;flex-direction:column;gap:10px;overflow:hidden}
 .page>*{flex:none}
 .page>.democard,.page>.rlistcard{flex:1 1 auto;min-height:0}
+
+/* ---------- iPad / PC: wider canvas, two columns when there is room ---------- */
+@media (min-width:760px){
+  .wrap{max-width:min(1180px,100%);padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));gap:12px}
+  .tabbar{padding-left:max(8px,calc(50vw - 360px));padding-right:max(8px,calc(50vw - 360px))}
+  h1{font-size:1.45rem}.lead{font-size:.9rem}.logo{width:60px;height:60px}
+}
+@media (min-width:900px){
+  #pSaver{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);grid-template-rows:auto 1fr;gap:14px;align-items:start}
+  #pSaver>.card:not(.democard){grid-column:1;grid-row:1}
+  #pSaver>.democard{grid-column:2;grid-row:1 / span 2;height:100%;min-height:0}
+  #pResize{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:14px;align-items:start}
+  #pResize>#rDrop{grid-column:1}#pResize>.rlistcard{grid-column:2;grid-row:1 / span 2;height:100%;min-height:0}
+  .edcard{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(340px,400px);grid-template-rows:auto minmax(0,1fr);column-gap:16px;row-gap:10px}
+  .edcard>.edtop{grid-column:1;grid-row:1}
+  .edcard>.edview{grid-column:1;grid-row:2;min-height:0;height:100%}
+  .edcard>.edock{grid-column:2;grid-row:1 / span 2;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
+  .edcard>.edock .estrip{flex-wrap:wrap;overflow:visible}
+}
+@media (hover:hover) and (pointer:fine){
+  .pages{scroll-snap-type:x mandatory}
+  button,.pick,select{cursor:pointer}
+}
 /* ---------- resizer ---------- */
 .rpick{display:grid;grid-template-columns:1.7fr 1fr;gap:8px}
 .rpick .pick{padding:9px 4px;font-size:.85rem;white-space:nowrap}
@@ -3030,4 +3053,9 @@ function setLang(v){ lang=v; try{localStorage.setItem("shuffleFrame.lang",v);}ca
 document.getElementById("lang").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&b.dataset.v!==lang)setLang(b.dataset.v);});
 setLang(lang);
 })();
+
+/* PC: ← → switch pages when not typing */
+addEventListener("keydown",e=>{if(e.altKey||e.ctrlKey||e.metaKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+  if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;const bs=[...document.querySelectorAll("#switch button[data-page]")],i=bs.findIndex(b=>b.getAttribute("aria-current")==="true");
+  const n=i+(e.key==="ArrowRight"?1:-1);if(n>=0&&n<bs.length){bs[n].click();e.preventDefault();}});
 </script>
