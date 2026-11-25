@@ -196,12 +196,12 @@ mark{background:var(--amber);color:var(--bg);border-radius:2px;padding:0 1px}
     <button class="pop-btn" id="modeBtn" aria-haspopup="listbox">ホーム</button>
     <button class="icon-btn" id="viewBtn" aria-haspopup="listbox" aria-label="文字の大きさと読み上げの設定"><span style="font-weight:700">Aa</span></button>
     <button class="pop-btn oapps-top" type="button" data-oapps aria-haspopup="dialog" aria-label="O-UTのほかのアプリへ切り替える">🔀 アプリ</button>
-    <span class="ver" title="この手引きのバージョン">v1.6</span>
+    <span class="ver" title="この手引きのバージョン">v1.7</span>
   </div>
 </header>
 <div class="player" id="player" hidden><div class="wrap gutter player-in"><span class="player-txt" id="playerTxt"></span><button id="pPause">一時停止</button><button id="pStop">停止</button></div></div>
 <main class="wrap gutter" id="view"></main>
-<footer class="wrap gutter foot">Appleの公式資料と音楽メディアの記事を要約して作った非公式の手引きです。Appleとは関係ありません。正確な仕様は各項目の出典で確認してください。内容の確認日:2026年11月6日(演奏表現の追加分は2026年11月25日)。</footer>
+<footer class="wrap gutter foot">Appleの公式資料と音楽メディアの記事を要約して作った非公式の手引きです。Appleとは関係ありません。正確な仕様は各項目の出典で確認してください。内容の確認日:2026年11月6日(演奏表現とボーカルの仕上げの追加分は2026年11月25日)。</footer>
 
 <script>
 const G='https://support.apple.com/guide/logicpro/';
@@ -255,6 +255,19 @@ const S={
  tabs:['コードグリッドとタブ譜記号を追加する(10.2版)','https://help.apple.com/logicpro/mac/10.2.1/en.lproj/lgcp85357343.html','公式 10.2版','old'],
  tabm:['タブ譜の記号の一覧(9.1版)','https://help.apple.com/logicpro/mac/9.1.6/en/logicpro/usermanual/chapter_31_section_18.html','公式 9.1版','old'],
  tabset:['スコアのTablature設定(10.2版)','https://help.apple.com/logicpro/mac/10.2.1/en.lproj/lgcp204e230e.html','公式 10.2版','old'],
+ dees:['DeEsser 2で歯擦音を減らす','https://support.apple.com/en-is/102006','公式 最新'],
+ dees2:['DeEsser 2を使う(Final Cut Pro版の説明)','https://support.apple.com/en-lb/guide/final-cut-pro-logic-effects/use-deesser-2-lgex2c461069/mac','公式 FCP版'],
+ pcor:['Pitch Correction(iPad版ガイド)','https://support.apple.com/guide/logicpro-ipad/lpipd8cb9f50/ipados','公式 iPad版'],
+ compi:['Compressorの回路の種類(iPad版ガイド)','https://support.apple.com/guide/logicpro-ipad/lpip25f51558/ipados','公式 iPad版'],
+ comp:['Compressorのパラメータ(10.1版)','https://help.apple.com/logicpro-effects/mac/10.1/en.lproj/lgcead9636ef.html','公式 10.1版','old'],
+ chroma:['ChromaVerbを使う','https://support.apple.com/HT208923','公式 最新'],
+ cheq:['Logic Pro Effects ユーザガイド(PDF)','https://help.apple.com/pdf/logicpro-effects/en_US/logic-pro-effects-user-guide.pdf','公式 PDF'],
+ sage:['How to Mix Vocals in Logic Pro X','https://www.sageaudio.com/articles/how-to-mix-vocals-in-logic-pro-x','解説 Sage Audio','ext'],
+ sosv:['Vocal Production In Logic Pro: Part 2','https://www.soundonsound.com/techniques/vocal-production-logic-pro-part-2','解説 Sound On Sound','ext'],
+ sosd:['Advanced Mixing In Logic Pro: Part 2(エフェクトにEQ)','https://www.soundonsound.com/node/4908792','解説 Sound On Sound','ext'],
+ lst:['Send Effects in Logic Pro','https://logicstudiotraining.com/send-effects-logic-pro/','解説 Logic Studio Training','ext'],
+ mrht:['Logic Proでハードチューン','https://musicradar.com/how-to/hard-tune-logic-pro','解説 MusicRadar','ext'],
+ spl:['Logic Pro reverb plugins','https://splice.com/blog/?p=40693','解説 Splice','ext'],
  sbk:['Studio Bassのキースイッチ割り当て',G+'keyswitch-mapping-lgcpf59fbc55/mac','公式 最新'],
  sbo:['Studio Bassの概要',G+'studio-bass-overview-lgcp217f9887/mac','公式 最新'],
  sbd:['Studio BassのDetails画面',G+'details-view-parameters-lgcp0475fc13/mac','公式 最新'],
@@ -331,6 +344,14 @@ const CH=[
  {id:'sends',t:'リバーブをセンドで共有する',p:'リバーブなどを1つのAuxに入れ、複数のトラックから送ると、響きが揃います。',n:['チャンネルストリップのSendスロットをクリックする','使っていないバスを選ぶ(送り先のAuxができる)','Auxにリバーブなどのプラグインを入れる','Sendノブで送る量を決める'],d:['Post Pan:音量とパンの影響を受ける','Post Fader:音量の影響だけ受ける','Pre Fader:音量もパンも影響しない','1チャンネルにつきセンドは最大8つ','Sendスロットを[[⇧]]クリックすると、送り先のAuxが点滅して場所を確認できる'],tip:'出典は10.7版のガイドです。13.0で表示が変わっている可能性があります。',s:['send','ragm']},
  {id:'autom',t:'曲の途中で音量や効果を動かす(オートメーション)',p:'[[A]]でオートメーションを表示します。トラックのモードで動作が変わります。',d:['Read:書いた通りに再生するだけ','Touch:触っている間だけ書き換え、離すと元に戻る','Latch:離した後もその値で書き換え続ける','Write:再生ヘッドが通った部分を消して書き込む(何もしなければ消える)','Trim:既存のカーブを全体的に上下させる(TouchかLatchと併用)'],tip:'Writeは操作しなくてもデータを消します。普段はTouchかLatchが安全です。全トラックをReadに戻すキーは[[⌃⇧⌘R]]です。',s:['auto','keys','main']},
  {id:'plug',t:'付属プラグインの地図',p:'公式ガイドの分類に沿って、主なものを挙げます。プラグインウインドウの一括開閉は[[V]]です。',d:['EQ:Channel EQ、Linear Phase EQ、Match EQ、Vintage EQ','ダイナミクス:Compressor、Limiter、Adaptive Limiter、Multipressor、Noise Gate、DeEsser 2','リバーブ:ChromaVerb、Space Designer、Quantec Room Simulator','ディレイ:Delay Designer、Stereo Delay、Tape Delay','ひずみ:ChromaGlow、Overdrive、Distortion、Bitcrusher','ギターとベース:Amp Designer、Bass Amp Designer、Pedalboard','ピッチ:Pitch Correction、Vocal Transformer','音源:Alchemy、Sampler、Quick Sampler、Sample Alchemy、Studio Piano、Studio Bass、Drum Kit Designer、Drum Machine Designer'],s:['toc','keys']}
+]},
+{id:'vocal',name:'ボーカルの仕上げ',color:'--r-player',lead:'録音したボーカルに、音程の修正、EQ、ディエッサー、コンプ、リバーブとディレイを付ける流れです。公式ガイドと、音楽制作サイトの解説をまとめました。',topics:[
+ {id:'vo-order',t:'効果を入れる順番(ボーカルの基本チェーン)',p:'ボーカルのチャンネルストリップのAudio Effectスロットに、上から次の順で入れるのが定番です。リバーブとディレイは、直接入れずにセンドで送ります。',rows:[['0. ゲート(必要なら)','歌っていないところのノイズを消す'],['1. Pitch Correction(必要なら)','音程のずれを自動で直す'],['2. Channel EQ','低い不要な音を切り、こもりや耳障りな響きを減らす'],['3. DeEsser 2','「サ行」の刺さる音だけを抑える'],['4. Compressor','声の大きさのばらつきをそろえる'],['5. Exciter(好みで)','高い音に倍音を足して、明るく前に出す'],['センド → Aux','ディレイ、リバーブ(響き)、コーラスを別のAuxで足す']],tip:'この順番は決まりではありません。たとえばハードチューン(はっきりしたケロケロ声)にするときは、EQとコンプを先にかけたほうが音程を追いやすい、という解説もあります。迷ったら上の順で始めて、耳で比べてください。',s:['sage','mrht']},
+ {id:'vo-pitch',t:'音程を直す(Flex PitchとPitch Correction)',p:'直し方は2つあります。1音ずつ手で直すならFlex Pitch、曲全体を自動で直すならPitch Correctionです。',d:['Flex Pitch:ノートが四角で表示され、1音ずつ上下に動かして直せる。自然に仕上げたいとき向き(「編集」の章のFlexも参照)','Pitch Correction:Audio Effect → Pitch → Pitch Correction。Root Note(キーの音)とScale(音階)を曲に合わせる','Response(反応の速さ)を遅くすると自然な補正、速くするとはっきりしたケロケロ声になる','息の音など、歌の自然な部分は残る仕組み。直す幅が大きすぎると、わざとらしい効果音のようになる','キーにない音へ引っぱられるときは、その鍵盤を外す(Bypass)'],tip:'Pitch Correctionは、歌のスピードを少し速めたり遅めたりして音程を合わせます。大きくずれた音を無理に直すより、Flex Pitchで手で直すか、録り直すほうがきれいです。',s:['flex','pcor','sage','mrht']},
+ {id:'vo-eq',t:'EQで声を整える(Channel EQ)',p:'まず不要な低い音を切り、次に気になる響きを少しだけ下げます。上げるより下げるのが基本です。',n:['Channel EQを入れる','Analyzer(解析)をオンにして、再生しながら山の出ている場所を見る','いちばん左のハイパスフィルターをオンにして、声より低い音(エアコンや振動のゴロゴロ)を切る','こもる、鼻にかかる、耳に痛いなど、気になる帯域を細い山で少し下げる'],d:['解説の一例:ハイパスで低音を整え、500Hz付近と1.5kHz付近を少し下げ、6.5kHz付近の歯擦音を細く下げた。ただし声ごとに違うので、数値はそのまま使わず耳で決める','声を明るくしたいときは、高い音を少しだけ持ち上げる','EQの前後で音量が変わると良し悪しを聞き違えるので、比べるときは音量をそろえる'],tip:'サ行の刺さりはEQで下げすぎず、次のDeEsser 2に任せたほうが自然です。',s:['sage','sosv','cheq']},
+ {id:'vo-deess',t:'サ行の刺さりを抑える(DeEsser 2)',p:'DeEsser 2は、決めた高さの音が大きくなった瞬間だけを下げるので、声全体の明るさは保ったまま「シッ」「スッ」を抑えられます。',n:['Audio Effectスロット → Dynamics → DeEsser 2 を入れる','その前(上)にChannel EQを入れ、Analyzerで刺さる音の高さを見る','Frequencyで下げたい高さを合わせる','Thresholdを下げていき、効き始める位置を決める','Max Reductionで、どこまで下げるかを決める(Reductionのメーターで確認)'],d:['目安:女性の声は5〜8kHz、男性の声は3〜6kHz','狭い範囲だけ下げるならSplit、広く下げるならWide','手早く始めるなら、Factory Defaultから「Male Vocal - Wide Band」などのプリセットを選ぶ','リージョンを選んで、その部分だけにかけることもできる'],tip:'サ行は言葉の一部なので、下げすぎると舌足らずな、不自然な声になります。',s:['dees','dees2']},
+ {id:'vo-comp',t:'声の大きさをそろえる(Compressor)',p:'小さい声と大きい声の差を縮めて、歌詞が最後まで聞き取れるようにします。',n:['Audio Effectスロット → Dynamics → Compressor を入れる','Circuit Type(回路の種類)を選ぶ','Thresholdを下げて、大きい声のところでメーターが数dB動く程度にする','Ratio、Attack、Releaseを整え、Make Upで下がった音量を戻す'],d:['Opto:きれいで自然。ボーカルやギターに向くとAppleのガイドにある','FET:立ち上がりに素早く反応する。ボーカルにもドラムにも使われる','解説の一例:Ratio 3:1、Attack 2ms、Release 40ms(声や曲で変わるので出発点として)','Attackを速くしすぎると言葉の頭がつぶれ、遅くすると頭の大きさが残る'],tip:'かけすぎると息やノイズまで大きくなります。Bypassで聞き比べて、かけた方が聞きやすいかを確かめます。',s:['compi','comp','sage']},
+ {id:'vo-space',t:'響きを足す(リバーブとディレイはセンドで)',p:'リバーブやディレイは、Auxに入れてセンドで送ります。響きの量をSendノブ1つで調整でき、ほかのトラックとも同じ響きを共有できます。',n:['ボーカルのSendスロットで、空いているバスを選ぶ(Auxが自動でできる)','Auxの名前を「Vo Reverb」などに変える','AuxにChromaVerbやSpace Designerを入れ、Mix(Dry/Wet)を100%(響きだけ)にする','ボーカル側のSendノブで、送る量を決める','ディレイも同じように、別のAuxにStereo DelayやDelay Designerを入れる'],d:['ChromaVerb:計算で作るリバーブ。14種類の部屋の種類から選び、グラフを見ながら調整できる','Space Designer:実際のホールなどの響きを録音したデータを使うリバーブ。Reverseで逆再生の響きも作れる','解説の一例:ChromaVerbの「Vocal Hall」系のプリセットで、Pre-Delay(響きが始まるまでの時間)を少し長めにする','ディレイはテンポに合わせる(Sync)と、歌に溶けやすい','響きでボーカルがぼやけるときは、リバーブやディレイの後ろにEQを入れて、低い音と高すぎる音を削る'],tip:'センドの基本操作は「ミキサー」の章の「リバーブをセンドで共有する」にもあります。',s:['lst','chroma','spl','sosd','sage']}
 ]},
 {id:'finish',name:'仕上げと書き出し',color:'--r-pattern',lead:'音量を整えて、ファイルにします。',topics:[
  {id:'mastering',t:'Mastering Assistantで仕上げる',p:'ステレオ出力に入れると曲全体を解析し、音量と音質を自動で整えます。',n:['ステレオ出力のエフェクトの最後にある「Mastering」をクリックする','解析を待って再生し、バイパスで前後を比べる','Character、EQ、Loudness、Excite、Widthを必要に応じて調整する','ミックスを変えたら「Reanalyze」を押す','Loudness Compensationをオフにしてからバウンスする'],d:['Loudnessの中央は約-14 LUFS-Iで、多くの配信サービスの目安','Characterは初期値Transparent。Clean、Valve、Punchも選べる(Apple siliconのMac)','Widthを左端まで回すとモノラル確認になる'],s:['master','missing']},
