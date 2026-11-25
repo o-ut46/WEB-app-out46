@@ -196,12 +196,12 @@ mark{background:var(--amber);color:var(--bg);border-radius:2px;padding:0 1px}
     <button class="pop-btn" id="modeBtn" aria-haspopup="listbox">ホーム</button>
     <button class="icon-btn" id="viewBtn" aria-haspopup="listbox" aria-label="文字の大きさと読み上げの設定"><span style="font-weight:700">Aa</span></button>
     <button class="pop-btn oapps-top" type="button" data-oapps aria-haspopup="dialog" aria-label="O-UTのほかのアプリへ切り替える">🔀 アプリ</button>
-    <span class="ver" title="この手引きのバージョン">v1.5</span>
+    <span class="ver" title="この手引きのバージョン">v1.6</span>
   </div>
 </header>
 <div class="player" id="player" hidden><div class="wrap gutter player-in"><span class="player-txt" id="playerTxt"></span><button id="pPause">一時停止</button><button id="pStop">停止</button></div></div>
 <main class="wrap gutter" id="view"></main>
-<footer class="wrap gutter foot">Appleの公式資料と音楽メディアの記事を要約して作った非公式の手引きです。Appleとは関係ありません。正確な仕様は各項目の出典で確認してください。内容の確認日:2026年11月6日。</footer>
+<footer class="wrap gutter foot">Appleの公式資料と音楽メディアの記事を要約して作った非公式の手引きです。Appleとは関係ありません。正確な仕様は各項目の出典で確認してください。内容の確認日:2026年11月6日(演奏表現の追加分は2026年11月25日)。</footer>
 
 <script>
 const G='https://support.apple.com/guide/logicpro/';
@@ -252,6 +252,9 @@ const S={
  prq:['タイミングをクオンタイズする',G+'quantize-the-timing-of-notes-lgcpfa6e7f80/mac','公式 最新'],
  prc:['音程をクオンタイズする',G+'quantize-the-pitch-of-notes-lgcpf4f544d2/mac','公式 最新'],
  ragp:['Logic Proの編集','https://www.ragnet.co.jp/logic-pro-edit','解説 RAG Music','ext'],
+ tabs:['コードグリッドとタブ譜記号を追加する(10.2版)','https://help.apple.com/logicpro/mac/10.2.1/en.lproj/lgcp85357343.html','公式 10.2版','old'],
+ tabm:['タブ譜の記号の一覧(9.1版)','https://help.apple.com/logicpro/mac/9.1.6/en/logicpro/usermanual/chapter_31_section_18.html','公式 9.1版','old'],
+ tabset:['スコアのTablature設定(10.2版)','https://help.apple.com/logicpro/mac/10.2.1/en.lproj/lgcp204e230e.html','公式 10.2版','old'],
  sbk:['Studio Bassのキースイッチ割り当て',G+'keyswitch-mapping-lgcpf59fbc55/mac','公式 最新'],
  sbo:['Studio Bassの概要',G+'studio-bass-overview-lgcp217f9887/mac','公式 最新'],
  sbd:['Studio BassのDetails画面',G+'details-view-parameters-lgcp0475fc13/mac','公式 最新'],
@@ -312,8 +315,10 @@ const CH=[
  {id:'ex-map',t:'3つのやり方と使い分け',p:'表現を付ける方法は、音源の種類によって3つに分かれます。',d:['奏法を切り替える:Studio Bassのように奏法の録音を持つ音源で使う。ハンマリング、プリング、スライド、デッドノート、ハーモニクスを本物の音で鳴らせる','ピッチベンドを描く:チョーキングやビブラートのような、音程がなめらかに動く表現。ほとんどの音源で使える','ノートを重ねてレガートにする:Alchemy、Sampler、Retro Synthなどのシンセで、弾き直さずに次の音へつなぐ'],tip:'録音済みのオーディオ(ギターの生演奏など)の音程を直すときは、ピアノロールではなくFlex Pitchを使います。',s:['sbo','pram','alc','flex']},
  {id:'ex-artic',t:'ノートごとに奏法を指定する',p:'打ち込みで奏法を付けるなら、この方法が確実です。ノート1つずつに奏法の番号(アーティキュレーションID)を持たせます。',n:['Studio Bassのパッチを読み込む(対応するアーティキュレーションセットも自動で入る)','ピアノロールで、奏法を付けたいノートを選ぶ','アーティキュレーションのポップアップメニューから奏法を選ぶ','または、ノートを[[⌃クリック]]して「アーティキュレーション」から選ぶ'],d:['ポインタをノートに合わせると、ヘルプタグで付いている奏法を確認できる','Studio Bassの奏法セットは、Finger、Pick、Slap、American Uprightの奏法ごとに分かれている'],tip:'ポップアップメニューが見えないときは、ピアノロールの画面を縦に広げます。トラックにアーティキュレーションセットがないとメニューは使えません。',s:['art','sbo']},
  {id:'ex-keysw',t:'キースイッチで奏法を切り替える',p:'楽器の音域より下にある鍵盤を押すと、そこから奏法が切り替わります。鍵盤で弾きながら切り替えるときに便利です。Studio Bassの割り当ては次のとおりです。',fig:'ks',rows:[['C-1','自動(All)'],['C#-1','指やピックの交互弾きを自動'],['D-1','人差し指だけ / ダウンだけ / スラップだけ'],['E♭-1','レガート(ハンマリング/プリング)'],['E-1','中指だけ / アップだけ / プルだけ'],['F-1','デッドノート'],['F#-1','デッドノート(Pickはハーモニクス)'],['G-1','ハーモニクス'],['G#-1','ピックアップを叩く音(1回)'],['A-1','スライド(Slide by Velocity)'],['B♭-1','ピックアップを叩く音(全部)'],['B-1','2半音下からのスライドイン(Slide In +2)']],tip:'ハンマリングとプリングは、別々のキーではなく「レガート」1つにまとめられています。公式の表には「HammerOn/PullOff」の表記しかないので、上がる音はハンマリング、下がる音はプリングとして鳴ると考えられますが、明記はされていません。Slide by Velocityの詳しい動きも公式には書かれていないので、耳で確かめてください。American Uprightでは一部の割り当てが異なります。',s:['sbk','sbo']},
+ {id:'ex-hp',t:'ハンマリングとプリングの入力(音の向き)',p:'ハンマリングは低い音から高い音へ上がる奏法、プリングは高い音から低い音へ下がる奏法です。どちらも2つ目の音を弾き直さずに鳴らすので、打ち込みでは2つ目のノートに表現を付けます。',fig:'hp',n:['1つ目のノートを普通に置く(ここだけピッキングする)','2つ目のノートを、1つ目のすぐ後ろに置く。ハンマリングなら上(高い音)、プリングなら下(低い音)','2つ目のノートを選び、アーティキュレーションのメニューで「Legato (HammerOn/PullOff)」を選ぶ(番号は3)','鍵盤で弾きながら録るときは、2つ目の音の直前にキースイッチ[[E♭-1]]を押す。普通の弾き方に戻すときは[[C-1]](自動)を押す'],d:['例(ベースのA弦):5フレットのD→7フレットのEならハンマリング、E→Dならプリング','TAB譜の「5h7」は5フレットから7フレットへのハンマリング、「7p5」は7フレットから5フレットへのプリング','2つの音の間はあけない。1つ目の終わりと2つ目の頭をくっつける','実際のギターやベースと同じく、離れすぎた音程は不自然になる。同じ弦で指が届く2〜3フレット程度が目安','シンセやギター系の音色では、Legatoモードにして2つのノートを少し重ねる(下の「ノートを重ねてレガートやグライドにする」)。向きの考え方は同じ'],tip:'Studio Bassの公式の表は、ハンマリングとプリングを「Legato」1つにまとめています。上がるか下がるかで鳴り分けると考えられますが、公式には明記されていません。2つ目のノートだけに付けるか、2つとも付けるかで聞こえ方を比べて、耳で確かめてください。',s:['sbk','art','sbo']},
  {id:'ex-bend',t:'ピッチベンドを描く(チョーキング、ビブラート)',p:'音程の動きをピアノロール下のレーンに線で描きます。',fig:'bend',n:['ピアノロールの「Show/Hide Automation」ボタンを押して、下にAutomation/MIDIエリアを出す','「Region」を選び、パラメータのメニューで「Pitch Bend」を選ぶ','鉛筆ツールでクリックやドラッグをして、カーブを描く','描いたポイントは、上下で値、左右で位置を調整する'],d:['値は0〜127で、64が音程の変化なし。上が音程が上がる側','どこまで上がるかは音源側の設定で決まる。Studio BassはDetails画面のPitchbend UpとDownで半音単位で設定する','全音のチョーキングにするなら、Upを2にして127まで描く','ビブラートは、64より少し上の山を細かく繰り返して描く'],tip:'描き終えたら、次の音の前で必ず64に戻します。戻し忘れると、後ろのノートの音程がずれたままになります。',s:['pram','autp','pbe','sbd']},
  {id:'ex-legato',t:'ノートを重ねてレガートやグライドにする',p:'シンセの音源では、ノートの重ね方でハンマリングやスライドのような効果を作れます。',fig:'legato',n:['音源のモードをLegatoにする(AlchemyはTrigger Mode、SamplerはMode)','Glide(ポルタメント)の時間を設定する','ピアノロールで、前の音の終わりと次の音の頭を少しだけ重ねる'],d:['重なった部分だけ、弾き直さずに次の音程へつながる','Glideを長めにするとスライド、ごく短くするとハンマリングやプリングに近い感じになる','重ならないノートは、普通に弾き直した音になる','Samplerは、Monoモードにすると重ねなくても毎回グライドする','Studio BassにもPortamento(音と音の間をスライドする時間)のノブがある'],tip:'ノートの長さをそろえて少しずつ重ねたいときは、ピアノロールの「Edit」→「Trim」にあるレガートの機能が使えます。',s:['alc','smp','sbd','prl']},
+ {id:'ex-tab',t:'TAB譜にH・Pの記号を書く(スコアエディタ)',p:'楽譜として見せたいときは、スコアエディタのパートボックスにあるタブ譜記号を使います。音の鳴り方は上のアーティキュレーションで付け、記号は見た目用と考えてください。',n:['設定の「詳細」で、すべての機能(高度なツール)を使えるようにする','スコアエディタを開く[[N]]。ギターやベースのTAB譜の譜表スタイルにしておく','パートボックスで「Chord」ボタンを押し、「Chord & Tablature」の欄を出す','ハンマリング(Hammering)かプリング(Pull-off)の記号を、楽譜へドラッグする。または記号を選んで、鉛筆ツールで楽譜をクリックする'],d:['ハンマリングとプリングの記号は、TAB譜の上側に置かれる','同じ欄に、スライド、チョーキング(ベンド)、タップ、ミュート、ハーモニクス、パームミュート、レットリングなどの記号もある','TAB譜では、音は弾ける弦のいちばん低いフレットに自動で割り当てられる。弦を変えたいときは譜表スタイルのTablatureの設定で調整する'],tip:'この手順は、少し前の版の公式ガイドをもとにしています。最新版では設定の名前やメニューの場所が少し違うことがあります。記号を置いても再生の音が変わるとは公式に書かれていないので、音はアーティキュレーションかピッチベンドで付けてください。',s:['tabs','tabm','tabset']},
  {id:'ex-guitar',t:'ギターの音源で表現を付けるには',p:'Logic Proの付属音源には、ギターの奏法をキースイッチで切り替えられる専用音源は見当たりませんでした。今回、公式に奏法の割り当てを確認できたのはStudio Bassだけです。',d:['付属のギター系の音色:ピッチベンドとレガートの方法で表現を付ける','他社のギター音源:キースイッチの位置は製品ごとに違うので、その音源の説明書で確認する','Samplerで自作する場合:グループにアーティキュレーションIDを割り当てると、スライドなどの録音を番号で切り替えられる'],s:['sart','sbo']}
 ]},
 {id:'mix',name:'ミキサー',color:'--r-audio',lead:'[[X]]でミキサーを開き、バランス、空間、動きを作ります。',topics:[
@@ -430,11 +435,25 @@ function srcHtml(ids){return '<div class="src">'+ids.map(i=>{const s=S[i];return
 function topicHtml(t){
  const on=favs.includes(t.id);
  return `<section class="topic" id="t-${t.id}"><div class="topic-h"><h2>${fmt(t.t)}</h2><span class="t-btns"><button class="say" data-say="${t.id}" aria-pressed="false" aria-label="この項目を読み上げ" title="読み上げ">${SPK}</button><button class="star" data-star="${t.id}" aria-pressed="${on}" aria-label="お気に入り">${on?'★':'☆'}</button></span></div><p>${fmt(t.p)}</p>
- ${t.fig?({proll:prollFig,ks:ksFig,bend:bendFig,legato:legatoFig}[t.fig])():''}
+ ${t.fig?({proll:prollFig,ks:ksFig,bend:bendFig,legato:legatoFig,hp:hpFig}[t.fig])():''}
  ${t.rows?'<ol class="strip">'+t.rows.map(r=>`<li><b>${esc(r[0])}</b><span>${fmt(r[1])}</span></li>`).join('')+'</ol>':''}
  ${t.n?'<ol class="steps">'+t.n.map(x=>`<li>${fmt(x)}</li>`).join('')+'</ol>':''}
  ${t.d?'<ul class="dots">'+t.d.map(x=>`<li>${fmt(x)}</li>`).join('')+'</ul>':''}
  ${t.tip?`<p class="tip"><b>注意とコツ</b> ${fmt(t.tip)}</p>`:''}${srcHtml(t.s)}</section>`;
+}
+/* ハンマリング(上向き)とプリング(下向き)の向き */
+function hpFig(){
+ const pane=(x0,title,sub,up,mark)=>{const w=290,L=x0+10,y0=40,H=110;
+  const lo=y0+H-34, hi=y0+16, a=up?lo:hi, b=up?hi:lo;
+  let s=`<text class="jp" x="${x0+10}" y="22">${title}</text><text class="jps" x="${x0+120}" y="22">${sub}</text><rect x="${L}" y="${y0}" width="${w-20}" height="${H}" fill="var(--sunken)"/>`;
+  s+=`<rect x="${L+20}" y="${a}" width="100" height="18" rx="2" fill="var(--r-audio)"/><text x="${L+70}" y="${a+13}" text-anchor="middle" style="fill:#fff;font-size:11px">1つ目</text>`;
+  s+=`<rect x="${L+120}" y="${b}" width="110" height="18" rx="2" fill="var(--rec)"/><text x="${L+175}" y="${b+13}" text-anchor="middle" style="fill:#fff;font-size:11px">2つ目:Legato</text>`;
+  const ax=L+120, y1=a+(up?0:18), y2=b+(up?18:0);
+  s+=`<path d="M${ax-28} ${a+9} C ${ax-6} ${a+9}, ${ax-6} ${b+9}, ${ax+14} ${b+9}" fill="none" stroke="var(--rec)" stroke-width="2.5" marker-end="url(#hpArr)"/>`;
+  s+=`<text x="${L+250}" y="${(a+b)/2+14}" text-anchor="middle" style="fill:var(--rec);font:700 26px var(--mono)">${mark}</text>`;
+  s+=`<text class="jps" x="${x0+10}" y="${y0+H+22}">${up?'低い音 → 高い音(上へ)':'高い音 → 低い音(下へ)'}</text>`;
+  return s};
+ return `<figure class="fig" style="margin:0"><svg viewBox="0 0 640 186" role="img" aria-label="ハンマリングは上向き、プリングは下向きの図"><defs><marker id="hpArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--rec)"/></marker></defs>${pane(0,'ハンマリング','例 5h7',1,'H')}${pane(320,'プリング','例 7p5',0,'P')}</svg><p class="fig-cap">ピアノロールで見た形の模式図。上が高い音。2つ目のノートにLegatoを付け、1つ目のすぐ後ろに置きます。</p></figure>`;
 }
 /* Studio Bassのキースイッチ(C-1〜B-1)。表現に使う鍵盤を強調 */
 function ksFig(){
