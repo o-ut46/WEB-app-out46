@@ -1,6 +1,6 @@
 {
-  "name": "OUT HX-STOMP まるわかり辞典",
-  "short_name": "HX辞典",
+  "name": "HX STOMP便利辞典",
+  "short_name": "HX STOMP便利辞典",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
