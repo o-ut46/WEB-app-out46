@@ -2326,7 +2326,31 @@ try{Object.assign(vm,{style:"mosaic",shape:"rect",mshape:"lasso",grain:50,margin
 vm.tracks=[];vm.busy=null;vm.draw=false;
 const vSave=()=>{try{localStorage.setItem("shuffleFrame.vmos.v1",JSON.stringify({style:vm.style,shape:vm.shape,mshape:vm.mshape,grain:vm.grain,margin:vm.margin,out:vm.out,ar:vm.ar}));}catch(e){}};
 const V=$("#vVid"),OV=$("#vOver");
-const hasFaceAI=()=>!!(window.tracking&&tracking.ViolaJones&&tracking.ViolaJones.classifiers&&tracking.ViolaJones.classifiers.face);
+/* ---------- face detection AI: Google MediaPipe Face Detector (BlazeFace), runs on the phone; falls back to tracking.js ---------- */
+const MPV="0.10.14",MPCDN=`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MPV}`,MPMODEL="https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+let mpDet=null,mpState="idle",mpP=null;
+function loadMP(){ if(mpP) return mpP;
+  mpState="loading";
+  mpP=Promise.race([(async()=>{const m=await import(`${MPCDN}/vision_bundle.mjs`);const fs=await m.FilesetResolver.forVisionTasks(`${MPCDN}/wasm`);
+      for(const delegate of ["GPU","CPU"]){try{mpDet=await m.FaceDetector.createFromOptions(fs,{baseOptions:{modelAssetPath:MPMODEL,delegate},runningMode:"IMAGE",minDetectionConfidence:.5});break;}catch(e){}}
+      if(!mpDet)throw new Error("no detector");mpState="ready";return true;})(),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),25000))]).catch(()=>{mpState="fail";return false;});
+  return mpP;}
+const aiReady=()=>mpState==="ready"&&!!mpDet;
+const faceEngine=()=>aiReady()?"AI（MediaPipe）":"従来方式";
+const mpTile=document.createElement("canvas"),mpTg=mpTile.getContext("2d");
+/* faces in a canvas/image → normalised boxes; whole picture + overlapping quarters so small faces are found too */
+function aiFaces(src){ if(!aiReady()) return null; const W=src.width,H=src.height,found=[];
+  const run=(sx,sy,sw,sh)=>{const k=Math.min(1,640/Math.max(sw,sh));mpTile.width=Math.round(sw*k);mpTile.height=Math.round(sh*k);mpTg.drawImage(src,sx,sy,sw,sh,0,0,mpTile.width,mpTile.height);
+    let r;try{r=mpDet.detect(mpTile);}catch(e){return;}
+    for(const d of (r&&r.detections)||[]){const b=d.boundingBox;if(!b)continue;const sc=(d.categories&&d.categories[0]&&d.categories[0].score)||.5;
+      found.push({x:(sx+b.originX/k)/W,y:(sy+b.originY/k)/H,w:b.width/k/W,h:b.height/k/H,s:sc});}};
+  run(0,0,W,H);
+  if(Math.max(W,H)>=360){const tw=W*.6,th=H*.6;for(const [fx,fy] of [[0,0],[.4,0],[0,.4],[.4,.4]])run(W*fx,H*fy,tw,th);}
+  const out=[];for(const f of found.sort((a,b)=>b.s-a.s)){const dup=out.find(o=>{const ix=Math.max(0,Math.min(o.x+o.w,f.x+f.w)-Math.max(o.x,f.x)),iy=Math.max(0,Math.min(o.y+o.h,f.y+f.h)-Math.max(o.y,f.y));return ix*iy>.3*Math.min(o.w*o.h,f.w*f.h);});
+    if(!dup)out.push(f);}
+  return out;}
+const hasFaceAI=()=>aiReady()||!!(window.tracking&&tracking.ViolaJones&&tracking.ViolaJones.classifiers&&tracking.ViolaJones.classifiers.face);
 const VMIME2=(()=>{if(!window.MediaRecorder)return null;for(const m of["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"])try{if(MediaRecorder.isTypeSupported(m))return m;}catch(e){}return null;})();
 const fmtT=t=>!isFinite(t)?"0:00":`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,"0")}`;
 function vStatus(t){$("#vStat").textContent=t||"";}
@@ -2398,7 +2422,7 @@ function renderTracks(){const L=$("#vList");L.innerHTML="";
 /* load */
 $("#vIn").addEventListener("change",e=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;
   if(!isVid(f)){setTool("photo");loadPhoto(f);return;} loadVideo(f);});
-function loadVideo(f){
+function loadVideo(f){loadMP();
   if(vm.url)URL.revokeObjectURL(vm.url);vm.file=f;vm.url=URL.createObjectURL(f);vm.tracks=[];vm.w=0;vm.h=0;renderTracks();vStatus("動画を読み込んでいます…");
   V.muted=true;V.playsInline=true;V.preload="auto";V.hidden=false;
   const tmo=setTimeout(()=>{if(!vm.w&&vm.file===f){vStatus("");toast("この動画は読み込めませんでした。別の動画でお試しください");}},15000);
@@ -2421,6 +2445,7 @@ function follow(tr,g,W,H){const T=tr.tm,tw=tr.tw,th=tr.th,st=Math.max(1,Math.flo
   if(best>42) return false;
   tr.px=bx;tr.py=by;const cur=cut(g,W,H,bx,by,tw,th);for(let i=0;i<T.length;i++)T[i]=T[i]*.88+cur[i]*.12;return true;}
 async function analyze(opt={}){
+  if(!opt.marksOnly&&mpState!=="ready"&&mpState!=="fail"){vStatus("顔検出AIを準備しています…（初回だけ少し時間がかかります）");await loadMP();}
   if(!vm.file){toast("先に動画を選んでください");return;}if(vm.busy)return;
   V.pause();vm.busy="analyze";syncBusy();
   if(!opt.marksOnly)vm.tracks=vm.tracks.filter(t=>t.kind==="mark");for(const t of vm.tracks){if(t.kind!=="mark")continue;t.keys=[t.keys[0]];t.tm=null;}
@@ -2441,7 +2466,7 @@ async function analyze(opt={}){
       if(follow(tr,G2,tr.W2,tr.H2)){tr.lost=0;tr.keys.push({t,x:tr.px/tr.W2,y:tr.py/tr.H2,w:tr.bw,h:tr.bh});return true;}tr.lost++;return false;};
     const iou=(n,k)=>{const ix=Math.max(0,Math.min(n.x+n.w,k.x+k.w)-Math.max(n.x,k.x)),iy=Math.max(0,Math.min(n.y+n.h,k.y+k.h)-Math.max(n.y,k.y));return ix*iy/(n.w*n.h+k.w*k.h-ix*iy);};
     const step=t=>{g.drawImage(a,0,0,W,H);const d=g.getImageData(0,0,W,H).data;const hit=new Set();
-      if(hasFaceAI()&&!opt.marksOnly){let rects=[];try{const F=tracking.ViolaJones.classifiers.face;rects=tracking.ViolaJones.detect(d,W,H,1,1.25,1.6,.1,F)||[];if(!rects.length)rects=tracking.ViolaJones.detect(d,W,H,1,1.15,1.3,.05,F)||[];}catch(e){}
+      if(hasFaceAI()&&!opt.marksOnly){let rects=[];const ai=aiFaces(g.canvas);if(ai)rects=ai.map(q=>({x:q.x*W,y:q.y*H,width:q.w*W,height:q.h*H}));else try{const F=tracking.ViolaJones.classifiers.face;rects=tracking.ViolaJones.detect(d,W,H,1,1.25,1.6,.1,F)||[];if(!rects.length)rects=tracking.ViolaJones.detect(d,W,H,1,1.15,1.3,.05,F)||[];}catch(e){}
         for(const r of rects){const n={t,x:r.x/W,y:r.y/H,w:r.width/W,h:r.height/H};let best=null,bs=0;
           for(const f of faces){if(f.dead)continue;const k=f.keys[f.keys.length-1];if(t-k.t>1.6)continue;const io=iou(n,k),cd=Math.hypot(n.x+n.w/2-k.x-k.w/2,n.y+n.h/2-k.y-k.h/2)/Math.max(n.w,k.w);
             const sc=io>0?io+1:cd<.8?1-cd:0;if(sc>bs){bs=sc;best=f;}}
@@ -2458,7 +2483,7 @@ async function analyze(opt={}){
       a.onended=()=>res();if(a.requestVideoFrameCallback)a.requestVideoFrameCallback(tick);else requestAnimationFrame(()=>tick(0,null));});
     for(const f of faces){ if(f.keys.length>=3||(f.hits>=1&&vm.dur<1.5)){f.name=`顔${++faceN}`;vm.tracks.push(f);} }
     for(const t of vm.tracks){delete t.tm;delete t.tc;delete t.tg;delete t.dead;}
-    vStatus(stop?"止めました":`${faceN?`顔を${faceN}人見つけました。`:hasFaceAI()&&!opt.marksOnly?"顔は見つかりませんでした。":""}再生して確認し、保存してください`);mStatus(stop?"止めました":"追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます");
+    vStatus(stop?"止めました":`${faceN?`顔を${faceN}人見つけました（${faceEngine()}）。`:hasFaceAI()&&!opt.marksOnly?"顔は見つかりませんでした。":""}再生して確認し、保存してください`);mStatus(stop?"止めました":"追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます");
   }catch(e){vStatus("動画を調べられませんでした");mStatus("動画を調べられませんでした");}
   finally{a.pause();a.removeAttribute("src");a.load();a.remove();vm.busy=null;vm.cancel=null;syncBusy();renderTracks();loop();}
 }
@@ -2571,6 +2596,7 @@ try{const v=JSON.parse(localStorage.getItem("shuffleFrame.pstamp.v1"));if(v){ps.
 const psSave=()=>{try{localStorage.setItem("shuffleFrame.pstamp.v1",JSON.stringify({on:ps.on,kind:ps.kind,size:ps.size}));}catch(e){}};
 const PSO=$("#psOver");
 function detectFaces(source){
+  const ai=aiFaces(source);if(ai)return ai.map(f=>({x:f.x,y:f.y,w:f.w,h:f.h,n:1,on:true})).sort((a,b)=>a.x-b.x);
   if(!(window.tracking&&tracking.ViolaJones&&tracking.ViolaJones.classifiers.face)) return null;
   const F=tracking.ViolaJones.classifiers.face,found=[];
   for(const W0 of [640,400]){const W=Math.min(W0,source.width),H=Math.round(W*source.height/source.width),c=document.createElement("canvas");c.width=W;c.height=H;
@@ -2581,9 +2607,11 @@ function detectFaces(source){
   const out=[];for(const f of found.sort((a,b)=>b.w*b.h-a.w*a.h)){const dup=out.find(o=>{const ix=Math.max(0,Math.min(o.x+o.w,f.x+f.w)-Math.max(o.x,f.x)),iy=Math.max(0,Math.min(o.y+o.h,f.y+f.h)-Math.max(o.y,f.y));return ix*iy>.3*Math.min(o.w*o.h,f.w*f.h);});
     if(dup){dup.n++;}else out.push({...f,n:1,on:true});}
   return out.sort((a,b)=>a.x-b.x);}
-function ensureFaces(){ if(!prev||ps.for===prev) return; ps.for=prev; const r=detectFaces(prev);
+function ensureFaces(){ if(!prev||ps.for===prev) return;
+  if(mpState==="idle"||mpState==="loading"){psStatus("顔検出AIを準備しています…（初回だけ少し時間がかかります）");loadMP().then(()=>{if(ps.for!==prev){ensureFaces();lastKey="";schedule();}});return;}
+  ps.for=prev; const r=detectFaces(prev);
   if(r===null){ps.faces=[];psStatus("顔の検出を読み込めませんでした。「＋ 顔を追加」で囲めます");}
-  else{ps.faces=r;psStatus(r.length?`顔を${r.length}つ見つけました。付けたくない顔はタップで外せます`:"顔が見つかりませんでした。「＋ 顔を追加」で囲めます");}
+  else{ps.faces=r;psStatus(r.length?`顔を${r.length}つ見つけました（${faceEngine()}）。付けたくない顔はタップで外せます`:"顔が見つかりませんでした。「＋ 顔を追加」で囲めます");}
   renderFaces(); }
 function psStatus(t){$("#psStat").textContent=t||"";}
 function drawStamps(canvas){ if(!ps.on||!ps.faces.length) return; const g=canvas.getContext("2d"),W=canvas.width,H=canvas.height,k=ps.size/100;
@@ -2814,7 +2842,7 @@ if(window.__app?.page===2)window.__ed.activate();
 <script>
 /* ============ 日本語 / English ============ */
 (()=>{
-const EN={"＋ 写真・動画":"+ Photo / video","写真か動画を選ぶ":"Choose a photo or video","動画を読み込んでいます…":"Loading the video…","この動画は読み込めませんでした。別の動画でお試しください":"Couldn't load this video. Please try another one.","比率を変えたので、モザイクの範囲はやり直してください":"The ratio changed, so please circle the mosaic areas again","モザイクをかける範囲を指で囲む":"Circle the area to hide","囲み方":"Shape","なぞって囲む":"Freehand","全部外す":"Remove all","隠したい所を指で囲んでください":"Circle what you want to hide","動画を選んでから、隠したい所を指で囲んでください":"Choose a video, then circle what to hide","もう少し大きく囲んでください":"Circle a slightly bigger area","囲んだ所を追いかけています…":"Following the circled area…","一時停止して、隠したい所を指で囲んでください。自動で動きを追いかけます":"Pause, then circle what to hide. It will follow the movement automatically.","先に「＋ 写真・動画」で動画を選んでください":"Choose a video first with “+ Choose video”","追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます":"Done following. Play ▶ to check, then Save to export.","いまは別の処理中です。終わったら「自動で追いかける」を押してください":"Busy right now. Tap “Follow automatically” when it finishes.","映画カラー・美学":"Cinematic & aesthetic","ティール":"Teal","映画のようなティール＆オレンジ":"Film-style teal & orange","上下に黒帯の入った映画のワンシーン":"A movie still with letterbox bars","ゴールデンアワー":"Golden hour","夕方の金色の光が差しこむ":"Warm evening light","ナイトフィルム":"Night film","夜の街の光がにじむフィルム写真":"Night film with glowing city lights","マイアミ":"Miami","ピンクと水色の80年代カラー":"80s pink and aqua","Y2K":"Y2K","2000年代風のふんわり光るにじみ":"Soft 2000s glow","VHS":"VHS","ビデオテープの走査線と色ずれ":"Videotape scanlines and colour bleed","ダスト":"Dust","フィルムのほこりと傷":"Film dust and scratches","ライトリーク":"Light leak","フィルムに光が漏れた色かぶり":"Film light-leak tint","プリズム":"Prism","虹色の光と色のずれ":"Rainbow light and colour split","キラキラ":"Sparkle","明るい所に十字の光":"Star glints on highlights","モーションブラー":"Motion blur","左右が流れるスピード感":"Speed streaks at the sides","調整する項目":"Adjustment","コントラスト":"Contrast","色温度":"Temperature","シャープ":"Sharpen","明瞭度":"Clarity","かすみ除去":"Dehaze","粒子":"Grain","ビネット":"Vignette","調整の量":"Amount","❤ お気に入り":"❤ Favourites","いまのエフェクトをお気に入りに追加":"Add this effect to favourites","お気に入りから外しました":"Removed from favourites","お気に入りに追加しました":"Added to favourites","エフェクトを選んで左上の♡を押すと、ここに集まります。":"Pick an effect and tap ♡ at the top left to collect it here.","デザイン":"Design","Instagram投稿":"Instagram post","縦長投稿":"Portrait post","ストーリー":"Story","チラシA4":"A4 flyer","プレゼン":"Slide","サムネイル":"Thumbnail","テンプレ":"Template","帯":"Banner","写真全面":"Full photo","上に写真":"Photo on top","フレーム":"Frame","丸窓":"Circle","文字だけ":"Text only","写真の色":"Photo look","そのまま":"Original","写真の拡大":"Photo zoom","文字やスタンプは指で動かせます。写真をドラッグすると見える位置が変わります。":"Drag text and stickers to move them. Drag the photo to reframe it.","見出し":"Heading","小見出し":"Subheading","タイトルを入力":"Type a title","サブテキスト":"Subtext","書体":"Font","丸ゴシック":"Rounded","ゴシック":"Gothic","明朝":"Serif","文字色":"Text colour","文字効果":"Text effect","影":"Shadow","縁取り":"Outline","背景帯":"Backing","背景色":"Background","スタンプ":"Stickers","消す":"Delete","選んだものの大きさ":"Size of the selected item","「大きさ」は枠で囲まれているもの（タップで選択）に効きます。":"“Size” applies to the outlined item (tap to select).","紫":"Purple","青":"Blue","写真加工":"Photo FX","動画モザイク":"Video mosaic","フォトブース":"Photo booth","コラージュ":"Collage","カルーセル":"Carousel","何をつくる？":"What to make?","＋ 写真を選ぶ":"+ Choose photos","使う写真を選ぶ（複数）":"Choose photos (several)","並べ方":"Layout","縦4コマ":"4-strip","グレイニー":"Grainy","ヴィンテージ":"Vintage","写真を4枚まで選ぶと、プリクラのような4コマに並べます（少ないときは繰り返します）。":"Pick up to 4 photos for a photo-booth strip (fewer are repeated).","枠の色":"Frame","飾り":"Deco","文字":"Text","下に入れる文字":"Caption","グリッド":"Grid","大きく1枚":"One big","横並び":"Side by side","縦並び":"Stacked","比率":"Ratio","写真を2〜10枚選ぶと1枚にまとめます。":"Pick 2–10 photos to combine into one.","すき間":"Gap","角の丸み":"Corners","背景":"Background","枚数":"Panels","分ける枚数":"Number of panels","1枚の比率":"Panel ratio","ライト・カメラ風":"Light & camera","G7X風":"G7X look","コンデジで撮ったような明るく柔らかい写り":"Bright, soft compact-camera look","デジカメ":"Digicam","フラッシュ感と日付入りの懐かしいデジカメ":"Nostalgic flash digicam with date stamp","レッドライト":"Red light","赤いテールライトに照らされたような光":"Lit by red tail lights","グロー":"Glow","肌をなめらかにしてふんわり光らせる":"Smooth skin with a soft glow","くっきりした白黒写真":"Crisp black and white","フィルムのようなざらつき":"Film-like grain","色あせた古い写真":"A faded old photo","ツールを選ぶ":"Choose a tool","白":"White","黒":"Black","ピンク":"Pink","水色":"Light blue","黄色":"Yellow","緑":"Green","赤":"Red","ベージュ":"Beige",
+const EN={"顔検出AIを準備しています…（初回だけ少し時間がかかります）":"Preparing the face-detection AI… (takes a moment the first time)","＋ 写真・動画":"+ Photo / video","写真か動画を選ぶ":"Choose a photo or video","動画を読み込んでいます…":"Loading the video…","この動画は読み込めませんでした。別の動画でお試しください":"Couldn't load this video. Please try another one.","比率を変えたので、モザイクの範囲はやり直してください":"The ratio changed, so please circle the mosaic areas again","モザイクをかける範囲を指で囲む":"Circle the area to hide","囲み方":"Shape","なぞって囲む":"Freehand","全部外す":"Remove all","隠したい所を指で囲んでください":"Circle what you want to hide","動画を選んでから、隠したい所を指で囲んでください":"Choose a video, then circle what to hide","もう少し大きく囲んでください":"Circle a slightly bigger area","囲んだ所を追いかけています…":"Following the circled area…","一時停止して、隠したい所を指で囲んでください。自動で動きを追いかけます":"Pause, then circle what to hide. It will follow the movement automatically.","先に「＋ 写真・動画」で動画を選んでください":"Choose a video first with “+ Choose video”","追いかけ終わりました。▶で再生して確認し、「保存」で書き出せます":"Done following. Play ▶ to check, then Save to export.","いまは別の処理中です。終わったら「自動で追いかける」を押してください":"Busy right now. Tap “Follow automatically” when it finishes.","映画カラー・美学":"Cinematic & aesthetic","ティール":"Teal","映画のようなティール＆オレンジ":"Film-style teal & orange","上下に黒帯の入った映画のワンシーン":"A movie still with letterbox bars","ゴールデンアワー":"Golden hour","夕方の金色の光が差しこむ":"Warm evening light","ナイトフィルム":"Night film","夜の街の光がにじむフィルム写真":"Night film with glowing city lights","マイアミ":"Miami","ピンクと水色の80年代カラー":"80s pink and aqua","Y2K":"Y2K","2000年代風のふんわり光るにじみ":"Soft 2000s glow","VHS":"VHS","ビデオテープの走査線と色ずれ":"Videotape scanlines and colour bleed","ダスト":"Dust","フィルムのほこりと傷":"Film dust and scratches","ライトリーク":"Light leak","フィルムに光が漏れた色かぶり":"Film light-leak tint","プリズム":"Prism","虹色の光と色のずれ":"Rainbow light and colour split","キラキラ":"Sparkle","明るい所に十字の光":"Star glints on highlights","モーションブラー":"Motion blur","左右が流れるスピード感":"Speed streaks at the sides","調整する項目":"Adjustment","コントラスト":"Contrast","色温度":"Temperature","シャープ":"Sharpen","明瞭度":"Clarity","かすみ除去":"Dehaze","粒子":"Grain","ビネット":"Vignette","調整の量":"Amount","❤ お気に入り":"❤ Favourites","いまのエフェクトをお気に入りに追加":"Add this effect to favourites","お気に入りから外しました":"Removed from favourites","お気に入りに追加しました":"Added to favourites","エフェクトを選んで左上の♡を押すと、ここに集まります。":"Pick an effect and tap ♡ at the top left to collect it here.","デザイン":"Design","Instagram投稿":"Instagram post","縦長投稿":"Portrait post","ストーリー":"Story","チラシA4":"A4 flyer","プレゼン":"Slide","サムネイル":"Thumbnail","テンプレ":"Template","帯":"Banner","写真全面":"Full photo","上に写真":"Photo on top","フレーム":"Frame","丸窓":"Circle","文字だけ":"Text only","写真の色":"Photo look","そのまま":"Original","写真の拡大":"Photo zoom","文字やスタンプは指で動かせます。写真をドラッグすると見える位置が変わります。":"Drag text and stickers to move them. Drag the photo to reframe it.","見出し":"Heading","小見出し":"Subheading","タイトルを入力":"Type a title","サブテキスト":"Subtext","書体":"Font","丸ゴシック":"Rounded","ゴシック":"Gothic","明朝":"Serif","文字色":"Text colour","文字効果":"Text effect","影":"Shadow","縁取り":"Outline","背景帯":"Backing","背景色":"Background","スタンプ":"Stickers","消す":"Delete","選んだものの大きさ":"Size of the selected item","「大きさ」は枠で囲まれているもの（タップで選択）に効きます。":"“Size” applies to the outlined item (tap to select).","紫":"Purple","青":"Blue","写真加工":"Photo FX","動画モザイク":"Video mosaic","フォトブース":"Photo booth","コラージュ":"Collage","カルーセル":"Carousel","何をつくる？":"What to make?","＋ 写真を選ぶ":"+ Choose photos","使う写真を選ぶ（複数）":"Choose photos (several)","並べ方":"Layout","縦4コマ":"4-strip","グレイニー":"Grainy","ヴィンテージ":"Vintage","写真を4枚まで選ぶと、プリクラのような4コマに並べます（少ないときは繰り返します）。":"Pick up to 4 photos for a photo-booth strip (fewer are repeated).","枠の色":"Frame","飾り":"Deco","文字":"Text","下に入れる文字":"Caption","グリッド":"Grid","大きく1枚":"One big","横並び":"Side by side","縦並び":"Stacked","比率":"Ratio","写真を2〜10枚選ぶと1枚にまとめます。":"Pick 2–10 photos to combine into one.","すき間":"Gap","角の丸み":"Corners","背景":"Background","枚数":"Panels","分ける枚数":"Number of panels","1枚の比率":"Panel ratio","ライト・カメラ風":"Light & camera","G7X風":"G7X look","コンデジで撮ったような明るく柔らかい写り":"Bright, soft compact-camera look","デジカメ":"Digicam","フラッシュ感と日付入りの懐かしいデジカメ":"Nostalgic flash digicam with date stamp","レッドライト":"Red light","赤いテールライトに照らされたような光":"Lit by red tail lights","グロー":"Glow","肌をなめらかにしてふんわり光らせる":"Smooth skin with a soft glow","くっきりした白黒写真":"Crisp black and white","フィルムのようなざらつき":"Film-like grain","色あせた古い写真":"A faded old photo","ツールを選ぶ":"Choose a tool","白":"White","黒":"Black","ピンク":"Pink","水色":"Light blue","黄色":"Yellow","緑":"Green","赤":"Red","ベージュ":"Beige",
 
 "フォルダの写真と動画を、すぐにスクリーンセーバーに。":"Turn a folder of photos and videos into a screensaver.",
 "写真も動画も、サイズとデータ量を小さく。":"Shrink photos and videos, size and data.",
@@ -2962,8 +2990,8 @@ const PAT=[
   [/^(\d+)件を追加しました。動画は「変換」を押すと始まります$/,m=>`Added ${m[1]} items. Tap “Convert” to start videos`],
   [/^(\d+)枚を追加しました。1枚ずつ(最適化|処理)します$/,m=>`Added ${m[1]} images. ${m[2]==='最適化'?'Optimising':'Processing'} one by one`],
   [/^(\d+)件を保存しました$/,m=>`Saved ${m[1]} items`],[/^(\d+)件を「(.+)」にまとめて保存しました$/,m=>`Saved ${m[1]} items into “${m[2]}”`],
-  [/^例：(.+)$/,m=>`e.g. ${m[1]}`],[/^顔を(\d+)つ見つけました。付けたくない顔はタップで外せます$/,m=>`Found ${m[1]} face${m[1]==='1'?'':'s'}. Tap any you want to leave bare.`],[/^🙂 顔スタンプ (\d+)$/,m=>`🙂 Face stamps ${m[1]}`],[/^動きを調べています… (\d+)%$/,m=>`Analysing motion… ${m[1]}%`],[/^書き出し中 (\d+)%（もう一度押すと中止）$/,m=>`Exporting ${m[1]}% (tap again to stop)`],
-  [/^顔を(\d+)人見つけました。(.*)$/,m=>`Found ${m[1]} face${m[1]==='1'?'':'s'}. ${tr1(m[2])||m[2]}`],[/^顔(\d+)$/,m=>`Face ${m[1]}`],[/^マーク(\d+)(・追従|・固定)?$/,m=>`Mark ${m[1]}${m[2]==='・追従'?' · follow':m[2]?' · fixed':''}`],[/^(.+)を外す$/,m=>`Remove ${tr1(m[1])||m[1]}`],[/^「(.+)」を読み込みました$/,m=>`Loaded “${m[1]}”`],[/^(.+)（サンプル）$/,m=>`${m[1]} (sample)`],[/^画質 (\d+)$/,m=>`Quality ${m[1]}`],
+  [/^例：(.+)$/,m=>`e.g. ${m[1]}`],[/^顔を(\d+)つ見つけました(?:（(.+)）)?。付けたくない顔はタップで外せます$/,m=>`Found ${m[1]} face${m[1]==='1'?'':'s'}${m[2]?` (${m[2]==='従来方式'?'classic method':'AI (MediaPipe)'})`:''}. Tap any you want to leave bare.`],[/^🙂 顔スタンプ (\d+)$/,m=>`🙂 Face stamps ${m[1]}`],[/^動きを調べています… (\d+)%$/,m=>`Analysing motion… ${m[1]}%`],[/^書き出し中 (\d+)%（もう一度押すと中止）$/,m=>`Exporting ${m[1]}% (tap again to stop)`],
+  [/^顔を(\d+)人見つけました(?:（(.+?)）)?。(.*)$/,m=>`Found ${m[1]} face${m[1]==='1'?'':'s'}${m[2]?` (${m[2]==='従来方式'?'classic method':'AI (MediaPipe)'})`:''}. ${tr1(m[3])||m[3]}`],[/^顔(\d+)$/,m=>`Face ${m[1]}`],[/^マーク(\d+)(・追従|・固定)?$/,m=>`Mark ${m[1]}${m[2]==='・追従'?' · follow':m[2]?' · fixed':''}`],[/^(.+)を外す$/,m=>`Remove ${tr1(m[1])||m[1]}`],[/^「(.+)」を読み込みました$/,m=>`Loaded “${m[1]}”`],[/^(.+)（サンプル）$/,m=>`${m[1]} (sample)`],[/^画質 (\d+)$/,m=>`Quality ${m[1]}`],
 ];
 function tr1(t){ const p=piece(t); if(p!==null) return p;
   for(const [re,fn] of PAT){ const m=t.match(re); if(m) return fn(m); }
