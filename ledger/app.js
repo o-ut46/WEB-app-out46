@@ -732,9 +732,10 @@ function renderSummary() {
   if (it) all.amount += it.total - untilSum([data.tabs[0]],cutoffKey()).amount;   // iDeCoの元本は読み取った拠出金累計を使う
   const nisaTab = data.tabs[1], nw = nisaTab && latestField(nisaTab,'worth',year+'-12-31');
   if (nw) {
-    // NISA は読み取った評価額と台帳の投資元本の差を累計損益にする
+    // NISA は読み取った評価損益（なければ評価額と台帳の投資元本の差）を累計損益にする
     const ns = untilSum([nisaTab],nw.date.slice(0,7));
-    all.profit += (nw.worth - ns.amount) - untilSum([nisaTab],cutoffKey()).profit;
+    const pl = nw.value !== undefined ? nw.value : nw.worth - ns.amount;
+    all.profit += pl - untilSum([nisaTab],cutoffKey()).profit;
   }
   const stTab = data.tabs[2], sw = stTab && latestField(stTab,'worth',year+'-12-31');
   if (sw) { all.amount += sw.total ?? 0; all.profit += sw.worth - (sw.total ?? sw.worth); }
@@ -940,7 +941,16 @@ function renderNisaBox(tab) {
   };
   const head = el('div','ib-head');
   head.append(el('b',null,'NISAの評価額'),button(w ? '修正' : '手で入力',editNisaWorth,'ib-edit'));
-  if (!w) { box.replaceChildren(head,line('評価額',el('b','ib-none','未読取'),'証券会社の画面を写真から読み取り')); return; }
+  if (!w) { box.replaceChildren(head,line('評価額',el('b','ib-none','未読取'),'入出金リストで資産の画面を写真から読み取り')); return; }
+  if (w.value !== undefined) {
+    // 資産のまとめから読み取った評価損益があるとき
+    const cost = w.worth - w.value, pb = el('b',null,format(w.value,true)); color(pb,w.value);
+    box.replaceChildren(head,
+      line('評価額（資産残高）',el('b',null,yen(w.worth)),when(w.date),'ib-sum'),
+      line('評価損益',pb,cost > 0 ? '評価損益率 ' + pct(w.value/cost) : ''),
+      line('取得額（評価額 − 損益）',el('b',null,yen(cost))));
+    return;
+  }
   const principal = untilSum([tab],w.date.slice(0,7)).amount;
   const diff = w.worth - principal;
   const db = el('b',null,format(diff,true)); color(db,diff);
@@ -1036,7 +1046,7 @@ function registerEval({value, total, worth, date = todayStr}, index = 0) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayStr) date = todayStr;
   const next = structuredClone(data);
   const t = next.tabs[index];
-  const both = validMoney(value) && validMoney(total);
+  const both = (validMoney(value) && validMoney(total)) || (validMoney(value) && validMoney(worth));
   const old = both || worth !== undefined ? {date} : ((t.evals || []).find(e => e.date === date) || {date});
   const e = {...old,date,at:Date.now()};
   if (validMoney(value)) e.value = value;
@@ -1126,12 +1136,15 @@ function renderFlowAsset(tab) {
     }
   } else {
     const w = latestField(tab,'worth');
-    head.append(el('b',null,'NISA：読み取った最新の評価額'),el('small',null,w ? md(w.date) + ' 時点' : ''));
+    head.append(el('b',null,'NISA：読み取った最新の資産のまとめ'),el('small',null,w ? md(w.date) + ' 時点' : ''));
     if (!w) parts.push(el('p','sub','まだ読み取っていません。証券会社の資産（評価額）の画面を下の枠から読み取ると、ここに最新が表示されます。'));
     else {
-      parts.push(line('評価額',el('b',null,yen(w.worth)),'','ib-sum'));
+      if (w.value !== undefined) {
+        const cost = w.worth - w.value, pb = el('b',null,format(w.value,true)); color(pb,w.value);
+        parts.push(line('評価額（資産残高）',el('b',null,yen(w.worth)),'','ib-sum'),line('評価損益',pb,cost > 0 ? '評価損益率 ' + pct(w.value/cost) : ''),line('取得額',el('b',null,yen(cost))));
+      } else parts.push(line('評価額',el('b',null,yen(w.worth)),'','ib-sum'));
       const hist = (tab.evals || []).filter(e => e.worth !== undefined).sort(order);
-      if (hist.length > 1) parts.push(el('small','sub','これまでの読み取り'),table(['日付','評価額'],hist.map(e => [[md(e.date)],[yen(e.worth)]])));
+      if (hist.length > 1) parts.push(el('small','sub','これまでの読み取り'),table(['日付','評価額','評価損益'],hist.map(e => [[e.date.slice(2).replaceAll('-','/')],[yen(e.worth)],[e.value !== undefined ? format(e.value,true) : '—',e.value]])));
     }
   }
   box.replaceChildren(...parts);
@@ -1440,6 +1453,27 @@ function idecoTriple(values) {
   }
   return best;
 }
+// NISA の資産のまとめ：資産残高（評価額）と評価損益を読む。
+// 評価損益率（-7.78% など）が写っていれば「損益 ÷ (評価額 − 損益)」と合うものを損益とみなす
+function nisaSummary(text, values) {
+  const pool = values.filter(v => v >= 100 && !(v >= 1990 && v <= 2100));
+  if (!pool.length) return null;
+  const worth = Math.max(...pool);
+  const t = text.normalize('NFKC').replace(/[−–]/g,'-');
+  const rates = [...t.matchAll(/([+\-]?\d{1,3}\.\d{1,2})\s*%/g)].map(m => Number(m[1]));
+  const cands = values.filter(v => v !== worth && v !== 0 && Math.abs(v) < worth && !(v >= 1990 && v <= 2100));
+  let profit = null;
+  for (const r of rates) {
+    const hit = cands.find(p => worth - p > 0 && Math.abs(p / (worth - p) * 100 - r) < 0.06);
+    if (hit !== undefined) { profit = hit; break; }
+  }
+  if (profit === null) {
+    // 率がないときは、評価額のあとにある符号つき（+/-）の金額を損益とみなす
+    const signed = [...t.matchAll(/([+\-])\s?(\d{1,3}(?:,\d{3})+|\d{3,})/g)].map(m => Number(m[1] + m[2].replaceAll(',',''))).filter(v => Math.abs(v) < worth && v !== 0);
+    if (signed.length) profit = signed[0];
+  }
+  return {worth,profit};
+}
 async function importScans(texts, status, extra = []) {
   const statements = [], assets = [], msgs = [];
   for (const t of texts) (parseFlows(t).items.length >= 2 ? statements : assets).push({text:t,date:screenDate(t)});
@@ -1451,9 +1485,11 @@ async function importScans(texts, status, extra = []) {
       registerEval({value:tri.p,total:tri.t,date:a.date},0);
       msgs.push(`iDeCo（${d}時点）：拠出金累計 ${yen(tri.t)}・損益 ${format(tri.p,true)} を反映`);
     } else if (flowTarget === 1) {
-      const pool = values.filter(v => v >= 100 && !(v >= 1990 && v <= 2100));
-      if (pool.length) { const w = Math.max(...pool); registerEval({worth:w,date:a.date},1); msgs.push(`NISA（${d}時点）：評価額 ${yen(w)} を反映`); }
-      else msgs.push(`${d}の画面：金額を見つけられませんでした`);
+      const nr = nisaSummary(a.text,values);
+      if (nr) {
+        registerEval(nr.profit !== null ? {worth:nr.worth,value:nr.profit,date:a.date} : {worth:nr.worth,date:a.date},1);
+        msgs.push(`NISA（${d}時点）：評価額 ${yen(nr.worth)}` + (nr.profit !== null ? `・評価損益 ${format(nr.profit,true)}（取得額 ${yen(nr.worth - nr.profit)}）` : '') + ' を反映');
+      } else msgs.push(`${d}の画面：金額を見つけられませんでした`);
     } else {
       msgs.push(`${d}の画面：iDeCoの拠出金累計と損益を見つけられませんでした（iDeCoの画面の「修正」から入力できます）`);
     }
