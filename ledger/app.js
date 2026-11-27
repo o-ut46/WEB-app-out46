@@ -924,9 +924,33 @@ function renderAccount() {
       cell(r,w !== null ? yen(w) : '');
     }
   }
+  if (nisaWorth) renderNisaFoot(tab,rows);
   const hasWorth = nisaWorth && tab.evals?.some(e => e.worth !== undefined);
   $('legValue').textContent = hasWorth ? '評価額（読み取った月）' : '評価（元本＋損益）';
   $('accountChart').replaceChildren(...(hasWorth ? drawWorthChart(tab,$('accountChart').clientWidth) : drawChart([tab],$('accountChart').clientWidth)));
+}
+// NISA の表の下：その年の投資額の合計と、読み取った総額（取得額）・評価損益・評価額（翌年は繰り越し）
+function renderNisaFoot(tab, rows) {
+  const t = rows.parentElement, foot = t.createTFoot();
+  const cols = t.tHead.rows[0].querySelectorAll('th:not([hidden])').length;
+  const md = d => `${Number(d.slice(5,7))}/${Number(d.slice(8))}`;
+  const when = d => d.slice(0,4) < String(year) ? `${d.slice(0,4)}年から繰越` : `${md(d)} 時点`;
+  const row = (label, node, note, cls) => {
+    const r = foot.insertRow(); if (cls) r.className = cls;
+    cell(r,label);
+    const c = r.insertCell(); c.colSpan = cols - 1; c.append(node);
+    if (note) c.append(el('small','eval-date',note));
+  };
+  const ys = yearSum([tab]);
+  row(`${year}年の投資額`,el('b',null,yen(ys.amount)));
+  const w = latestField(tab,'worth',year+'-12-31');
+  if (!w) { row('評価額',el('small','eval-date','未読取（入出金リストで資産の画面を読み取り）')); return; }
+  if (w.value !== undefined) {
+    const pb = el('b',null,format(w.value,true)); color(pb,w.value);
+    row('総額（取得額）',el('b',null,yen(w.worth - w.value)),when(w.date),'total-row');
+    row('評価損益',pb,w.worth - w.value > 0 ? '評価損益率 ' + pct(w.value/(w.worth - w.value)) : '');
+  }
+  row('評価額',el('b',null,yen(w.worth)),when(w.date),'grand-row');
 }
 function renderNisaBox(tab) {
   const box = $('idecoBox');
@@ -965,7 +989,9 @@ function drawWorthChart(tab, width) {
   for (let m=1;m<=12;m++) {
     const k = mk(year,m);
     if (m-1 > lastIdx) { pts.push({base:null,value:null}); continue; }
-    const base = untilSum([tab],k).amount, w = monthEvalField(tab,k,'worth');
+    const w = monthEvalField(tab,k,'worth'), pv = monthEvalField(tab,k,'value');
+    // 読み取った評価損益がある月は「評価額 − 損益」（取得額）を元本にする
+    const base = w !== null && pv !== null ? w - pv : untilSum([tab],k).amount;
     pts.push({base:base > 0 ? base : null,value:w,tip:w !== null ? `${m}月 評価額 ${yen(w)}（投資元本 ${yen(base)}）` : ''});
   }
   let last = -1;
