@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b1e24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="O-UT日報">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<!-- brush-up 2026-11-27: theme-color を追加 -->
+<title>O-UT 乗務マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--ink:#1b1e24;--sub:#6b7280;--line:#e3e6ea;--acc:#0f6e5c;--acc2:#e7f3f0;--drop:#d9480f;--red:#b42318;--bg:#f4f5f7;--panel:#fff;--card:#f1f3f5;--ghost:#eef0f3;--hdr:#1b1e24;--fs:1}
+html[data-theme="dark"]{--ink:#e6e9f0;--sub:#9aa3b5;--line:#2a3142;--acc:#3fb89c;--acc2:#163a33;--bg:#0b0e16;--panel:#131826;--card:#1d2334;--ghost:#252c3d;--hdr:#05070d;color-scheme:dark}
+html[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.6)}
+html[data-theme="dark"] .leaflet-bar a{background:var(--panel);color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] .leaflet-container{background:#1a1f2b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:calc(15px*var(--fs,1));-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh}
+header{flex:none;background:var(--hdr);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+header .t{display:flex;justify-content:space-between;align-items:center;gap:8px}
+header h1{font-size:calc(16px*var(--fs,1));margin:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.btn{border:0;border-radius:10px;padding:9px 12px;font-size:calc(14px*var(--fs,1));font-weight:600;background:#2b3038;color:#fff;cursor:pointer}
+.btn.l{background:var(--panel);color:var(--ink)}
+.btn.acc{background:var(--acc);color:#fff}
+.btn.sub{background:var(--acc2);color:var(--acc)}
+.btn.ghost{background:var(--ghost);color:var(--ink)}
+.chip{border:1px solid #4a515c;background:transparent;color:#aeb4bd;border-radius:999px;padding:6px 11px;font-size:calc(13px*var(--fs,1));font-weight:600}
+.chip.on{background:#fff;color:#1b1e24;border-color:#fff}
+.ln{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}.ln.b{background:#1f6fe0}.ln.r{background:repeating-linear-gradient(90deg,#1f6fe0 0 4px,transparent 4px 7px)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}.dot.g{background:var(--acc)}.dot.o{background:var(--drop);border-radius:2px}
+#mapBox{position:relative;flex:1;min-height:160px}
+#map{position:absolute;inset:0}
+.clock{position:absolute;left:10px;top:10px;z-index:500;background:rgba(27,30,36,.88);color:#fff;border-radius:10px;padding:7px 11px;font-size:calc(12px*var(--fs,1));display:flex;flex-direction:column;gap:1px;line-height:1.3;pointer-events:none}
+#cdate{font-weight:700;font-size:calc(13px*var(--fs,1))}
+.clock b{font-size:calc(24px*var(--fs,1));font-variant-numeric:tabular-nums}
+.fit{position:absolute;right:10px;bottom:24px;z-index:500}
+.panel{flex:none;background:var(--panel);padding:8px 12px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.ctlbar:empty{display:none}
+.panel .ctl{display:flex;gap:6px;align-items:center}
+input[type=range]{width:100%;margin:10px 0 0}
+.ends{display:flex;justify-content:space-between;color:var(--sub);font-size:calc(12px*var(--fs,1))}
+.info{margin-top:6px;font-size:calc(14px*var(--fs,1));line-height:1.5;height:30vh;height:30dvh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* 横置きのときは、下のリストを画面の2割にして、上の操作を1行にまとめる */
+@media (orientation:landscape){
+  .info{height:20vh;height:20dvh}
+  header{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left))}
+  header h1{display:none}
+  header .row{flex-wrap:nowrap;margin-top:0}
+  header .btn,header .chip{white-space:nowrap;padding-top:6px;padding-bottom:6px}
+  .panel{padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
+  .ctlbar{display:flex;gap:10px;align-items:center}
+  .ctlbar input[type=range]{margin:0;flex:1}
+  .ctlbar .ends{display:none!important}
+  #mapBox{min-height:120px}
+  .vs{top:10px!important;bottom:10px!important;right:52px!important}
+  #bizCtl .bt .s{display:none}
+  #bizCtl .bt{flex:1}
+}
+.info .h{display:flex;justify-content:space-between;font-weight:700}
+.info .s{color:var(--sub);font-size:calc(13px*var(--fs,1))}
+.info a{color:var(--acc);font-weight:700}
+.pin{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:calc(11px*var(--fs,1));border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pin.p{background:var(--acc);border-radius:50%}
+.pin.d{background:var(--drop);border-radius:4px}
+.pin.cur{transform:scale(1.35);z-index:1000}
+.car{width:16px;height:16px;border-radius:50%;background:#1b1e24;border:3px solid #ffd43b;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.ring{width:26px;height:26px;border-radius:50%;border:3px dashed var(--drop)}
+.sheet-bg{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
+.sheet-bg[hidden]{display:none}
+.sheet{background:var(--panel);color:var(--ink);width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:calc(16px*var(--fs,1));margin:0 0 10px}
+.sheet .acts{display:flex;flex-direction:column;gap:8px}
+.sheet .acts .btn{padding:12px}
+.empty[hidden]{display:none}
+.empty{position:absolute;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--sub);background:var(--bg);line-height:1.7}
+body.ana .chip,body.ana .panel .ctl,body.ana #sl,body.ana .ends,body.ana #bBand{display:none}
+.anal{position:absolute;transform:translate(-50%,-50%);background:#fff;border:2px solid;border-radius:10px;padding:1px 6px;text-align:center;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);line-height:1.15}
+.anal b{display:block;font-size:calc(15px*var(--fs,1))}.anal span{font-size:calc(10px*var(--fs,1));color:#444}
+.leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:calc(12px*var(--fs,1));margin:4px 0}.leg i,.arow i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+body.biz .chip,body.biz .panel .ctl,body.biz #sl,body.biz .ends,body.biz #bBand,body.biz #bPrev,body.biz #bNext{display:none}
+body:not(.biz) #bizCtl,body:not(.biz) .fbtn{display:none}
+.vs{position:absolute;right:6px;top:92px;bottom:78px;width:48px;z-index:600;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;justify-content:center;cursor:pointer}
+.vs[hidden]{display:none}
+.vs-track{position:relative;width:8px;height:100%;background:rgba(40,40,48,.28);border-radius:4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.vs-fill{position:absolute;left:0;right:0;top:0;background:#c81010;border-radius:4px}
+.vs-thumb{position:absolute;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;border:3px solid #c81010;box-shadow:0 1px 4px rgba(0,0,0,.35);box-sizing:border-box}
+.vs-thumb span{position:absolute;right:34px;top:50%;transform:translateY(-50%);background:rgba(27,30,36,.9);color:#fff;font-size:calc(12px*var(--fs,1));font-weight:700;padding:3px 7px;border-radius:7px;white-space:nowrap;pointer-events:none}
+.vs-tk{position:absolute;right:16px;transform:translateY(-50%);font-size:calc(10px*var(--fs,1));font-weight:700;color:#333;background:rgba(255,255,255,.8);border-radius:4px;padding:0 3px;white-space:nowrap;pointer-events:none}
+
+#bizCtl .bt{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#bizCtl .bt b{font-size:calc(17px*var(--fs,1))}
+.bz{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.bz.sel{border:3px solid var(--ink)}
+.bzd{width:7px;height:7px;border-radius:50%;background:#9aa1ab;opacity:.75;transform:translate(-50%,-50%);position:absolute}
+.mukae{color:#1f6fe0;font-weight:800;margin-left:3px}
+.arow{display:flex;justify-content:space-between;font-size:calc(13px*var(--fs,1));padding:5px 0;border-top:1px solid var(--line);cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="t"><h1 id="title">O-UT 乗務マップ</h1><div style="display:flex;gap:4px"><button class="btn" id="bPrev">◀</button><button class="btn" id="bDate">日付 ▼</button><button class="btn" id="bNext">▶</button><button class="btn" id="bView" aria-label="表示の設定">Aa</button></div></div>
+  <div class="row">
+    <button class="btn" id="bBand">時間帯：すべて ▼</button>
+    <button class="btn fbtn" id="fY">年 ▼</button>
+    <button class="btn fbtn" id="fM">月 ▼</button>
+    <button class="btn fbtn" id="fW">曜日 ▼</button>
+    <button class="btn fbtn" id="fH">祝日 ▼</button>
+    <button class="btn" id="bTile">地図：地理院（淡色） ▼</button>
+  </div>
+  <div class="row">
+    <button class="chip on" data-layer="pick"><span class="dot g"></span>乗車地</button>
+    <button class="chip on" data-layer="drop"><span class="dot o"></span>降車地</button>
+    <button class="chip on" data-layer="line"><span class="ln b"></span>実車の線</button>
+    <button class="chip on" data-layer="empty"><span class="ln r"></span>空車の線</button>
+  </div>
+</header>
+<div id="mapBox">
+  <div id="map"></div>
+  <div class="clock"><div id="cdate">--/--</div><b id="clk">--:--:--</b><div><span id="st"></span>　<span id="el"></span></div></div>
+  <button class="btn l fit" id="bFit">全体</button>
+  <div class="vs" id="bizVs" hidden aria-label="何分先を見るか"></div>
+  <div class="empty" id="empty" hidden>表示する日報がありません。<br>「O-UT 乗務日報リーダー」の地図タブにある<br>「詳しい地図で開く」から開いてください。</div>
+</div>
+<div class="panel">
+  <div class="ctlbar">
+  <div class="ctl">
+    <button class="btn acc" id="bPlay" style="min-width:92px">▶ 再生</button>
+    <button class="btn ghost" id="bSpeed" style="flex:1">速さ：普通 ▼</button>
+    <button class="btn ghost" id="bEnd">最後まで</button>
+  </div>
+  <input type="range" id="sl" min="0" max="100" value="0" step="1">
+  <div class="ends"><span id="t0"></span><span id="t1"></span></div>
+  <div id="bizCtl">
+    <div class="bt"><div><span class="s" style="color:var(--sub);font-size:calc(12px*var(--fs,1))">見ている時刻（右の縦のバーで6時間先まで）</span><br><b id="bizSee">--:--</b></div><button class="btn ghost" id="bizNow">今に戻す</button></div>
+  </div>
+  </div>
+  <div class="info" id="info"></div>
+</div>
+<div class="sheet-bg" id="sbg" hidden><div class="sheet" id="sheet"></div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const yen=n=>(Number(n)||0).toLocaleString("ja-JP");
+const WD=["日","月","火","水","木","金","土"];
+const MUKAE='<span class="mukae">迎</span>';
+const tmin=t=>{const m=String(t||"").match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null;};
+const rel=(t,base)=>{const m=tmin(t);if(m==null)return null;let r=m-base;if(r<-60)r+=1440;return r;};
+const hm=min=>{min=((Math.round(min)%1440)+1440)%1440;return pad(Math.floor(min/60))+":"+pad(min%60);};
+const md=d=>{const[,m,dd]=d.split("-").map(Number);return `${m}/${dd}`;};
+const wd=d=>{const[y,m,dd]=d.split("-").map(Number);return WD[new Date(y,m-1,dd).getDay()];};
+
+/* ---------- ポップアップ ---------- */
+function sheet(title, actions, html){
+  const s=$("#sheet"); s.innerHTML=`<h2>${esc(title)}</h2>${html||""}<div class="acts"></div>`;
+  const box=s.querySelector(".acts");
+  actions.forEach(a=>{ const b=document.createElement("button"); b.className="btn "+(a.cls||"sub"); b.textContent=a.label;
+    b.onclick=()=>{ closeSheet(); a.fn&&a.fn(); }; box.appendChild(b); });
+  $("#sbg").hidden=false;
+}
+function closeSheet(){ $("#sbg").hidden=true; }
+$("#sbg").onclick=e=>{ if(e.target.id==="sbg") closeSheet(); };
+
+/* ---------- 表示（文字の大きさ・ライト／ダーク） ---------- */
+const VPREF="out-nippo-map-view";
+let view={theme:"auto",font:"m"}; try{ Object.assign(view, JSON.parse(localStorage.getItem(VPREF)||"{}")); }catch(e){}
+const FONTS={s:["小",0.9],m:["標準",1],l:["大",1.15],xl:["特大",1.3]};
+const THEMES={auto:"端末の設定に合わせる",light:"ライト",dark:"ダーク"};
+const mqD=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
+function applyView(){
+  const dark=view.theme==="dark"||(view.theme==="auto"&&mqD&&mqD.matches);
+  document.documentElement.dataset.theme=dark?"dark":"light";
+  document.documentElement.style.setProperty("--fs",(FONTS[view.font]||FONTS.m)[1]);
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=dark?"#05070d":"#1b1e24";
+  setTimeout(()=>{ try{ map&&map.invalidateSize&&map.invalidateSize(); }catch(e){} },50);
+}
+if(mqD){ try{ mqD.addEventListener("change",applyView); }catch(e){ mqD.addListener&&mqD.addListener(applyView); } }
+applyView();
+$("#bView").onclick=()=>{
+  const save=()=>{ try{ localStorage.setItem(VPREF,JSON.stringify(view)); }catch(e){} applyView(); };
+  sheet("表示の設定",[
+    ...Object.entries(THEMES).map(([k,v])=>({label:`画面：${v}`,cls:view.theme===k?"acc":"sub",fn:()=>{ view.theme=k; save(); }})),
+    ...Object.entries(FONTS).map(([k,v])=>({label:`文字の大きさ：${v[0]}`,cls:view.font===k?"acc":"sub",fn:()=>{ view.font=k; save(); }})),
+    {label:"やめる",cls:"ghost"}]);
+};
+window.addEventListener("resize",()=>{ try{ map.invalidateSize(); }catch(e){} });
+
+/* ---------- データ受け取り（URLの#以降） ---------- */
+const STORE="out-nippo-map-days";
+function loadDays(){ try{ return JSON.parse(localStorage.getItem(STORE)||"{}")||{}; }catch(e){ return {}; } }
+function saveDays(d){ try{ localStorage.setItem(STORE, JSON.stringify(d)); }catch(e){} }
+function b64ToBytes(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; const bin=atob(s); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+async function decode(h){
+  if(h.startsWith("z.")){
+    const stream=new Blob([b64ToBytes(h.slice(2))]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return JSON.parse(await new Response(stream).text());
+  }
+  if(h.startsWith("j.")) return JSON.parse(new TextDecoder().decode(b64ToBytes(h.slice(2))));
+  throw new Error("形式が違います");
+}
+
+/* ---------- 地図 ---------- */
+const TILES={
+  pale:["地理院（淡色）","https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',18],
+  std:["地理院（標準）","https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',18],
+  osm:["OpenStreetMap","https://tile.openstreetmap.org/{z}/{x}/{y}.png",'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',19]
+};
+const BANDS={all:["すべて",0,24],morning:["朝 5〜10時",5,10],day:["昼 10〜16時",10,16],evening:["夕 16〜20時",16,20],night:["夜 20〜24時",20,24],late:["深夜 0〜5時",0,5]};
+const SPEEDS={slow:["ゆっくり",6],normal:["普通",20],fast:["速い",60]};
+let pref={tile:"pale",speed:"normal"}; try{ Object.assign(pref, JSON.parse(localStorage.getItem("out-nippo-map-pref")||"{}")); }catch(e){}
+const savePref=()=>{ try{ localStorage.setItem("out-nippo-map-pref", JSON.stringify(pref)); }catch(e){} };
+
+const map=L.map("map",{zoomControl:false}).setView([35.68,139.74],12);
+L.control.zoom({position:"topright"}).addTo(map);
+let tile=null;
+function setTile(k){ if(tile) map.removeLayer(tile); const t=TILES[k]||TILES.pale; tile=L.tileLayer(t[1],{attribution:t[2],maxZoom:t[3]}).addTo(map); pref.tile=k; savePref(); $("#bTile").textContent=`地図：${t[0]} ▼`; }
+setTile(pref.tile);
+
+const st={day:null, ev:[], brk:[], base:0, end:60, T:0, band:"all", layers:{pick:true,drop:true,line:true,empty:true}, playing:false, raf:0, last:0, sel:null};
+const icon=(cls,no)=>L.divIcon({className:"",html:`<div class="pin ${cls}" style="width:${cls.includes("d")?20:22}px;height:${cls.includes("d")?20:22}px">${no??""}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+const carIcon=L.divIcon({className:"",html:'<div class="car"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+const ringIcon=L.divIcon({className:"",html:'<div class="ring"></div>',iconSize:[26,26],iconAnchor:[13,13]});
+const car=L.marker([0,0],{icon:carIcon,interactive:false,zIndexOffset:2000});
+const ring=L.marker([0,0],{icon:ringIcon,interactive:false});
+const LC={occ:"#1f6fe0",occDone:"#0b3d8c",emp:"#1f6fe0",empDone:"#0b3d8c"};
+const curLine=L.polyline([],{color:LC.occ,weight:5,opacity:1,lineCap:"round"});
+const curEmpty=L.polyline([],{color:LC.emp,weight:5,opacity:1,lineCap:"round",dashArray:"10 8"});
+
+function clearDay(){ st.ev.forEach(e=>{ [e.mp,e.md,e.ml,e.me].forEach(l=>l&&map.hasLayer(l)&&map.removeLayer(l)); }); [car,ring,curLine,curEmpty].forEach(l=>map.hasLayer(l)&&map.removeLayer(l)); }
+function loadDay(d){
+  if(typeof clearAna==="function"){ clearAna(); document.body.classList.remove("ana"); }
+  if(typeof clearBiz==="function") clearBiz();
+  stop(); clearDay();
+  st.day=d; st.sel=null;
+  const base=tmin(d.dep) ?? tmin(d.r?.[0]?.[1]) ?? 0; st.base=base;
+  st.ev=(d.r||[]).map(a=>{
+    const [no,on,off,pk,from,to,via,km,fare,cf,ct,cv]=a;
+    const onR=rel(on,base); let offR=rel(off,base); if(offR!=null && offR<onR) offR+=1440;
+    const e={no,on,off,pk,from,to,via,km,fare,cf,ct,cv,onR,offR,hour:(tmin(on)??0)/60};
+    if(cf){ e.mp=L.marker(cf,{icon:icon("p",no),zIndexOffset:100}); e.mp.on("click",()=>select(e)); }
+    if(ct){ e.md=L.marker(ct,{icon:icon("d",no)}); e.md.on("click",()=>select(e)); }
+    if(cf&&ct){ e.path=[cf,...(cv?[cv]:[]),ct]; e.ml=L.polyline(e.path,{color:LC.occDone,weight:4,opacity:.5,lineCap:"round"}); }
+    return e;
+  }).filter(e=>e.onR!=null).sort((a,b)=>a.onR-b.onR);
+  // 空車の線：降車地 → 次の乗車地
+  st.ev.forEach((e,i)=>{ const n=st.ev[i+1]; e.next=n||null;
+    if(n && e.ct && n.cf){ e.epath=[e.ct,n.cf]; e.me=L.polyline(e.epath,{color:LC.empDone,weight:4,opacity:.5,lineCap:"round",dashArray:"8 7"}); } });
+  st.brk=(d.b||[]).map(([s,e])=>{ const a=rel(s,base), b0=rel(e,base); return a==null||b0==null?null:{s:a,e:b0<a?b0+1440:b0}; }).filter(Boolean);
+  let end=d.ret?rel(d.ret,base):0; st.ev.forEach(e=>end=Math.max(end,e.offR||0)); st.end=Math.max(60,end||0);
+  $("#sl").max=st.end; $("#t0").textContent=hm(base); $("#t1").textContent=hm(base+st.end);
+  $("#title").textContent=`O-UT 乗務マップ`;
+  $("#bDate").textContent=`${md(d.d)}(${wd(d.d)}) ▼`;
+  $("#empty").hidden=true;
+  const miss=st.ev.filter(e=>!e.cf||!e.ct).length;
+  st.miss=miss;
+  fit(); st.T=st.end; render();
+}
+function fit(){
+  const pts=[]; st.ev.forEach(e=>{ if(e.cf) pts.push(e.cf); if(e.ct) pts.push(e.ct); });
+  if(pts.length) map.fitBounds(L.latLngBounds(pts),{padding:[30,30],maxZoom:15});
+}
+const inBand=e=>st.band==="all"||(e.hour>=BANDS[st.band][1]&&e.hour<BANDS[st.band][2]);
+function show(layer,on){ if(!layer) return; const has=map.hasLayer(layer); if(on&&!has) layer.addTo(map); else if(!on&&has) map.removeLayer(layer); }
+function render(){
+  const T=st.T; let cur=null;
+  st.ev.forEach(e=>{
+    const b=inBand(e);
+    if(b && T>=e.onR && T<e.offR) cur=e;
+    show(e.mp, b && st.layers.pick && T>=e.onR);
+    show(e.md, b && st.layers.drop && T>=e.offR);
+    show(e.ml, b && st.layers.line && T>=e.offR);
+    show(e.me, b && st.layers.empty && e.next && T>=e.next.onR);
+  });
+  const hi = cur || st.ev.find(e=>e.no===st.sel);
+  st.ev.forEach(e=>{
+    const on = e===hi;
+    [e.mp,e.md].forEach(m=>{ const el=m&&m.getElement&&m.getElement(); if(el){ const p=el.querySelector(".pin"); if(p) p.classList.toggle("cur",on); } });
+  });
+  const part=(P,k)=>{ const seg=[]; let tot=0;
+    for(let i=1;i<P.length;i++){ const d=Math.hypot(P[i][0]-P[i-1][0],(P[i][1]-P[i-1][1])*0.81); seg.push(d); tot+=d; }
+    let rem=tot*k, pos=P[0]; const drawn=[P[0]];
+    for(let i=1;i<P.length;i++){ if(rem>=seg[i-1]){ rem-=seg[i-1]; pos=P[i]; drawn.push(pos); } else { const f=seg[i-1]?rem/seg[i-1]:0; pos=[P[i-1][0]+(P[i][0]-P[i-1][0])*f,P[i-1][1]+(P[i][1]-P[i-1][1])*f]; drawn.push(pos); break; } }
+    return {drawn,pos}; };
+  let carPos=null;
+  if(cur && cur.path){
+    const r=part(cur.path, Math.min(1,Math.max(0,(T-cur.onR)/Math.max(1,cur.offR-cur.onR))));
+    curLine.setLatLngs(r.drawn); carPos=r.pos; ring.setLatLng(cur.ct);
+    show(curLine, st.layers.line); show(ring, st.layers.drop);
+  } else { show(curLine,false); show(ring,false); }
+  // 空車で次の乗車地へ向かっているところ
+  const emp = cur ? null : st.ev.find(e=>inBand(e) && e.epath && T>=e.offR && T<e.next.onR);
+  if(emp){
+    const r=part(emp.epath, Math.min(1,Math.max(0,(T-emp.offR)/Math.max(1,emp.next.onR-emp.offR))));
+    curEmpty.setLatLngs(r.drawn); carPos=r.pos; show(curEmpty, st.layers.empty);
+  } else show(curEmpty,false);
+  if(carPos){ car.setLatLng(carPos); show(car,true); } else show(car,false);
+  { const abs=st.base+T, off=Math.floor(abs/1440), sec=Math.floor(abs*60)%86400;
+    const [y,mo,dd]=st.day.d.split("-").map(Number); const dt=new Date(y,mo-1,dd+off);
+    $("#cdate").textContent=`${dt.getMonth()+1}/${dt.getDate()}(${WD[dt.getDay()]})`;
+    $("#clk").textContent=`${pad(Math.floor(sec/3600))}:${pad(Math.floor(sec/60)%60)}:${pad(sec%60)}`;
+    const es=Math.floor(T*60); $("#el").textContent=`出庫から ${Math.floor(es/3600)}:${pad(Math.floor(es/60)%60)}`; }
+  const brk=st.brk.some(b=>T>=b.s&&T<b.e);
+  $("#st").textContent= cur?`実車中 No.${cur.no??""}`:brk?"休憩中":"空車";
+  const info = cur || st.ev.find(e=>e.no===st.sel) || [...st.ev].reverse().find(e=>inBand(e)&&T>=e.offR);
+  renderInfo(info);
+  if(+$("#sl").value!==Math.round(T)) $("#sl").value=Math.round(T);
+}
+let lastInfo=null;
+function renderInfo(e){
+  if(e===lastInfo && e) return; lastInfo=e;
+  const box=$("#info");
+  const note = st.miss ? `<div class="s" style="color:#b45309">位置が分からない乗車が${st.miss}件あります（地図には出ません）</div>` : "";
+  if(!e){ box.innerHTML=note+`<div class="s">再生ボタンか時間バーで時刻を動かしてください。ピンをタップするとその乗車を表示します。</div>`; return; }
+  const q=a=>encodeURIComponent("東京都"+a);
+  const url=`https://www.google.com/maps/dir/?api=1&origin=${q(e.from)}&destination=${q(e.to)}${e.via?`&waypoints=${q(e.via)}`:""}&travelmode=driving`;
+  box.innerHTML=`<div class="h"><span>No.${e.no??""}　${esc(e.on)} → ${esc(e.off)}</span><span>${e.fare!=null?yen(e.fare)+"円":""}</span></div>
+   <div>${esc(e.from)}${e.pk?MUKAE:""} → ${esc(e.to)}${e.via?`<span class="s">（経由 ${esc(e.via)}）</span>`:""}</div>
+   <div class="s">${e.km??"—"}km・${e.pk?"迎車":"一般"}　<a href="${url}" target="_blank" rel="noopener">Googleマップで開く</a></div>${note}`;
+}
+function select(e){ stop(); st.sel=e.no; if(st.T<e.offR) st.T=e.offR; lastInfo=undefined; render(); }
+function setT(T){ st.T=Math.max(0,Math.min(st.end,T)); render(); }
+function stop(){ st.playing=false; cancelAnimationFrame(st.raf); $("#bPlay").textContent="▶ 再生"; }
+function play(){
+  if(!st.day) return;
+  if(st.T>=st.end) st.T=0;
+  st.sel=null; st.playing=true; st.last=performance.now(); $("#bPlay").textContent="❚❚ 停止";
+  const step=now=>{ if(!st.playing) return; const dt=(now-st.last)/1000; st.last=now; setT(st.T+dt*SPEEDS[pref.speed][1]); if(st.T>=st.end){ stop(); return; } st.raf=requestAnimationFrame(step); };
+  st.raf=requestAnimationFrame(step);
+}
+$("#bPlay").onclick=()=>st.playing?stop():play();
+$("#bEnd").onclick=()=>{ stop(); setT(st.end); };
+$("#sl").addEventListener("input",e=>{ stop(); st.sel=null; setT(+e.target.value); });
+$("#bFit").onclick=fit;
+document.querySelectorAll("[data-layer]").forEach(b=>b.onclick=()=>{ const k=b.dataset.layer; st.layers[k]=!st.layers[k]; b.classList.toggle("on",st.layers[k]); render(); });
+$("#bBand").onclick=()=>sheet("時間帯を選んでください",Object.entries(BANDS).map(([k,v])=>({label:v[0],cls:k===st.band?"acc":"sub",fn:()=>{ st.band=k; $("#bBand").textContent=`時間帯：${v[0]} ▼`; lastInfo=undefined; render(); }})));
+$("#bTile").onclick=()=>sheet("地図の種類",Object.entries(TILES).map(([k,v])=>({label:v[0],cls:k===pref.tile?"acc":"sub",fn:()=>setTile(k)})));
+$("#bSpeed").onclick=()=>sheet("再生の速さ",Object.entries(SPEEDS).map(([k,v])=>({label:v[0],cls:k===pref.speed?"acc":"sub",fn:()=>{ pref.speed=k; savePref(); $("#bSpeed").textContent=`速さ：${v[0]} ▼`; }})));
+$("#bSpeed").textContent=`速さ：${SPEEDS[pref.speed]?.[0]||"普通"} ▼`;
+$("#bDate").onclick=()=>{ if(bizData) return;
+  const days=loadDays(); const ks=Object.keys(days).sort().reverse();
+  if(!ks.length) return;
+  sheet("どの日を表示しますか？", [...ks.slice(0,40).map(k=>({label:`${md(k)}(${wd(k)})　${(days[k].r||[]).length}回`,cls:st.day&&st.day.d===k?"acc":"sub",fn:()=>{ loadDay(days[k]); st.T=0; play(); }})),
+    {label:"この端末の記録を消す",cls:"ghost",fn:()=>{ saveDays({}); }}],
+    `<div style="color:var(--sub);font-size:calc(13px*var(--fs,1));margin-bottom:10px">日報リーダーから開いた日がこの端末に残ります。</div>`);
+};
+
+function stepDay(k){ const days=loadDays(); const ks=Object.keys(days).sort(); const i=ks.indexOf(st.day?.d); const n=ks[i+k]; if(!n) return; loadDay(days[n]); st.T=0; play(); }
+$("#bPrev").onclick=()=>stepDay(-1); $("#bNext").onclick=()=>stepDay(1);
+
+/* ---------- 解析モード（町ごとの回数） ---------- */
+const ANA_STEPS=[[5,"#123a8c","〜5回"],[10,"#2563eb","6〜10回"],[20,"#5ab4ff","11〜20回"],[30,"#22a85a","21〜30回"],[Infinity,"#f2c200","31回〜"]];
+const anaCol=n=>ANA_STEPS.find(x=>n<=x[0])[1];
+let anaLayers=[], anaData=null, anaSel=null;
+function hullLL(P){
+  const pts=[...new Map(P.map(p=>[p.join(","),p])).values()].map(p=>[p[1],p[0]]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(pts.length<3) return pts.map(p=>[p[1],p[0]]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); const lo=[],up=[];
+  for(const p of pts){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); }
+  for(const p of pts.slice().reverse()){ while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  return lo.slice(0,-1).concat(up.slice(0,-1)).map(p=>[p[1],p[0]]);
+}
+// 丁目の点を約150m外側へ広げて、町全体を囲む形にする
+function padded(H){
+  const c=[H.reduce((s,p)=>s+p[0],0)/H.length, H.reduce((s,p)=>s+p[1],0)/H.length];
+  if(H.length<3){ const r=0.0028; return Array.from({length:16},(_,i)=>{ const a=i/16*Math.PI*2; const b=H.length===2?H[i<8?0:1]:c; return [b[0]+Math.sin(a)*r, b[1]+Math.cos(a)*r*1.23]; }); }
+  return H.map(p=>{ const dy=p[0]-c[0], dx=(p[1]-c[1])*0.81, d=Math.hypot(dy,dx)||1e-6, k=0.0015/d; return [p[0]+dy*k, p[1]+(dx*k)/0.81]; });
+}
+function clearAna(){ anaLayers.forEach(l=>map.removeLayer(l)); anaLayers=[]; }
+function showAna(A){
+  stop(); clearDay(); clearAna(); clearBiz(); anaData=A; anaSel=null; st.day=null;
+  document.body.classList.add("ana");
+  const items=A.items.slice().sort((a,b)=>a.n-b.n);
+  const all=[];
+  for(const o of items){
+    const H=padded(hullLL(o.P)); all.push(...H);
+    const c=[o.P.reduce((s,p)=>s+p[0],0)/o.P.length, o.P.reduce((s,p)=>s+p[1],0)/o.P.length];
+    const col=anaCol(o.n);
+    const pg=L.polygon(H,{color:col,weight:2,fillColor:col,fillOpacity:.45,smoothFactor:1}).addTo(map);
+    pg.on("click",()=>anaPick(o));
+    const lb=L.marker(c,{icon:L.divIcon({className:"",html:`<div class="anal" style="border-color:${col}"><b>${o.n}</b><span>${esc(o.t.replace(/^.+?[区市]/,""))}</span></div>`,iconSize:[0,0],iconAnchor:[0,0]})}).addTo(map);
+    lb.on("click",()=>anaPick(o));
+    o.pg=pg; anaLayers.push(pg,lb);
+  }
+  if(all.length) map.fitBounds(L.latLngBounds(all),{padding:[20,20]});
+  $("#bDate").textContent=`${md(A.d)} 基準`;
+  $("#clk").textContent=A.kind; $("#cdate").textContent=A.range; $("#el").textContent=""; $("#st").textContent=`${A.days}乗務`;
+  anaInfo();
+}
+function anaPick(o){ anaSel=o; anaData.items.forEach(x=>x.pg&&x.pg.setStyle({weight:x===o?5:2,dashArray:x===o?"6 4":null})); anaInfo(); }
+function anaInfo(){
+  const A=anaData, tot=A.items.reduce((s,o)=>s+o.n,0), list=A.items.slice().sort((a,b)=>b.n-a.n);
+  let h=`<div class="h"><span>${esc(A.range)}の${esc(A.kind)}</span><span>${A.days}乗務・${tot}回</span></div>
+   <div class="leg">${ANA_STEPS.map(([,c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join("")}</div>`;
+  if(anaSel){ const o=anaSel; h+=`<div style="margin:6px 0;padding:8px;background:var(--card);border-radius:8px"><b>${esc(o.t)}</b>　${o.n}回・${yen(o.f)}円（平均${yen(Math.round(o.f/o.n))}円）<div class="s">${esc(o.ch||"")}${o.rg?`<br>囲んだ範囲：${esc(o.rg)}`:""}</div>${(o.dst&&o.dst.length)?`<div class="s" style="margin-top:6px"><b>${esc(o.dw||"よく送る行き先")}</b><table style="width:100%;border-collapse:collapse;margin-top:3px;font-size:inherit"><tr style="opacity:.7"><td>${o.dw&&o.dw.includes("出発")?"出発地":"行き先"}</td><td style="text-align:right">回数</td><td style="text-align:right">割合</td><td style="text-align:right">平均料金</td><td style="text-align:right">平均km</td></tr>${o.dst.map(([t,n,f,k])=>`<tr style="border-top:1px solid rgba(128,128,128,.25)"><td>${esc(t)}</td><td style="text-align:right">${n}</td><td style="text-align:right">${Math.round(n/o.n*100)}%</td><td style="text-align:right">${Number(f).toLocaleString()}円</td><td style="text-align:right">${k!=null?k:"–"}</td></tr>`).join("")}</table></div>`:""}</div>`; }
+  h+=list.slice(0,15).map((o,i)=>`<div class="arow" data-i="${A.items.indexOf(o)}"><span><i style="background:${anaCol(o.n)}"></i>${i+1}. ${esc(o.t)}</span><span>${o.n}回・${yen(o.f)}円</span></div>`).join("");
+  $("#info").innerHTML=h;
+  $("#info").querySelectorAll("[data-i]").forEach(r=>r.onclick=()=>{ const o=A.items[+r.dataset.i]; anaPick(o); if(o.pg) map.fitBounds(o.pg.getBounds(),{maxZoom:15}); });
+}
+
+
+// 縦のスライダー（上が今、下が6時間先）
+function vSlider(el, max, step, onInput, onChange){
+  el.innerHTML=`<div class="vs-track"><div class="vs-fill"></div><div class="vs-thumb"><span></span></div>${[0,120,240,360].map(v=>`<div class="vs-tk" style="top:${v/max*100}%">${v?"+"+v/60+"h":"今"}</div>`).join("")}</div>`;
+  const tr=el.querySelector(".vs-track"), fill=el.querySelector(".vs-fill"), th=el.querySelector(".vs-thumb"), lb=th.querySelector("span");
+  let val=0, drag=false;
+  const lab=v=>v?`+${Math.floor(v/60)?Math.floor(v/60)+"時間":""}${v%60?v%60+"分":""}`:"今";
+  const set=v=>{ val=Math.max(0,Math.min(max,Math.round(v/step)*step)); const p=val/max*100; fill.style.height=p+"%"; th.style.top=p+"%"; lb.textContent=lab(val); };
+  const at=e=>{ const r=tr.getBoundingClientRect(); return (e.clientY-r.top)/r.height*max; };
+  el.addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); drag=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} const o=val; set(at(e)); if(val!==o) onInput(val); });
+  el.addEventListener("pointermove",e=>{ if(!drag) return; e.preventDefault(); const o=val; set(at(e)); if(val!==o) onInput(val); });
+  const end=e=>{ if(!drag) return; drag=false; onChange&&onChange(val); };
+  el.addEventListener("pointerup",end); el.addEventListener("pointercancel",end);
+  ["touchstart","touchmove","wheel","click","dblclick","mousedown"].forEach(t=>el.addEventListener(t,e=>e.stopPropagation(),{passive:true}));
+  set(0);
+  return {set, get:()=>val};
+}
+
+/* ---------- 営業モード（端末の時計に合わせて、これからの1時間に乗せた場所） ---------- */
+// 絞り込み：年・月・曜日・祝日（日報リーダーと同じ考え方）
+const F_W={all:"全ての曜日",auto:"今日に合わせる","0":"日曜","1":"月曜","2":"火曜","3":"水曜","4":"木曜","5":"金曜","6":"土曜",wd:"平日（月〜金）",we:"土日"};
+const F_WO=["all","auto","0","1","2","3","4","5","6","wd","we"];
+const F_H={all:"区別しない",auto:"今日に合わせる",ex:"祝日を除く",only:"全ての祝日"};
+let bizData=null, bizLayers=[], bizS=0, bizSel=null, bizMin=null, bizHitsNow=[], bizSpots=[], bizF={y:"all",m:"all",w:"auto",h:"auto"};
+const isoD=t=>`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+const bizToday=()=>{ const t=new Date(); if(t.getHours()<5) t.setDate(t.getDate()-1); return isoD(t); };
+const holName=d=>(bizData&&bizData.hol&&bizData.hol[d])||"";
+const wdi=d=>new Date(d+"T00:00").getDay();
+function fNow(F){ F=F||bizF; let w=F.w, h=F.h; const t=bizToday(), th=!!holName(t);
+  if(w==="auto") w = th ? "all" : String(wdi(t));
+  if(h==="auto") h = th ? "only" : "ex";
+  return {y:F.y,m:F.m,w,h}; }
+function fOk(d,F){ const R=fNow(F), hn=holName(d), w=wdi(d);
+  if(R.y!=="all" && d.slice(0,4)!==R.y) return false;
+  if(R.m!=="all" && +d.slice(5,7)!==+R.m) return false;
+  if(R.w==="wd" && !(w>=1&&w<=5)) return false;
+  if(R.w==="we" && !(w===0||w===6)) return false;
+  if(/^\d$/.test(R.w) && w!==+R.w) return false;
+  if(R.h==="ex" && hn) return false;
+  if(R.h==="only" && !hn) return false;
+  if(!["all","ex","only"].includes(R.h) && hn!==R.h) return false;
+  return true; }
+const fCount=F=>bizData.D.filter(d=>fOk(d,F)).length;
+function fLabel(F){ F=F||bizF; const R=fNow(F), p=[];
+  p.push(F.y==="all"?"全ての年":F.y+"年"); p.push(F.m==="all"?"全ての月":F.m+"月");
+  p.push(F.w==="auto" ? `今日に合わせる（${R.w==="all"?"祝日":F_W[R.w]}）` : F_W[F.w]);
+  if(R.h!=="all") p.push(R.h==="ex"?"祝日を除く":R.h==="only"?"全ての祝日":R.h);
+  return p.join("・"); }
+function clearBiz(){ bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[]; $("#bizVs").hidden=true; if(bizData){ bizData=null; document.body.classList.remove("biz"); } }
+const bizT=()=>{ const t=new Date(); return (t.getHours()*60+t.getMinutes()+bizS)%1440; };
+const bizDl=(m,T)=>((m-T)%1440+1440)%1440;
+function bizColor(r){ const A=[246,205,198], B=[200,16,16]; return `rgb(${A.map((a,i)=>Math.round(a+(B[i]-a)*r)).join(",")})`; }
+function bizApply(){
+  const D=bizData.D, ok=D.map(d=>fOk(d));
+  bizData.days=D.filter((d,i)=>ok[i]).length;
+  bizSpots=bizData.S.map(([la,ln,a,R])=>({la,ln,a,R:R.filter(r=>ok[r[1]]).map(r=>({m:r[0],d:D[r[1]],to:r[2],f:r[3],pk:r[4]}))})).filter(s=>s.R.length);
+  const F=bizF;
+  $("#fY").textContent=`年：${F.y==="all"?"全て":F.y+"年"} ▼`; $("#fM").textContent=`月：${F.m==="all"?"全て":F.m+"月"} ▼`;
+  $("#fW").textContent=`曜日：${F.w==="auto"?"今日":F.w==="all"?"全て":F_W[F.w].replace(/（.*）/,"")} ▼`;
+  $("#fH").textContent=`祝日：${F.h==="auto"?"今日に合わせる":F.h==="all"?"区別しない":(F_H[F.h]||F.h)} ▼`;
+  bizSel=null; bizDraw();
+}
+function bizDraw(){
+  bizLayers.forEach(l=>map.removeLayer(l)); bizLayers=[];
+  const T=bizT();
+  const all=bizSpots.map(s=>{ const h=s.R.map(r=>({...r,dl:bizDl(r.m,T)})).filter(r=>r.dl<=60).sort((p,q)=>p.dl-q.dl); return {...s,h,r:h.length?1-h[0].dl/60:0}; });
+  bizHitsNow=all.filter(s=>s.h.length);
+  for(const s of all) if(!s.h.length) bizLayers.push(L.marker([s.la,s.ln],{interactive:false,icon:L.divIcon({className:"",html:`<div class="bzd"></div>`,iconSize:[0,0]})}).addTo(map));
+  for(const s of bizHitsNow.slice().sort((a,b)=>a.r-b.r||a.h.length-b.h.length)){
+    const n=s.h.length, Dm=Math.round(26+Math.min(22,(n-1)*5));
+    const mk=L.marker([s.la,s.ln],{zIndexOffset:Math.round(s.r*1000)+n,icon:L.divIcon({className:"",iconSize:[0,0],
+      html:`<div class="bz${s.a===bizSel?" sel":""}" style="width:${Dm}px;height:${Dm}px;background:${bizColor(s.r)};opacity:${(0.6+0.4*s.r).toFixed(2)};color:${s.r>0.45?"#fff":"#7a1410"};font-size:${Math.round(Dm*0.5)}px">${n}</div>`})}).addTo(map);
+    mk.on("click",()=>{ bizSel=s.a; bizDraw(); });
+    bizLayers.push(mk);
+  }
+  bizInfo();
+}
+function bizClock(){
+  const t=new Date(), T=bizT();
+  $("#cdate").textContent=`${t.getMonth()+1}/${t.getDate()}(${WD[t.getDay()]})${holName(isoD(t))?"・祝":""} 今`;
+  $("#clk").textContent=`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+  const plus=bizS?`+${Math.floor(bizS/60)?Math.floor(bizS/60)+"時間":""}${bizS%60?bizS%60+"分":""}`:"";
+  $("#st").textContent= bizS ? `見ている時刻 ${hm(T)}（${plus}）` : "見ている時刻：今"; $("#el").textContent="";
+  $("#bizSee").textContent=`${hm(T)}${bizS?`（今から${plus}）`:"（今）"}`;
+}
+function bizInfo(){
+  const B=bizData, T=bizT(), list=bizHitsNow.slice().sort((a,b)=>b.h.length-a.h.length||a.h[0].dl-b.h[0].dl);
+  const tot=list.reduce((t,s)=>t+s.h.length,0);
+  let h=`<div class="h"><span>${hm(T)}〜${hm(T+60)} に乗せた場所</span><span>${B.days}乗務・${tot}回</span></div>
+   <div class="s">${esc(fLabel())}</div>`;
+  const sel=list.find(s=>s.a===bizSel);
+  if(sel) h+=`<div style="margin:6px 0;padding:8px;background:var(--card);border-radius:8px"><b>${esc(sel.a)}</b>　${sel.h.length}回<div class="s">${sel.h.map(r=>`${md(r.d)}(${wd(r.d)}${holName(r.d)?"・祝":""}) ${hm(r.m)}${r.pk?MUKAE:""} → ${esc(r.to)}　${r.f!=null?yen(r.f)+"円":""}`).join("<br>")}</div></div>`;
+  if(!B.days) h+=`<div class="s" style="margin-top:6px">この期間・曜日の日報がありません。上のボタンで年・月・曜日・祝日を変えてください。</div>`;
+  else if(!list.length) h+=`<div class="s" style="margin-top:6px">この時間帯に乗せた記録はありません。右の縦のバーで先の時刻も見られます。</div>`;
+  h+=list.slice(0,15).map(s=>`<div class="arow" data-a="${esc(s.a)}"><span><i style="background:${bizColor(s.r)};border-radius:50%"></i>${esc(s.a)}${s.h.some(r=>r.pk)?MUKAE:""}</span><span>${s.h.length}回・あと${s.h[0].dl}分（${[...new Set(s.h.map(r=>hm(r.m)))].slice(0,3).join("・")}）</span></div>`).join("");
+  $("#info").innerHTML=h;
+  $("#info").querySelectorAll("[data-a]").forEach(r=>r.onclick=()=>{ bizSel=r.dataset.a; const s=bizHitsNow.find(o=>o.a===bizSel); if(s) map.setView([s.la,s.ln],Math.max(map.getZoom(),15)); bizDraw(); });
+}
+const bizVs=vSlider($("#bizVs"),360,5,v=>{ bizS=v; bizSel=null; if(bizData){ bizClock(); bizDraw(); } });
+function showBiz(B){
+  stop(); clearDay(); clearAna(); clearBiz(); st.day=null;
+  bizData=B; bizS=0; bizSel=null; bizMin=null; bizVs.set(0);
+  bizF={y:"all",m:"all",w:"auto",h:"auto",...(B.F||{})};
+  document.body.classList.add("biz"); $("#bizVs").hidden=false;
+  $("#bDate").textContent="営業モード";
+  const P=B.S.map(s=>[s[0],s[1]]);
+  if(P.length) map.fitBounds(L.latLngBounds(P),{padding:[24,24]});
+  bizClock(); bizApply();
+}
+const fSet=(k,v)=>()=>{ bizF={...bizF,[k]:v}; bizApply(); };
+const fBack={label:"やめる",cls:"ghost"};
+$("#fY").onclick=()=>{ if(!bizData) return; const ys=[...new Set(bizData.D.map(d=>d.slice(0,4)))].sort().reverse();
+  sheet("年を選んでください",[{label:"全ての年",cls:bizF.y==="all"?"acc":"sub",fn:fSet("y","all")},...ys.map(y=>({label:`${y}年（${fCount({...bizF,y})}乗務）`,cls:bizF.y===y?"acc":"sub",fn:fSet("y",y)})),fBack]); };
+$("#fM").onclick=()=>{ if(!bizData) return;
+  sheet("月を選んでください",[{label:"全ての月",cls:bizF.m==="all"?"acc":"sub",fn:fSet("m","all")},...Array.from({length:12},(_,i)=>String(i+1)).map(m=>({label:`${m}月（${fCount({...bizF,m})}乗務）`,cls:bizF.m===m?"acc":"sub",fn:fSet("m",m)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));margin-bottom:8px">「全ての年」なら、どの年のその月もまとめます。</div>`); };
+$("#fW").onclick=()=>{ if(!bizData) return; const t=bizToday();
+  sheet("曜日を選んでください",[...F_WO.map(k=>({label:k==="auto"?`今日に合わせる（今日は${holName(t)?"祝日":WD[wdi(t)]+"曜"}）`:`${F_W[k]}（${fCount({...bizF,w:k})}乗務）`,cls:bizF.w===k?"acc":"sub",fn:fSet("w",k)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));line-height:1.6;margin-bottom:8px">曜日は乗務日（出庫した日）で分けます。祝日に当たる日を含めるかどうかは「祝日」で選びます。「今日に合わせる」は今日の曜日を選び、今日が祝日なら全ての祝日になります（朝5時までは前日扱い）。</div>`); };
+$("#fH").onclick=()=>{ if(!bizData) return;
+  const names={}; for(const d of bizData.D) if(fOk(d,{...bizF,h:"only"})){ const n=holName(d); names[n]=(names[n]||0)+1; }
+  sheet("祝日を選んでください",[...["all","auto","ex","only"].map(k=>({label:k==="all"||k==="auto"?F_H[k]:`${F_H[k]}（${fCount({...bizF,h:k})}乗務）`,cls:bizF.h===k?"acc":"sub",fn:fSet("h",k)})),
+    ...Object.entries(names).sort((a,b)=>b[1]-a[1]).map(([n,c])=>({label:`${n}（${c}乗務）`,cls:bizF.h===n?"acc":"sub",fn:fSet("h",n)})),fBack],
+   `<div class="s" style="color:var(--sub);font-size:calc(13px*var(--fs,1));line-height:1.6;margin-bottom:8px">「全ての祝日」は祝日に当たる日だけ、「祝日を除く」は祝日以外の日だけ、「区別しない」は両方を使います。下には、選んでいる年・月・曜日に当たる祝日を並べています。</div>`); };
+$("#bizNow").onclick=()=>{ bizS=0; bizVs.set(0); if(bizData){ bizClock(); bizDraw(); } };
+setInterval(()=>{ if(!bizData) return; bizClock(); const m=bizT(); if(m!==bizMin){ bizMin=m; bizDraw(); } },1000);
+/* ---------- 起動 ---------- */
+async function start(){
+  const h=location.hash.slice(1);
+  const days=loadDays();
+  if(h){
+    try{
+      const d=await decode(h);
+      if(d && d.b){ showBiz(d); history.replaceState(null,"",location.pathname); return; }
+      if(d && d.a){ showAna(d); history.replaceState(null,"",location.pathname); return; }
+      if(d && d.d){ days[d.d]=d; saveDays(days); loadDay(d); history.replaceState(null,"",location.pathname); st.T=0; play(); return; }
+    }catch(e){ $("#info").innerHTML=`<div class="s" style="color:var(--red)">データを読み込めませんでした（${esc(e.message||e)}）</div>`; }
+  }
+  const ks=Object.keys(days).sort();
+  if(ks.length) loadDay(days[ks[ks.length-1]]);
+  else $("#empty").hidden=false;
+}
+window.addEventListener("hashchange",start);
+start();
+})();
+</script>
+</body>
+</html>
